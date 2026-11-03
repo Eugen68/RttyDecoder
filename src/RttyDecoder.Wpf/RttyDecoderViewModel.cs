@@ -39,6 +39,14 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
         Receiver.SettingsChanged += s => _dispatcher.BeginInvoke(() => SyncFromSettings(s));
         Receiver.Message += m => _dispatcher.BeginInvoke(() => Message = m);
 
+        Monitor = new AudioMonitor();
+        Monitor.Volume = (float)(_monitorVolume / 100.0);
+        Monitor.Failed += e => _dispatcher.BeginInvoke(() =>
+        {
+            MonitorOn = false;
+            Message = "Monitorizarea s-a oprit: " + e.Message;
+        });
+
         StartStopCommand = new RelayCommand(() => { if (IsRunning) StopSource(); else StartLive(); });
         OpenFileCommand = new RelayCommand(p => { if (p is string path) OpenFile(path); });
         AutoTuneCommand = new RelayCommand(AutoTune, () => IsRunning);
@@ -115,6 +123,41 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
         set
         {
             if (Set(ref _realTime, value) && _file != null) _file.RealTime = value;
+        }
+    }
+
+    /// <summary>Redarea in difuzoare a semnalului primit.</summary>
+    public AudioMonitor Monitor { get; }
+
+    private bool _monitorOn;
+    /// <summary>MONITOR: semnalul primit se aude in difuzoare (placa de iesire implicita).</summary>
+    public bool MonitorOn
+    {
+        get => _monitorOn;
+        set
+        {
+            if (!Set(ref _monitorOn, value)) return;
+            if (value)
+            {
+                Monitor.Start();
+                if (_file is { RealTime: false }) Message = "Monitorizare: se aude doar cu \"Timp real\" bifat.";
+            }
+            else
+            {
+                Monitor.Stop();
+            }
+        }
+    }
+
+    private double _monitorVolume = 50;
+    /// <summary>Volumul monitorizarii, 0-100.</summary>
+    public double MonitorVolume
+    {
+        get => _monitorVolume;
+        set
+        {
+            value = Math.Clamp(value, 0, 100);
+            if (Set(ref _monitorVolume, value) && Monitor != null) Monitor.Volume = (float)(value / 100.0);
         }
     }
 
@@ -431,8 +474,13 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
         _file = null;
     }
 
-    private void OnSamples(float[] buffer, int count, int sampleRate) =>
+    private void OnSamples(float[] buffer, int count, int sampleRate)
+    {
         Receiver.Process(buffer.AsSpan(0, count), sampleRate);
+        // fisier decodat "cat de repede se poate": sunetul ar fi accelerat - nu il redam
+        var file = _file;
+        if (file == null || file.RealTime) Monitor.Write(buffer, count, sampleRate);
+    }
 
     /// <summary>Pe firul sursei: sfarsitul fisierului sau o eroare (placa deconectata).</summary>
     private void OnSourceStopped(Exception? error)
@@ -508,6 +556,7 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
     {
         _timer.Stop();
         StopSource();
+        Monitor.Dispose();
         Receiver.Dispose();
     }
 }

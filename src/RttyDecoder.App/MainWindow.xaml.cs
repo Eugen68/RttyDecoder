@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         _vm.SelectDevice(_settings.DeviceId);
         _vm.Channel = _settings.Channel;
         _vm.RealTime = _settings.RealTime;
+        _vm.MonitorVolume = _settings.MonitorVolume;
         Decoder.DataContext = _vm;
 
         if (_settings.Width > 0 && _settings.Height > 0)
@@ -75,6 +76,7 @@ public partial class MainWindow : Window
         _settings.DeviceId = _vm.SelectedDevice?.Id;
         _settings.Channel = _vm.Channel;
         _settings.RealTime = _vm.RealTime;
+        _settings.MonitorVolume = _vm.MonitorVolume;
         _settings.Maximized = WindowState == WindowState.Maximized;
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         _settings.Width = b.Width;

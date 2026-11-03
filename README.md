@@ -11,6 +11,7 @@ aplicatie mai mare.
   real sau cat de repede se poate
 - **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
+- **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
 
 ## Instalare
 
@@ -27,7 +28,10 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
 2. Click pe semnal in waterfall (pe tonul Mark - linia rosie; linia portocalie e Space) sau **A-TUNE**.
    Rotita mouse-ului muta acordul cu 1 Hz (cu Ctrl, 10 Hz).
 3. Daca iese text fara sens, incearca **REV**.
-4. **DeepRTTY** decodeaza mai bine semnalele slabe, dar cu intarziere: textul gri de sub terminal e
+4. **MONITOR** reda in difuzoare exact ce primeste decodorul (intarziere ~0.1-0.4 s). Atentie la
+   reactie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), sunetul se reintoarce.
+   La fisierele WAV se aude doar cu *Timp real* bifat.
+5. **DeepRTTY** decodeaza mai bine semnalele slabe, dar cu intarziere: textul gri de sub terminal e
    provizoriu si se confirma (verde) dupa ~8-12 s.
 
 Pentru o inregistrare: **Deschide WAV...**. Cu *Timp real* debifat, un fisier de o ora se decodeaza in

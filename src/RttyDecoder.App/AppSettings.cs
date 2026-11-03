@@ -28,6 +28,9 @@ public sealed class AppSettings
 
     public bool RealTime { get; set; } = true;
 
+    /// <summary>Volumul monitorizarii (0-100). Butonul MONITOR porneste mereu oprit.</summary>
+    public double MonitorVolume { get; set; } = 50;
+
     public double Width { get; set; }
 
     public double Height { get; set; }

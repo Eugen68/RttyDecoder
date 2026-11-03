@@ -44,6 +44,10 @@
             <Button DockPanel.Dock="Left" Margin="12,0,0,0" Content="Deschide WAV..." Click="OnOpenWav" ToolTip="Decodeaza o inregistrare .wav (orice rata, mono/stereo)" />
             <CheckBox DockPanel.Dock="Left" Margin="8,0,0,0" VerticalAlignment="Center" Content="Timp real" IsChecked="{Binding RealTime}"
                       ToolTip="Bifat: fisierul se reda in ritmul real. Debifat: decodare cat de repede se poate." />
+            <ToggleButton DockPanel.Dock="Left" Margin="12,2,2,2" Content="&#x1F50A; MONITOR" IsChecked="{Binding MonitorOn}"
+                          ToolTip="Semnalul primit se aude in difuzoare (placa de iesire implicita). Atentie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), apare reactie." />
+            <Slider DockPanel.Dock="Left" Width="80" Minimum="0" Maximum="100" Value="{Binding MonitorVolume}" VerticalAlignment="Center"
+                    ToolTip="Volumul monitorizarii" />
             <ProgressBar DockPanel.Dock="Left" Margin="8,0,0,0" Width="140" Height="10" Minimum="0" Maximum="1" Value="{Binding FileProgress, Mode=OneWay}"
                          Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}" />
         </DockPanel>
