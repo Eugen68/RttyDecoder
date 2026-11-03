@@ -78,6 +78,7 @@ public static class Synthetic
         public double SnrDb = double.PositiveInfinity;
         public long Seed = 1;
         public double OffsetHz;
+        public double DriftHzPerSec;   // deriva liniara a ambelor tonuri
         public double Baud = Synthetic.Baud;
         public double FadingHz;
         public bool SpaceBelow;      // REV
@@ -125,7 +126,8 @@ public static class Synthetic
         {
             int idx = Math.Min(biti.Length - 1, (int)(i / samplesPerHalfBit));
             bool mark = biti[idx] == '1';
-            double f = (mark ? o.MarkHz : o.MarkHz + (o.SpaceBelow ? -1 : 1) * RttyDemodulator.ShiftHz) + o.OffsetHz;
+            double f = (mark ? o.MarkHz : o.MarkHz + (o.SpaceBelow ? -1 : 1) * RttyDemodulator.ShiftHz) + o.OffsetHz
+                       + o.DriftHzPerSec * i / fs;
             faza += 2 * Math.PI * f / fs;
             double castig = castigMark == null ? 1.0 : (mark ? castigMark[i] : castigSpace![i]);
             semnal[i] = amplitudine * castig * Math.Sin(faza);

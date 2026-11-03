@@ -102,12 +102,28 @@ compileaza `RttyDemodulator.java`, `BaudotCodec.java`, `RttyDemodulatorTest.java
 - Setarile trec printr-un lacat comun cu procesarea (pe Android erau campuri scrise din UI si citite
   din firul audio).
 
-## Probleme cunoscute (mostenite)
+## AFC / PLL (reparat fata de Android)
 
-- **AFC / PLL nu urmaresc deriva** pe semnal stabil: conditia `magMark > 2 x nivelZgomotMediu` nu e
-  indeplinita in regim stationar, deci Mark-ul nu se misca. Comportamentul e identic cu aplicatia
-  Android (verificat cu codul Java) si e fixat de testul `AfcComportamentMostenit`; de reparat in
-  ambele aplicatii.
+Bucla AFC din aplicatia Android avea **semnul erorii inversat**: corela audio-ul cu un fazor
+e^{+j w_mark t}, a carui faza scade cand semnalul e deasupra Mark-ului, si aduna eroarea ca atare -
+reactie pozitiva, acordul fugea de semnal (+9..+13 Hz pe inregistrarile W6IWI). Pe semnal stabil o
+alta conditie (`magMark > 2 x nivelZgomotMediu`) bloca de altfel bucla complet.
+
+Varianta noua e un discriminator de frecventa pe ambele tonuri: fiecare ton e coborat in banda de
+baza si filtrat (~50 Hz), iar rotatia fazei pe 4 ms da abaterea, cu semnul corect. Se masoara doar
+tonul care domina clar, iar o fereastra (~2 biti) conteaza doar daca masuratorile sunt coerente si
+un ton a dominat majoritatea timpului - zgomotul dintre transmisii nu muta acordul. Castigurile
+(AFC 5%, PLL 25%) si limitele au ramas cele vechi. Testele: `AfcTests` (convergenta de la +-12/+-25 Hz,
+REV, deriva de 120 Hz, semnal slab, zgomot pur). Pe inregistrarile reale converge la acelasi Mark din
+orice punct de plecare (+-15 Hz), pe tonul masurat din spectru.
+
+Aceeasi reparatie pentru aplicatia Android: `tools/android-afc/RttyDemodulator-afc.patch`
+(`git apply` in radacina Yaesu-FTX1-CAT-Control). Java-ul reparat da exact acelasi Mark ca C#
+(fisierul golden de paritate e generat cu el), iar decodarea fara AFC e neschimbata.
+
+## Rezultate pe inregistrari reale
+
+Vezi [recordings/README.md](recordings/README.md).
 
 ## Licenta
 

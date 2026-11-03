@@ -84,7 +84,6 @@ public sealed class RttyDemodulator
 
     // ---- Coeficienti derivati din frecventa ----
     private double qMarkA, qSpaceA;
-    private double afcRotRe = 1.0, afcRotIm;
 
     // Matched Filter: corelatie glisanta recursiva O(1) per esantion
     internal double[]? mfBuffer;
@@ -108,7 +107,6 @@ public sealed class RttyDemodulator
     private double nivelZgomotMediu;
     private bool inFrame;
     private double fazaCeasAcumulator;
-    private double fazaVectRe, fazaVectIm;
     private int bitCounter;
     private int currentByte;
 
@@ -131,16 +129,34 @@ public sealed class RttyDemodulator
 
     private double dnrX1, dnrX2, dnrY1, dnrY2;
 
-    // AFC
-    private double iAcc, qAcc;
-    private double lastPhase;
-    private int samplesSinceLastAfc;
-    private const int FerestreAfc = 2;
-    private int fereastraAfcSamples;
+    // AFC / PLL - discriminator de frecventa pe ambele tonuri (vezi ActualizeazaAfc).
+    // Varianta Android corela audio-ul cu un fazor e^{+j w_mark t} pe ferestre de 2 biti: semnul
+    // erorii iesea INVERSAT (reactie pozitiva - acordul fugea de semnal: +9..+13 Hz pe inregistrarile
+    // W6IWI), iar fereastra amesteca Mark cu Space. Pe semnal stabil conditia
+    // magMark > 2 x nivelZgomotMediu bloca de altfel complet bucla.
+    private readonly AfcTon afcMark = new();
+    private readonly AfcTon afcSpace = new();
+    private double afcSumRe, afcSumIm, afcSumAbs;
+    private int afcContor, afcDominant;
+    private int afcFereastra;
+    private int afcIntarziere;
     private double freqErrorFiltrat;
+    /// <summary>Banda trece-jos a fiecarui ton in banda de baza (Hz): taie celalalt ton (la 170 Hz).</summary>
+    private const double AfcLpfHz = 50.0;
+    /// <summary>Intarzierea pe care se masoara rotatia fazei: 4 ms (domeniu neambiguu +-125 Hz).</summary>
+    private const double AfcIntarziereSec = 0.004;
+    /// <summary>Un ton "domina" daca anvelopa lui e de cel putin atatea ori mai mare decat a celuilalt.</summary>
+    private const double AfcDominanta = 2.0;
+    /// <summary>Coerenta minima |suma| / suma |.| a masuratorilor dintr-o fereastra (zgomotul da ~0).</summary>
+    private const double AfcCoerentaMin = 0.5;
+    /// <summary>
+    /// Fractia minima din fereastra in care un ton domina clar. Un semnal RTTY are mereu unul din
+    /// tonuri activ (in afara tranzitiilor); in zgomot asta se intampla doar la intamplare.
+    /// </summary>
+    private const double AfcFractieDominantaMin = 0.6;
     private const double AfcEmaAlpha = 0.25;
     private const double AfcMaxCorectieHz = 5.0;
-    private const double AfcPragOutlierHz = 20.0;
+    private const double AfcPragOutlierHz = 60.0;
 
     private const double SnrGatingMarkBiasAlpha = 0.001;
     private const double SnrGatingMarkBiasMargine = 0.1;
@@ -218,9 +234,8 @@ public sealed class RttyDemodulator
 
     private void RecalculeazaCoeficientiFrecventa()
     {
-        double wAfc = 2.0 * Math.PI * frecventaTunedBaza / sampleRateFiltre;
-        afcRotRe = Math.Cos(wAfc);
-        afcRotIm = Math.Sin(wAfc);
+        afcMark.SetFrecventa(frecventaTunedBaza, sampleRateFiltre);
+        afcSpace.SetFrecventa(frecventaTunedBaza + SpaceOffsetHz, sampleRateFiltre);
 
         CalculeazaCoeficientiDnr(sampleRateFiltre);
 
@@ -245,7 +260,6 @@ public sealed class RttyDemodulator
         nivelZgomotMediu = 0.05;
         inFrame = false;
         fazaCeasAcumulator = 0;
-        fazaVectRe = 1.0; fazaVectIm = 0.0;
         bitCounter = 0;
         currentByte = 0;
         contorConfirmareStart = 0;
@@ -255,11 +269,11 @@ public sealed class RttyDemodulator
         nbUltimulEsantionValid = 0;
         nbContorBlankConsecutiv = 0;
         dnrX1 = 0; dnrX2 = 0; dnrY1 = 0; dnrY2 = 0;
-        iAcc = 0; qAcc = 0;
-        lastPhase = 0;
-        samplesSinceLastAfc = 0;
-        fereastraAfcSamples = Math.Max(1, (int)JRound(samplesPerBit)) * FerestreAfc;
-        freqErrorFiltrat = 0;
+        afcIntarziere = Math.Max(1, (int)JRound(AfcIntarziereSec * sr));
+        afcFereastra = Math.Max(1, (int)JRound(samplesPerBit)) * 2;
+        afcMark.Configureaza(AfcLpfHz, sr, afcIntarziere);
+        afcSpace.Configureaza(AfcLpfHz, sr, afcIntarziere);
+        ReseteazaAfc();
 
         noiseFloor = 1e-9;
         if (lpfDecizieHz > 0)
@@ -289,8 +303,7 @@ public sealed class RttyDemodulator
             integratVech = 0;
             inFrame = false;
             fazaCeasAcumulator = 0;
-            fazaVectRe = 1.0; fazaVectIm = 0.0;
-            bitCounter = 0;
+                bitCounter = 0;
             currentByte = 0;
             contorConfirmareStart = 0;
             contorEroriFramingConsecutive = 0;
@@ -300,6 +313,7 @@ public sealed class RttyDemodulator
             dnrX1 = 0; dnrX2 = 0; dnrY1 = 0; dnrY2 = 0;
             lpfMark.Reseteaza();
             lpfSpace.Reseteaza();
+            ReseteazaAfc();
             ReseteazaAtc();
             DeblocheazaVolant();
             if (folosesteMatchedFilter && mfBuffer != null)
@@ -395,55 +409,7 @@ public sealed class RttyDemodulator
                 ? DecizieAtc(markFiltrat, spaceFiltrat)
                 : markFiltrat - spaceFiltrat;
 
-            // AFC/PLL
-            double newPhaseRe = fazaVectRe * afcRotRe - fazaVectIm * afcRotIm;
-            double newPhaseIm = fazaVectRe * afcRotIm + fazaVectIm * afcRotRe;
-            fazaVectRe = newPhaseRe;
-            fazaVectIm = newPhaseIm;
-
-            iAcc += sample * fazaVectRe;
-            qAcc += sample * fazaVectIm;
-            samplesSinceLastAfc++;
-
-            if (samplesSinceLastAfc >= fereastraAfcSamples)
-            {
-                double currentPhase = Math.Atan2(qAcc, iAcc);
-                double deltaPhase = currentPhase - lastPhase;
-
-                while (deltaPhase > Math.PI) deltaPhase -= 2.0 * Math.PI;
-                while (deltaPhase < -Math.PI) deltaPhase += 2.0 * Math.PI;
-
-                double freqError = deltaPhase * sampleRate / (2.0 * Math.PI * samplesSinceLastAfc);
-
-                if (magMark > magSpace * 1.2 && magMark > nivelZgomotMediu * 2.0)
-                {
-                    if (Math.Abs(freqError) <= AfcPragOutlierHz)
-                    {
-                        freqErrorFiltrat = freqErrorFiltrat * (1.0 - AfcEmaAlpha) + freqError * AfcEmaAlpha;
-                        double freqErrorLimitat = Math.Max(-AfcMaxCorectieHz, Math.Min(AfcMaxCorectieHz, freqErrorFiltrat));
-
-                        if (modUrmarireFrecventa == 1) frecventaTunedBaza += freqErrorLimitat * 0.05;
-                        else if (modUrmarireFrecventa == 2) frecventaTunedBaza += freqErrorLimitat * 0.25;
-
-                        if (modUrmarireFrecventa > 0)
-                        {
-                            sampleRateFiltre = sampleRate;
-                            RecalculeazaCoeficientiFrecventa();
-                            if (folosesteMatchedFilter && Math.Abs(freqError) > 0.5) RecalculeazaSabloaneMf();
-                        }
-                    }
-                }
-                iAcc = 0; qAcc = 0;
-                lastPhase = currentPhase;
-                samplesSinceLastAfc = 0;
-
-                double normAfc = Math.Sqrt(fazaVectRe * fazaVectRe + fazaVectIm * fazaVectIm);
-                if (normAfc > 1e-9)
-                {
-                    fazaVectRe /= normAfc;
-                    fazaVectIm /= normAfc;
-                }
-            }
+            if (modUrmarireFrecventa > 0) ActualizeazaAfc(sample, markFiltrat, spaceFiltrat);
 
             double magTotala = magMark + magSpace;
 
@@ -555,6 +521,130 @@ public sealed class RttyDemodulator
                     }
                 }
             }
+        }
+    }
+
+    private void ReseteazaAfc()
+    {
+        afcMark.Reseteaza();
+        afcSpace.Reseteaza();
+        afcSumRe = afcSumIm = afcSumAbs = 0;
+        afcContor = afcDominant = 0;
+        freqErrorFiltrat = 0;
+    }
+
+    /// <summary>
+    /// AFC / PLL. Fiecare ton e coborat in banda de baza la frecventa lui nominala si filtrat
+    /// (~50 Hz); rotatia fazei pe 4 ms, z[n]·conj(z[n-D]), da direct abaterea tonului fata de
+    /// acord, cu semnul corect. Se masoara doar tonul care domina clar in acel moment (nu la
+    /// tranzitii), iar produsele se aduna vectorial pe ~2 biti: un ton curat le aliniaza
+    /// (coerenta ~1), zgomotul le imprastie (~0) - sub prag corectia nu se aplica, deci pauzele
+    /// dintre transmisii nu muta acordul. Castigurile (AFC 5%, PLL 25% pe fereastra de ~44 ms)
+    /// si limitele raman cele din aplicatia Android.
+    /// </summary>
+    private void ActualizeazaAfc(double sample, double markFiltrat, double spaceFiltrat)
+    {
+        afcMark.Proceseaza(sample);
+        afcSpace.Proceseaza(sample);
+        if (markFiltrat > AfcDominanta * spaceFiltrat)
+        {
+            afcMark.Acumuleaza(ref afcSumRe, ref afcSumIm, ref afcSumAbs);
+            afcDominant++;
+        }
+        else if (spaceFiltrat > AfcDominanta * markFiltrat)
+        {
+            afcSpace.Acumuleaza(ref afcSumRe, ref afcSumIm, ref afcSumAbs);
+            afcDominant++;
+        }
+
+        if (++afcContor < afcFereastra) return;
+        afcContor = 0;
+        bool semnal = afcDominant >= AfcFractieDominantaMin * afcFereastra;
+        afcDominant = 0;
+        double sumAbs = afcSumAbs;
+        double coerenta = sumAbs > 0 ? Math.Sqrt(afcSumRe * afcSumRe + afcSumIm * afcSumIm) / sumAbs : 0;
+        double eroareHz = Math.Atan2(afcSumIm, afcSumRe) * sampleRate / (2 * Math.PI * afcIntarziere);
+        afcSumRe = afcSumIm = afcSumAbs = 0;
+        afcMark.Renormalizeaza();
+        afcSpace.Renormalizeaza();
+        if (!semnal || sumAbs <= 0 || coerenta < AfcCoerentaMin || Math.Abs(eroareHz) > AfcPragOutlierHz) return;
+
+        freqErrorFiltrat = freqErrorFiltrat * (1.0 - AfcEmaAlpha) + eroareHz * AfcEmaAlpha;
+        double limitat = Math.Max(-AfcMaxCorectieHz, Math.Min(AfcMaxCorectieHz, freqErrorFiltrat));
+        double castig = modUrmarireFrecventa == 2 ? 0.25 : 0.05;
+        frecventaTunedBaza += limitat * castig;
+        // Eroarea masurata e relativa la acordul vechi: dupa corectie scade cu cat s-a corectat.
+        freqErrorFiltrat -= limitat * castig;
+
+        sampleRateFiltre = sampleRate;
+        RecalculeazaCoeficientiFrecventa();
+        if (folosesteMatchedFilter) RecalculeazaSabloaneMf();
+    }
+
+    /// <summary>Un ton pentru AFC: mixer complex, trece-jos de ordin 4 pe I/Q, linie de intarziere.</summary>
+    private sealed class AfcTon
+    {
+        private readonly Biquad i1 = new(), i2 = new(), q1 = new(), q2 = new();
+        private double osRe = 1, osIm, pasRe = 1, pasIm;
+        private double[] intRe = new double[1], intIm = new double[1];
+        private int poz;
+        private double zRe, zIm, pRe, pIm;
+
+        public void Configureaza(double lpfHz, double fs, int intarziere)
+        {
+            i1.ConfigureazaTreceJos(lpfHz, fs); i2.ConfigureazaTreceJos(lpfHz, fs);
+            q1.ConfigureazaTreceJos(lpfHz, fs); q2.ConfigureazaTreceJos(lpfHz, fs);
+            intRe = new double[intarziere];
+            intIm = new double[intarziere];
+            Reseteaza();
+        }
+
+        public void SetFrecventa(double hz, double fs)
+        {
+            double w = 2 * Math.PI * hz / fs;
+            pasRe = Math.Cos(w);
+            pasIm = -Math.Sin(w); // e^{-jw}: tonul la frecventa nominala ajunge la 0 Hz
+        }
+
+        public void Reseteaza()
+        {
+            i1.Reseteaza(); i2.Reseteaza(); q1.Reseteaza(); q2.Reseteaza();
+            Array.Clear(intRe);
+            Array.Clear(intIm);
+            poz = 0;
+            zRe = zIm = pRe = pIm = 0;
+        }
+
+        /// <summary>Un esantion: z[n] in banda de baza si produsul z[n]·conj(z[n-D]).</summary>
+        public void Proceseaza(double x)
+        {
+            zRe = i2.Proceseaza(i1.Proceseaza(x * osRe));
+            zIm = q2.Proceseaza(q1.Proceseaza(x * osIm));
+            double r = osRe * pasRe - osIm * pasIm;
+            osIm = osRe * pasIm + osIm * pasRe;
+            osRe = r;
+
+            double vRe = intRe[poz], vIm = intIm[poz];
+            pRe = zRe * vRe + zIm * vIm;
+            pIm = zIm * vRe - zRe * vIm;
+            intRe[poz] = zRe;
+            intIm[poz] = zIm;
+            if (++poz == intRe.Length) poz = 0;
+        }
+
+        /// <summary>Adauga produsul curent la suma ferestrei.</summary>
+        public void Acumuleaza(ref double sumRe, ref double sumIm, ref double sumAbs)
+        {
+            sumRe += pRe;
+            sumIm += pIm;
+            sumAbs += Math.Sqrt(pRe * pRe + pIm * pIm);
+        }
+
+        public void Renormalizeaza()
+        {
+            double n = Math.Sqrt(osRe * osRe + osIm * osIm);
+            osRe /= n;
+            osIm /= n;
         }
     }
 

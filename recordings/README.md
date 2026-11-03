@@ -1,11 +1,64 @@
 # Inregistrari RTTY de test
 
-Fisiere WAV reale pentru testarea decodoarelor (orice rata 8-96 kHz, mono/stereo, PCM sau float).
-Limita GitHub: 100 MB pe fisier (25 MB la urcarea din browser) - inregistrarile lungi se pot taia
-sau salva mono la 11-12 kHz.
+Inregistrarile WebSDR (8 kHz mono) sunt atasate la release-ul
+[`recordings`](https://github.com/Eugen68/RttyDecoder/releases/tag/recordings) (prea mari pentru
+repo). Toate sunt transmisii de test W6IWI, NORM (Mark = tonul de jos), cu text cunoscut, deci se
+pot numara exact erorile.
 
-Pentru fiecare fisier, daca se stie, o linie in tabelul de mai jos:
+| Fisier | Durata | Mark masurat | Shift real | Text |
+|---|---|---|---|---|
+| `websdr_recording_2022-06-14T23_08_37Z_14086.0kHz.wav` | 39 min | 2123 Hz | 168.5 Hz | `00`..`99 THE QUICK BROWN FOX JUMPED OVER THE LAZY DOGS BACK. TEST DE W6IWI` |
+| `QRN.websdr_recording_2022-03-15T05_45_16Z_7086.0kHz.wav` | 26 min | 2048 Hz | 166 Hz | la fel, 100 de randuri; a doua jumatate foarte slaba, QRN |
+| `websdr_recording_2024-04-15T23_12_30Z_14089.1kHz.wav` | 9.5 min | 2120 Hz | 168.5 Hz | `TEST DE W6IWI` / `RYRY...` (70 caractere) alternativ |
 
-| Fisier | Mark (Hz) | NORM/REV | Canal | Conditii (QSB, QRN, semnal slab...) | Text asteptat |
-|---|---|---|---|---|---|
-| | | | | | |
+## Rezultate (2026-11-03)
+
+Erori = distanta Levenshtein fata de textul transmis (include caracterele "inventate" din zgomotul
+dintre transmisii); "perfecte" = randuri decodate fara nicio greseala. Acord pe Mark 2118 / 2045 /
+2115 Hz (cu ~5 Hz sub tonul real), fara AFC, daca nu se spune altfel.
+
+### 14086 kHz (39 min, semnal bun)
+
+| Decodor | Erori (CER) | Randuri perfecte |
+|---|---|---|
+| Chebyshev | 128 (1.86%) | 80 / 100 |
+| Chebyshev + ATC | 108 (1.57%) | 79 / 100 |
+| Chebyshev fara volant | 187 (2.71%) | 74 / 100 |
+| Matched Filter | 256 (3.71%) | 55 / 100 |
+| **DeepRTTY** | **33 (0.48%)** | **92 / 100** |
+
+### 7086 kHz cu QRN (26 min)
+
+| Decodor | Erori (CER) | Randuri perfecte |
+|---|---|---|
+| Chebyshev | 2125 (30.8%) | 35 / 100 |
+| Chebyshev + AFC | 2109 (30.6%) | 36 / 100 |
+| Matched Filter | - | 0 / 100 |
+| **DeepRTTY** | **1163 (16.9%)** | **45 / 100** |
+
+### 14089.1 kHz (9.5 min)
+
+| Decodor | Erori | Randuri perfecte |
+|---|---|---|
+| Chebyshev | 224 | 37 / 63 |
+| Chebyshev + ATC | 93 | 42 / 62 |
+| Matched Filter | 999 | 2 / 53 |
+| **DeepRTTY** | **14** | **59 / 61** |
+
+### AFC pornit cu acordul gresit (+-15 Hz)
+
+| Fisier | Start | Fara AFC | Cu AFC (Mark final) |
+|---|---|---|---|
+| 14086 | 2103 Hz | 150 erori, 71 perfecte | 130 erori, 80 perfecte (2123.9 Hz) |
+| 14089 | 2100 Hz | 1011 erori, 15 perfecte | 149 erori, 40 perfecte (2121.0 Hz) |
+| 7086 | 2030 Hz | 2373 erori, 11 perfecte | 2111 erori, 36 perfecte (2051.4 Hz) |
+
+Din orice punct de plecare AFC-ul ajunge la acelasi Mark, pe tonul real masurat din spectru.
+
+### Observatii
+
+- **DeepRTTY** e clar cel mai bun pe toate trei (de 4-16 ori mai putine erori decat Chebyshev).
+- **Matched Filter** pierde caractere pe aceste inregistrari (litere lipsa in fiecare rand) - de
+  investigat separat.
+- Intre transmisii, decodoarele clasice scot "gunoi" din zgomot; un squelch ar reduce mult erorile
+  pe 7086 kHz.

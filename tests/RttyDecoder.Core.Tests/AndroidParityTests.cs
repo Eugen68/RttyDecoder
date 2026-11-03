@@ -33,6 +33,7 @@ public class AndroidParityTests
             d.snrGatingK = 1.3;
         })) + "|";
 
+        // AFC (varianta reparata, identica in Java - tools/android-afc/RttyDemodulator-afc.patch)
         var h = Generate(Text + Text, new Options { SnrDb = 20, Seed = 1, OffsetHz = 12 });
         var dm = new RttyDemodulator { modUrmarireFrecventa = 2 };
         dm.Start(48000);
@@ -43,7 +44,14 @@ public class AndroidParityTests
             Array.Copy(h, p, buf, 0, n);
             dm.ProcessBlock(buf, n);
         }
-        yield return "AFC mark=" + dm.MarkFrequencyHz.ToString("0.0###", CultureInfo.InvariantCulture);
+        yield return "AFC mark=" + Java(dm.MarkFrequencyHz);
+    }
+
+    /// <summary>Double.toString din Java (cea mai scurta reprezentare exacta, cu ".0" la intregi).</summary>
+    private static string Java(double d)
+    {
+        string r = d.ToString("R", CultureInfo.InvariantCulture);
+        return r.Contains('.') || r.Contains('E') ? r : r + ".0";
     }
 
     [Fact]

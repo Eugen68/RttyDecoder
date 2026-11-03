@@ -80,23 +80,6 @@ public class RttyReceiverTests : IClassFixture<DeepRttyModelFixture>
         Assert.Equal(2125.0, rx.Settings.MarkFrequencyHz, 0.001);
     }
 
-    /// <summary>
-    /// Cu AFC pornit si acord gresit cu 12 Hz decodarea merge (rezonatoarele sunt destul de late).
-    /// NOTA: ca si in aplicatia Android (verificat cu codul Java), Mark-ul NU se muta: conditia
-    /// magMark &gt; 2 x nivelZgomotMediu nu e indeplinita pe semnal stabil. Testul fixeaza comportamentul
-    /// actual; cand AFC-ul va fi reparat, aici se va verifica urmarirea.
-    /// </summary>
-    [Fact]
-    public void AfcComportamentMostenit()
-    {
-        var audio = ToFloat(Generate(Text + Text, new Options { SnrDb = 20, Seed = 1, OffsetHz = 12 }));
-        using var rx = new RttyReceiver();
-        rx.Update(s => s.Tracking = RttyTracking.Pll);
-        string text = Run(rx, audio, 48000);
-        Assert.True(Cer(Text + Text, text) < 0.05, text);
-        Assert.Equal(2125.0, rx.Settings.MarkFrequencyHz, 1e-9);
-    }
-
     [Fact]
     public void ModificareFaraLegaturaNuMutaAcordul()
     {
