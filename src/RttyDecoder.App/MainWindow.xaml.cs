@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using HamCallsign;
 using RttyDecoder.Core;
 using RttyDecoder.Wpf;
 
@@ -12,6 +13,30 @@ public partial class MainWindow : Window
     private readonly RttyDecoderViewModel _vm;
     private readonly AppSettings _settings;
     private readonly string[]? _smoke;
+    private readonly Task _callsignData;
+
+    /// <summary>cty.dat si MASTER.SCP actualizate (%LOCALAPPDATA%\YO9VA\RttyDecoder); altfel cele incluse.</summary>
+    private static readonly string CallsignCache =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YO9VA", "RttyDecoder");
+
+    /// <summary>
+    /// Bazele de indicative se incarca in fundal (pana atunci se recunoaste doar forma); apoi, tot in
+    /// fundal, se descarca versiunile noi daca cele locale au peste 7 zile - folosite la pornirea urmatoare.
+    /// </summary>
+    private async Task LoadCallsignDataAsync()
+    {
+        try
+        {
+            string? cache = _smoke != null ? null : CallsignCache;
+            var data = await Task.Run(() => ReferenceData.Load(cache));
+            _vm.UseReferenceData(data);
+            if (cache != null) await ReferenceData.UpdateAsync(cache);
+        }
+        catch
+        {
+            // fara baze: raman indicativele recunoscute dupa forma
+        }
+    }
 
     public MainWindow()
     {
@@ -26,7 +51,10 @@ public partial class MainWindow : Window
         _vm.Channel = _settings.Channel;
         _vm.RealTime = _settings.RealTime;
         _vm.MonitorVolume = _settings.MonitorVolume;
+        _vm.MyCall = _settings.MyCall ?? "";
+        _vm.ShowStations = _settings.ShowStations;
         Decoder.DataContext = _vm;
+        _callsignData = LoadCallsignDataAsync();
 
         if (_settings.Width > 0 && _settings.Height > 0)
         {
@@ -49,12 +77,13 @@ public partial class MainWindow : Window
             if (a.Length > 2) _vm.Decoder = Enum.Parse<RttyDecoderType>(a[2], ignoreCase: true);
             if (a.Length > 3) _vm.MarkFrequencyHz = double.Parse(a[3], System.Globalization.CultureInfo.InvariantCulture);
             _vm.RealTime = false;
+            await _callsignData;
             await _vm.OpenFileAsync(a[0]);
             var limita = DateTime.UtcNow.AddMinutes(3);
             while (_vm.IsRunning && DateTime.UtcNow < limita) await Task.Delay(200);
             await Task.Delay(300); // ultimul Drain al textului
             if (_vm.IsRunning) cod = 2;
-            File.WriteAllText(a[1], Decoder.TerminalText + "\n[message] " + _vm.Message + "\n");
+            File.WriteAllText(a[1], Decoder.TerminalText + "\n[message] " + _vm.Message + "\n[stations]\n" + _vm.Callsigns.ToCsv());
         }
         catch (Exception e)
         {
@@ -77,6 +106,8 @@ public partial class MainWindow : Window
         _settings.Channel = _vm.Channel;
         _settings.RealTime = _vm.RealTime;
         _settings.MonitorVolume = _vm.MonitorVolume;
+        _settings.MyCall = _vm.MyCall;
+        _settings.ShowStations = _vm.ShowStations;
         _settings.Maximized = WindowState == WindowState.Maximized;
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         _settings.Width = b.Width;

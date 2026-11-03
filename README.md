@@ -12,6 +12,8 @@ aplicatie mai mare.
 - **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
+- **indicative** evidentiate in terminal si **lista statiilor auzite** (tara, continent, CQ, de cate
+  ori, prima/ultima data), cu biblioteca [HamCallsign](https://github.com/Eugen68/HamCallsign)
 
 ## Instalare
 
@@ -34,6 +36,15 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
 5. **DeepRTTY** decodeaza mai bine semnalele slabe, dar cu intarziere: textul gri de sub terminal e
    provizoriu si se confirma (verde) dupa ~8-12 s.
 
+6. **Indicativele** din textul decodat apar evidentiate: verde = cunoscut (in MASTER.SCP), auriu =
+   forma corecta dar necunoscut (poate fi si o eroare de decodare), portocaliu = indicativul propriu
+   (campul *Indicativul meu* din lista statiilor). Mouse-ul deasupra arata tara si zonele.
+   **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com (la fel
+   si in lista). Lista (butonul **Statii**) se poate sorta pe orice coloana si salva ca CSV.
+   cty.dat si MASTER.SCP sunt incluse; daca au peste 7 zile, aplicatia descarca in fundal versiunile
+   noi in `%LOCALAPPDATA%\YO9VA\RttyDecoder` (folosite de la pornirea urmatoare; fara internet nu se
+   intampla nimic).
+
 Pentru o inregistrare: **Deschide WAV...**. Cu *Timp real* debifat, un fisier de o ora se decodeaza in
 cateva zeci de secunde (DeepRTTY: cateva minute).
 
@@ -43,7 +54,8 @@ cateva zeci de secunde (DeepRTTY: cateva minute).
 |---|---|---|
 | `src/RttyDecoder.Core` | Decodarea: `RttyReceiver` (API-ul modulului), demodulatorul clasic, DeepRTTY, Baudot, reesantionare, spectru, A-TUNE. Fara UI, merge si pe Linux/macOS. | ONNX Runtime |
 | `src/RttyDecoder.Audio` | `WasapiInputSource` (placa de sunet, Windows), `WavFileSource` | NAudio |
-| `src/RttyDecoder.Wpf` | `RttyDecoderView` (UserControl), `RttyDecoderViewModel`, `WaterfallControl` | WPF |
+| `src/RttyDecoder.Wpf` | `RttyDecoderView` (UserControl), `RttyDecoderViewModel`, `WaterfallControl` | WPF, HamCallsign |
+| `external/HamCallsign` | Submodul git: recunoasterea indicativelor (biblioteca comuna aplicatiilor noastre) | |
 | `src/RttyDecoder.App` | Fereastra aplicatiei si salvarea setarilor | |
 | `tests/RttyDecoder.Core.Tests` | Teste xUnit | |
 
@@ -69,7 +81,19 @@ Cu interfata, intr-o fereastra WPF:
 Setarile se citesc/scriu cu `RttyDecoderViewModel.ExportSettings()` / `ImportSettings()`
 (`RttySettings` se serializeaza direct cu System.Text.Json).
 
+Indicativele: gazda da bazele (`vm.UseReferenceData(ReferenceData.Load(folder))`), indicativul propriu
+(`vm.MyCall`) si primeste click-urile prin `vm.CallsignSelected` (ex. pentru log sau DX cluster);
+`vm.Callsigns` e `CallsignTracker`-ul cu lista statiilor.
+
 ## Compilare si teste
+
+HamCallsign e submodul, deci la clonare:
+
+```bash
+git clone --recurse-submodules https://github.com/Eugen68/RttyDecoder.git
+```
+
+(intr-o clona existenta: `git submodule update --init`)
 
 ```bash
 dotnet build

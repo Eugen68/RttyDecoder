@@ -88,6 +88,7 @@
             <ToggleButton Content="US-TTY" IsChecked="{Binding UsTty}" ToolTip="Tabelul FIGS US-TTY (apostrof, ghilimele, $) in loc de ITA2" />
             <Button Margin="12,2,2,2" Width="64" Content="CLEAR" Command="{Binding ClearCommand}" />
             <Button Width="80" Content="Salveaza..." Click="OnSaveText" ToolTip="Salveaza textul receptionat intr-un fisier .txt" />
+            <ToggleButton Margin="12,2,2,2" Content="Statii" IsChecked="{Binding ShowStations}" ToolTip="Lista statiilor auzite (indicativele din text)" />
             <ToggleButton x:Name="AdvancedToggle" Margin="12,2,2,2" Content="Reglaje" ToolTip="Arata pragurile si latimile filtrelor" />
         </WrapPanel>
 
@@ -131,16 +132,81 @@
             <TextBlock Grid.Row="2" Grid.Column="6" Text="{Binding RangeDb, ElementName=Waterfall, StringFormat={}{0:0} dB}" Style="{StaticResource Rtty.Value}" />
         </Grid>
 
-        <!-- TERMINAL -->
-        <Border Grid.Row="5" Margin="0,6,0,0" Background="Black" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Bottom" Text="{Binding ProvisionalText}" Foreground="#808080" FontFamily="Consolas" FontSize="15"
-                           Margin="6,0,6,4" TextWrapping="Wrap" ToolTip="DeepRTTY: text provizoriu, inca neconfirmat" />
-                <TextBox x:Name="Terminal" IsReadOnly="True" Background="Black" Foreground="#00FF00" BorderThickness="0"
-                         FontFamily="Consolas" FontSize="15" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                         AcceptsReturn="True" Padding="4" />
+        <!-- TERMINAL + STATII AUZITE -->
+        <Grid Grid.Row="5" Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="200" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition x:Name="StationsColumn" Width="380" MinWidth="0" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ProvisionalText}" Foreground="#808080" FontFamily="Consolas" FontSize="15"
+                               Margin="6,0,6,4" TextWrapping="Wrap" ToolTip="DeepRTTY: text provizoriu, inca neconfirmat" />
+                    <RichTextBox x:Name="Terminal" IsReadOnly="True" IsReadOnlyCaretVisible="False" Background="Black" Foreground="#00FF00"
+                                 BorderThickness="0" FontFamily="Consolas" FontSize="15" VerticalScrollBarVisibility="Auto"
+                                 Padding="4" AcceptsReturn="True"
+                                 PreviewMouseLeftButtonUp="OnTerminalClick" PreviewMouseDoubleClick="OnTerminalDoubleClick"
+                                 MouseMove="OnTerminalMouseMove">
+                        <FlowDocument PagePadding="0">
+                            <Paragraph x:Name="TerminalParagraph" Margin="0" />
+                        </FlowDocument>
+                    </RichTextBox>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent"
+                          Visibility="{Binding ShowStations, Converter={StaticResource BoolToVis}}" />
+
+            <DockPanel Grid.Column="2" Visibility="{Binding ShowStations, Converter={StaticResource BoolToVis}}">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="Indicativul meu:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox DockPanel.Dock="Left" Width="90" Style="{StaticResource Rtty.Input}" CharacterCasing="Upper"
+                             Text="{Binding MyCall, UpdateSourceTrigger=LostFocus}" KeyDown="OnMyCallKeyDown"
+                             ToolTip="Indicativul propriu: apare cu portocaliu in terminal si nu intra in lista" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding StationsText}" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" />
+                </DockPanel>
+                <DockPanel DockPanel.Dock="Bottom" Margin="0,4,0,0" LastChildFill="False">
+                    <Button DockPanel.Dock="Left" Content="CSV..." Click="OnSaveStations" ToolTip="Salveaza lista statiilor (CSV, ore UTC)" />
+                    <Button DockPanel.Dock="Left" Content="Goleste" Command="{Binding ClearStationsCommand}" ToolTip="Goleste lista statiilor" />
+                    <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" FontSize="11">
+                        <Run Text="&#x25A0;" Foreground="{StaticResource Call.Known}" /><Run Text=" MASTER.SCP  " />
+                        <Run Text="&#x25A0;" Foreground="{StaticResource Call.FormatOnly}" /><Run Text=" necunoscut" />
+                    </TextBlock>
+                </DockPanel>
+                <DataGrid x:Name="StationsGrid" Style="{StaticResource Rtty.Grid}" ItemsSource="{Binding HeardStationsView}"
+                          PreviewMouseLeftButtonUp="OnStationClick" MouseDoubleClick="OnStationDoubleClick">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="ToolTip" Value="{Binding ToolTip}" />
+                            <Setter Property="Cursor" Value="Hand" />
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Indicativ" Binding="{Binding Call}" SortMemberPath="Call" Width="Auto" MinWidth="80">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                    <Setter Property="Foreground" Value="{StaticResource Call.FormatOnly}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Call.Known}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Tara" Binding="{Binding Country}" Width="*" />
+                        <DataGridTextColumn Header="Cont" Binding="{Binding Continent}" Width="Auto" />
+                        <DataGridTextColumn Header="CQ" Binding="{Binding CqZone}" Width="Auto" />
+                        <DataGridTextColumn Header="Nr" Binding="{Binding Count}" Width="Auto" />
+                        <DataGridTextColumn Header="Prima UTC" Binding="{Binding FirstHeardUtc, StringFormat=HH:mm}" Width="Auto" />
+                        <DataGridTextColumn Header="Ultima UTC" Binding="{Binding LastHeardUtc, StringFormat=HH:mm}" Width="Auto" />
+                    </DataGrid.Columns>
+                </DataGrid>
             </DockPanel>
-        </Border>
+        </Grid>
 
         <TextBlock Grid.Row="6" Margin="0,4,0,0" Text="{Binding Message}" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
     </Grid>

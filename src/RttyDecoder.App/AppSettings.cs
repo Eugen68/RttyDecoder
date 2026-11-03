@@ -31,6 +31,11 @@ public sealed class AppSettings
     /// <summary>Volumul monitorizarii (0-100). Butonul MONITOR porneste mereu oprit.</summary>
     public double MonitorVolume { get; set; } = 50;
 
+    /// <summary>Indicativul propriu (evidentiat altfel, neinclus in lista statiilor).</summary>
+    public string? MyCall { get; set; }
+
+    public bool ShowStations { get; set; } = true;
+
     public double Width { get; set; }
 
     public double Height { get; set; }

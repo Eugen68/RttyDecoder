@@ -5,6 +5,9 @@
     <Project Path="src/RttyDecoder.Core/RttyDecoder.Core.csproj" />
     <Project Path="src/RttyDecoder.Wpf/RttyDecoder.Wpf.csproj" />
   </Folder>
+  <Folder Name="/external/">
+    <Project Path="external/HamCallsign/src/HamCallsign/HamCallsign.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RttyDecoder.Core.Tests/RttyDecoder.Core.Tests.csproj" />
   </Folder>

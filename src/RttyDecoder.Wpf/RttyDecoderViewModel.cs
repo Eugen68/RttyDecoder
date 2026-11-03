@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Windows.Input;
 using System.Windows.Threading;
+using HamCallsign;
 using RttyDecoder.Audio;
 using RttyDecoder.Core;
 
@@ -15,7 +16,7 @@ namespace RttyDecoder.Wpf;
 /// setarile prin <see cref="ExportSettings"/> / <see cref="ImportSettings"/>.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
+public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 {
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _timer;
@@ -59,6 +60,10 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
         SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) MarkFrequencyHz = hz; });
 
+        ClearStationsCommand = new RelayCommand(ClearStations);
+        _callsigns = CreateTracker(new CallsignRecognizer());
+        HeardStationsView = CreateStationsView();
+
         RefreshDevices();
         SyncFromSettings(Receiver.Settings);
 
@@ -74,6 +79,9 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
 
     /// <summary>Text decodat de adaugat in terminal (pe firul UI).</summary>
     public event Action<string>? TextAppended;
+
+    /// <summary>Mesaj al aplicatiei de adaugat in terminal, nu text decodat (pe firul UI).</summary>
+    public event Action<string>? InfoAppended;
 
     /// <summary>Terminalul trebuie golit (pe firul UI).</summary>
     public event Action? TerminalCleared;
@@ -513,10 +521,12 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
         lock (_textLock) _pendingText.Clear();
         Receiver.ClearDecoderState();
         ProvisionalText = "";
+        _callsigns.ResetWord();
         TerminalCleared?.Invoke();
     }
 
-    private void AppendLocal(string text) => TextAppended?.Invoke(text);
+    /// <summary>Mesaj al aplicatiei in terminal (nu text decodat: fara indicative).</summary>
+    private void AppendLocal(string text) => InfoAppended?.Invoke(text);
 
     /// <summary>Pe firul UI: transfera textul si starea adunate de pe firele audio/DeepRTTY.</summary>
     private void Drain()
@@ -530,7 +540,11 @@ public sealed class RttyDecoderViewModel : ObservableObject, IDisposable
                 _pendingText.Clear();
             }
         }
-        if (text != null) TextAppended?.Invoke(text);
+        if (text != null)
+        {
+            TextAppended?.Invoke(text);
+            _callsigns.Feed(text);
+        }
 
         var p = Interlocked.Exchange(ref _pendingProvisional, null);
         if (p != null) ProvisionalText = Decoder == RttyDecoderType.DeepRtty ? p : "";

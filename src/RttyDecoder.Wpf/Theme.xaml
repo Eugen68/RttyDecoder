@@ -11,6 +11,14 @@
     <SolidColorBrush x:Key="Rtty.On" Color="#00897B" />
     <SolidColorBrush x:Key="Rtty.Hover" Color="#3A3A3A" />
 
+    <!-- Indicative in terminal: text + fundal discret (textul obisnuit e deja verde) -->
+    <SolidColorBrush x:Key="Call.FormatOnly" Color="#FFD700" />
+    <SolidColorBrush x:Key="Call.FormatOnly.Back" Color="#332B00" />
+    <SolidColorBrush x:Key="Call.Known" Color="#69F0AE" />
+    <SolidColorBrush x:Key="Call.Known.Back" Color="#123826" />
+    <SolidColorBrush x:Key="Call.Own" Color="#FF8A65" />
+    <SolidColorBrush x:Key="Call.Own.Back" Color="#3A1F15" />
+
     <Style TargetType="ButtonBase" x:Key="Rtty.ButtonBase">
         <Setter Property="Foreground" Value="White" />
         <Setter Property="Background" Value="#424242" />
@@ -90,6 +98,57 @@
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Foreground" Value="{StaticResource Rtty.Accent}" />
         <Setter Property="Margin" Value="4,0,0,0" />
+    </Style>
+
+    <Style TargetType="TextBox" x:Key="Rtty.Input">
+        <Setter Property="Background" Value="#101010" />
+        <Setter Property="Foreground" Value="{StaticResource Rtty.Foreground}" />
+        <Setter Property="CaretBrush" Value="{StaticResource Rtty.Foreground}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Rtty.Border}" />
+        <Setter Property="Padding" Value="2" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="DataGrid" x:Key="Rtty.Grid">
+        <Setter Property="Background" Value="Black" />
+        <Setter Property="Foreground" Value="{StaticResource Rtty.Foreground}" />
+        <Setter Property="RowBackground" Value="Black" />
+        <Setter Property="AlternatingRowBackground" Value="#121212" />
+        <Setter Property="BorderBrush" Value="{StaticResource Rtty.Border}" />
+        <Setter Property="HorizontalGridLinesBrush" Value="#262626" />
+        <Setter Property="VerticalGridLinesBrush" Value="#262626" />
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="CanUserDeleteRows" Value="False" />
+        <Setter Property="CanUserResizeRows" Value="False" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="SelectionUnit" Value="FullRow" />
+        <Setter Property="FontFamily" Value="Consolas" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <Style TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="{StaticResource Rtty.Panel}" />
+        <Setter Property="Foreground" Value="{StaticResource Rtty.Muted}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Rtty.Border}" />
+        <Setter Property="BorderThickness" Value="0,0,1,1" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="11" />
+    </Style>
+
+    <Style TargetType="DataGridCell">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#263238" />
+                <Setter Property="Foreground" Value="White" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="ScrollBar">
