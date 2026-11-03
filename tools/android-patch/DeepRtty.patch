@@ -1,0 +1,194 @@
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/deepcw/data/OverlapMerger.kt b/app/src/main/java/com/example/yaesucatcontroladv/deepcw/data/OverlapMerger.kt
+index 8443769..c89d778 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/deepcw/data/OverlapMerger.kt
++++ b/app/src/main/java/com/example/yaesucatcontroladv/deepcw/data/OverlapMerger.kt
+@@ -82,6 +82,10 @@ class OverlapMerger(private val edgeGuard: Long, private val tolerance: Double)
+     var committedUntil = Double.NEGATIVE_INFINITY
+         private set
+ 
++    /** Tokenii ultimei ferestre, de dupa `committedUntil`, inca neconfirmati. */
++    val pendingTokens: List<CtcToken>
++        get() = pending
++
+     fun push(windowStart: Long, windowLength: Long, windowTokens: List<CtcToken>): List<CtcToken> {
+         val reliableStart = windowStart + if (windows > 0) edgeGuard else 0L
+         val tokens = windowTokens.filter { it.sample >= reliableStart }
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyReceiver.kt b/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyReceiver.kt
+index 9e0b726..12eb057 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyReceiver.kt
++++ b/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyReceiver.kt
+@@ -29,13 +29,17 @@ class DeepRttyReceiver(context: Context) {
+     private val inferenta = InferenceWrapper(context)
+     private val frontEnd = RttyFrontEnd(48000)
+     private val stream = DeepRttyStream { date, dims -> inferenta.runInference(date, dims) }
+-    private val coada = LinkedBlockingQueue<FloatArray>()
++    /**
++     * Blocuri audio (FloatArray) si marcaje de reset, in ordinea sosirii. CORECTIE: resetul era un
++     * flag partajat, iar firul de decodare golea apoi toata coada - daca intre timp firul audio
++     * pusese deja blocuri noi (sosite DUPA reset), le arunca si pe ele: la pornire si la fiecare
++     * reacordare se pierdeau cateva sute de ms de audio bun. Ca marcaj in coada, resetul arunca doar
++     * ce era inainte de el.
++     */
++    private val coada = LinkedBlockingQueue<Any>()
+ 
+     @Volatile
+     private var ruleaza = false
+-
+-    @Volatile
+-    private var resetCerut = false
+     private var worker: Thread? = null
+ 
+     // doar pe firul audio
+@@ -51,8 +55,10 @@ class DeepRttyReceiver(context: Context) {
+ 
+     fun porneste() {
+         if (ruleaza) return
++        coada.clear()
++        stream.reseteaza() // firul de decodare nu ruleaza inca
++        ultimulCentru = Double.NaN
+         ruleaza = true
+-        resetCerut = true
+         worker = Thread({ bucla() }, "DeepRTTY").apply { start() }
+     }
+ 
+@@ -76,7 +82,7 @@ class DeepRttyReceiver(context: Context) {
+ 
+     /** Arunca audio-ul si textul neconfirmat (ex. CLEAR); textul deja confirmat ramane. */
+     fun reseteaza() {
+-        resetCerut = true
++        if (ruleaza) coada.offer(MarcajReset)
+     }
+ 
+     /**
+@@ -88,7 +94,7 @@ class DeepRttyReceiver(context: Context) {
+         if (!ruleaza) return
+         if (ultimulCentru.isNaN() || abs(centruHz - ultimulCentru) > SALT_ACORD_HZ || reverse != ultimulReverse) {
+             frontEnd.reseteaza()
+-            resetCerut = true
++            if (!ultimulCentru.isNaN()) coada.offer(MarcajReset) // reacordare; la pornire stream-ul e deja gol
+         }
+         ultimulCentru = centruHz
+         ultimulReverse = reverse
+@@ -99,26 +105,33 @@ class DeepRttyReceiver(context: Context) {
+ 
+     private fun bucla() {
+         var ultimulProvizoriu = 0L
++        listener?.onProvizoriu(IntArray(0))
+         while (ruleaza) {
+             try {
+                 val primul = coada.poll(100, TimeUnit.MILLISECONDS)
+-                if (resetCerut) {
+-                    resetCerut = false
+-                    stream.reseteaza()
+-                    coada.clear()
+-                    listener?.onProvizoriu(IntArray(0))
+-                    continue
+-                }
+                 if (primul != null) {
+-                    // tot ce s-a strans intre timp, intr-un singur push
+-                    val lot = ArrayList<FloatArray>().apply { add(primul); coada.drainTo(this) }
+-                    val total = lot.sumOf { it.size }
+-                    val audio = FloatArray(total)
+-                    var o = 0
+-                    for (b in lot) { b.copyInto(audio, o); o += b.size }
+-                    val confirmate = stream.push(audio, total)
+-                    if (confirmate.isNotEmpty()) {
+-                        listener?.onConfirmate(IntArray(confirmate.size) { confirmate[it].index })
++                    // tot ce s-a strans intre timp, intr-un singur push; un marcaj de reset arunca
++                    // doar audio-ul de dinaintea lui
++                    val elemente = ArrayList<Any>().apply { add(primul); coada.drainTo(this) }
++                    val lot = ArrayList<FloatArray>()
++                    for (e in elemente) {
++                        if (e === MarcajReset) {
++                            lot.clear()
++                            stream.reseteaza()
++                            listener?.onProvizoriu(IntArray(0))
++                        } else {
++                            lot.add(e as FloatArray)
++                        }
++                    }
++                    if (lot.isNotEmpty()) {
++                        val total = lot.sumOf { it.size }
++                        val audio = FloatArray(total)
++                        var o = 0
++                        for (b in lot) { b.copyInto(audio, o); o += b.size }
++                        val confirmate = stream.push(audio, total)
++                        if (confirmate.isNotEmpty()) {
++                            listener?.onConfirmate(IntArray(confirmate.size) { confirmate[it].index })
++                        }
+                     }
+                 }
+                 val acum = SystemClock.elapsedRealtime()
+@@ -135,6 +148,9 @@ class DeepRttyReceiver(context: Context) {
+         }
+     }
+ 
++    /** Marcajul de reset din coada. */
++    private object MarcajReset
++
+     private companion object {
+         const val TAG = "DeepRttyReceiver"
+ 
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyStream.kt b/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyStream.kt
+index d9548ba..e915ed1 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyStream.kt
++++ b/app/src/main/java/com/example/yaesucatcontroladv/deeprtty/DeepRttyStream.kt
+@@ -151,18 +151,27 @@ class DeepRttyStream(private val inferenta: (FloatArray, LongArray) -> Pair<Floa
+     }
+ 
+     /**
+-     * Coada neconfirmata: decodeaza ultimele <= 12 s (completate in oglinda pana la 12 s, ca in
+-     * referinta) si intoarce caracterele de dupa textul deja confirmat.
++     * Coada neconfirmata: tokenii inca neconfirmati ai ultimei ferestre complete, pana la inceputul
++     * zonei sigure a unei ferestre de final, plus fereastra de final (ultimele <= 12 s, completate in
++     * oglinda pana la 12 s, ca in referinta) de acolo incolo.
++     *
++     * CORECTIE: inainte coada era doar fereastra de final, iar tokenii ultimei ferestre dintre textul
++     * confirmat si inceputul ferestrei de final (pana la ~4 s) nu apareau nicaieri - textul gri avea
++     * un gol pana la urmatoarea confirmare (vezi DeepRttyTest.coadaNeconfirmataFaraGol).
+      */
+     fun preview(): List<CtcToken> {
+         val start = max(if (lastWindowStart >= 0) lastWindowStart else bufStart, total - DeepRttyConst.WINDOW)
+             .coerceAtLeast(bufStart)
+         val lungime = (total - start).toInt()
+-        if (lungime < DeepRttyConst.SAMPLE_RATE) return emptyList()
+-        val audio = buf.copyOfRange((start - bufStart).toInt(), buf.size)
+-        val tokeni = decodeaza(oglinda(audio, DeepRttyConst.WINDOW), start) ?: return emptyList()
+         val dupa = max(merger.committedUntil, ultimulConfirmat + DeepRttyConst.TOLERANCE)
+-        return tokeni.filter { it.sample > dupa && it.sample < total }
++        // de aici incolo crede fereastra de final (fara marginea ei nesigura de la inceput)
++        val granita = max(if (lastWindowStart >= 0) (start + DeepRttyConst.EDGE_GUARD).toDouble() else start.toDouble(), dupa)
++        val rezultat = merger.pendingTokens.filter { it.sample > dupa && it.sample < granita }.toMutableList()
++        if (lungime < DeepRttyConst.SAMPLE_RATE) return rezultat
++        val audio = buf.copyOfRange((start - bufStart).toInt(), buf.size)
++        val tokeni = decodeaza(oglinda(audio, DeepRttyConst.WINDOW), start) ?: return rezultat
++        tokeni.filterTo(rezultat) { it.sample >= granita && it.sample > dupa && it.sample < total }
++        return rezultat
+     }
+ 
+     private fun decodeaza(audio: FloatArray, start: Long): List<CtcToken>? {
+diff --git a/app/src/test/java/com/example/yaesucatcontroladv/DeepRttyTest.kt b/app/src/test/java/com/example/yaesucatcontroladv/DeepRttyTest.kt
+index 94f9790..f508648 100644
+--- a/app/src/test/java/com/example/yaesucatcontroladv/DeepRttyTest.kt
++++ b/app/src/test/java/com/example/yaesucatcontroladv/DeepRttyTest.kt
+@@ -115,4 +115,20 @@ class DeepRttyTest {
+         println(String.format("DEEPRTTY REV -6 dB: %.1f%%", c * 100))
+         assertTrue("CER REV la -6 dB = $c", c < 0.06)
+     }
++
++    /**
++     * Coada neconfirmata (textul gri) trebuie sa contina si tokenii ultimei ferestre complete de dupa
++     * textul confirmat, nu doar fereastra de final - altfel lipseau pana la ~4 s, in functie de unde
++     * cade grila ferestrelor fata de sfarsit. Taiem inceputul (doar ton Mark) ca sa mutam grila.
++     */
++    @Test
++    fun coadaNeconfirmataFaraGol() {
++        val tot = RttyDemodulatorTest.genereaza(text, 10.0, 4, 0.0, RttyDemodulator.BAUD_RTTY, 0.0)
++        for (taie in listOf(0.0, 0.3, 0.6, 0.9, 1.2, 1.5)) {
++            val pcm = tot.copyOfRange((taie * 48000).toInt(), tot.size)
++            val d = decodeaza(pcm, 2125.0, false)
++            val c = cer(d)
++            assertTrue("taiat $taie s: CER $c ($d)", c < 0.02)
++        }
++    }
+ }
