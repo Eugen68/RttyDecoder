@@ -19,6 +19,11 @@ public sealed class DeepRttyModel : IDisposable
         _inputName = session.InputMetadata.Keys.First();
     }
 
+    /// <summary>
+    /// Implicit un singur fir de inferenta: cu mai multe, ONNX Runtime nu garanteaza rezultate
+    /// identice intre rulari (ordinea sumelor paralele), iar o fereastra de 12 s ia oricum doar
+    /// cateva zeci de ms - de sute de ori mai repede decat timpul real.
+    /// </summary>
     private static SessionOptions Options(int intraOpThreads)
     {
         var o = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
@@ -27,7 +32,7 @@ public sealed class DeepRttyModel : IDisposable
     }
 
     /// <summary>Incarca modelul inclus in RttyDecoder.Core.dll (cateva sute de ms).</summary>
-    public static DeepRttyModel LoadEmbedded(int intraOpThreads = 2)
+    public static DeepRttyModel LoadEmbedded(int intraOpThreads = 1)
     {
         using var s = typeof(DeepRttyModel).Assembly.GetManifestResourceStream(DeepRttyConst.ModelResource)
                       ?? throw new InvalidOperationException("Modelul DeepRTTY lipseste din resursele assembly-ului.");
@@ -38,7 +43,7 @@ public sealed class DeepRttyModel : IDisposable
     }
 
     /// <summary>Incarca un model .onnx de pe disc.</summary>
-    public static DeepRttyModel LoadFile(string path, int intraOpThreads = 2)
+    public static DeepRttyModel LoadFile(string path, int intraOpThreads = 1)
     {
         using var options = Options(intraOpThreads);
         return new DeepRttyModel(new InferenceSession(path, options));

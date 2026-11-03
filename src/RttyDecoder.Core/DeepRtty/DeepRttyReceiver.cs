@@ -151,6 +151,7 @@ public sealed class DeepRttyReceiver : IDisposable
                         foreach (var b in lot) { Array.Copy(b, 0, audio, o, b.Length); o += b.Length; }
                         var confirmate = _stream.Push(audio, total);
                         if (confirmate.Count > 0) Confirmed?.Invoke(confirmate.Select(t => t.Index).ToArray());
+                        RaporteazaEroare();
                     }
                     if (flush != null)
                     {
@@ -162,6 +163,7 @@ public sealed class DeepRttyReceiver : IDisposable
                         continue;
                     }
                 }
+                RaporteazaEroare();
                 long acum = ceas.ElapsedMilliseconds;
                 if (acum - ultimulProvizoriu >= ProvizoriuMs)
                 {
@@ -174,6 +176,15 @@ public sealed class DeepRttyReceiver : IDisposable
             {
                 Error?.Invoke(e);
             }
+        }
+    }
+
+    private void RaporteazaEroare()
+    {
+        if (_stream.LastError is { } e)
+        {
+            _stream.LastError = null;
+            Error?.Invoke(e);
         }
     }
 

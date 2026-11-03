@@ -95,10 +95,12 @@ public class RttyReceiverTests : IClassFixture<DeepRttyModelFixture>
     {
         var audio = ToFloat(Generate(Text, new Options { SnrDb = 0, Seed = 4, SampleRate = 44100 }));
         using var rx = new RttyReceiver(_fixture.Model.Run);
+        var mesaje = new List<string>();
+        rx.Message += m => { lock (mesaje) mesaje.Add(m); };
         rx.Update(s => s.Decoder = RttyDecoderType.DeepRtty);
         string text = Run(rx, audio, 44100, chunk: 4410);
         double cer = Cer(Text, text);
-        Assert.True(cer < 0.03, $"DeepRTTY prin receptor: CER = {cer} ({text})");
+        lock (mesaje) Assert.True(cer < 0.03, $"DeepRTTY prin receptor: CER = {cer} ({text}) mesaje: {string.Join(" | ", mesaje)}");
     }
 
     [Fact]

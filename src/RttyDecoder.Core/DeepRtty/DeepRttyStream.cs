@@ -190,11 +190,32 @@ public sealed class DeepRttyStream
         return tokeni.Where(t => t.Sample > dupa && t.Sample < total).ToList();
     }
 
+    /// <summary>Ultima eroare de inferenta (fereastra respectiva e tratata ca goala), sau null.</summary>
+    public Exception? LastError { get; set; }
+
     private List<CtcToken>? Decode(float[] audio, long start)
     {
         var spec = DeepRttySpectrogram.Compute(audio);
         if (spec == null) return null;
-        var rez = _inferenta(spec.Value.Data, spec.Value.Dims);
+        (float[] Data, long[] Dims)? rez;
+        try
+        {
+            rez = _inferenta(spec.Value.Data, spec.Value.Dims);
+        }
+        catch (Exception e1)
+        {
+            // O singura reincercare; daca tot nu merge, fereastra e goala. Exceptia NU are voie sa
+            // iasa din Push: ar arunca si caracterele deja confirmate de ferestrele dinainte.
+            try
+            {
+                rez = _inferenta(spec.Value.Data, spec.Value.Dims);
+            }
+            catch (Exception e2)
+            {
+                LastError = new AggregateException(e1, e2);
+                return null;
+            }
+        }
         if (rez == null) return null;
         return CtcTokens.Greedy(rez.Value.Data, rez.Value.Dims, DeepRttyConst.BlankIndex)
             .Select(t => new CtcToken(start + (long)Math.Round((double)(t.Frame * DeepRttyConst.OutputHopLength), MidpointRounding.AwayFromZero), t.Index, t.Score))
