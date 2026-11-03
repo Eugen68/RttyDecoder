@@ -24,7 +24,16 @@ public sealed class DeepRttyReceiver : IDisposable
     private readonly BlockingCollection<object> _coada = new();
     private Thread? _worker;
     private volatile bool _ruleaza;
-    private volatile bool _resetCerut;
+
+    /// <summary>
+    /// Resetarile trec prin coada, in ordine cu audio-ul: ce s-a primit inainte se arunca, ce vine dupa
+    /// nu. (Un flag partajat, ca in varianta Android, putea fi procesat dupa ce primele blocuri ajunsesera
+    /// deja in coada si le arunca si pe ele - grila ferestrelor se decala.)
+    /// </summary>
+    private sealed class MarcajReset
+    {
+        public static readonly MarcajReset Instanta = new();
+    }
 
     // doar pe firul audio
     private double _ultimulCentru = double.NaN;
@@ -51,7 +60,9 @@ public sealed class DeepRttyReceiver : IDisposable
     {
         if (_ruleaza) return;
         _ruleaza = true;
-        _resetCerut = true;
+        while (_coada.TryTake(out _)) { }
+        _stream.Reset(); // firul de decodare nu ruleaza inca
+        _ultimulCentru = double.NaN;
         _worker = new Thread(Bucla) { Name = "DeepRTTY", IsBackground = true };
         _worker.Start();
     }
@@ -70,7 +81,10 @@ public sealed class DeepRttyReceiver : IDisposable
     }
 
     /// <summary>Arunca audio-ul si textul neconfirmat; textul deja confirmat ramane.</summary>
-    public void Reset() => _resetCerut = true;
+    public void Reset()
+    {
+        if (_ruleaza) _coada.Add(MarcajReset.Instanta);
+    }
 
     /// <summary>
     /// Firul audio: un bloc PCM de 48 kHz. <paramref name="centruHz"/> = centrul semnalului RTTY
@@ -83,7 +97,7 @@ public sealed class DeepRttyReceiver : IDisposable
         if (double.IsNaN(_ultimulCentru) || Math.Abs(centruHz - _ultimulCentru) > SaltAcordHz || reverse != _ultimulReverse)
         {
             _frontEnd.Reset();
-            _resetCerut = true;
+            if (!double.IsNaN(_ultimulCentru)) _coada.Add(MarcajReset.Instanta); // reacordare
         }
         _ultimulCentru = centruHz;
         _ultimulReverse = reverse;
@@ -118,29 +132,27 @@ public sealed class DeepRttyReceiver : IDisposable
         {
             try
             {
-                _coada.TryTake(out var primul, 100);
-                if (_resetCerut)
+                if (_coada.TryTake(out var primul, 100))
                 {
-                    _resetCerut = false;
-                    _stream.Reset();
-                    while (_coada.TryTake(out var aruncat))
-                    {
-                        if (aruncat is ManualResetEventSlim g) g.Set();
-                    }
-                    if (primul is ManualResetEventSlim g0) g0.Set();
-                    Provisional?.Invoke(Array.Empty<int>());
-                    continue;
-                }
-                if (primul != null)
-                {
-                    // tot ce s-a strans intre timp, intr-un singur push
+                    // tot ce s-a strans intre timp, intr-un singur push (pana la un flush)
                     var lot = new List<float[]>();
                     ManualResetEventSlim? flush = null;
                     object? element = primul;
                     while (element != null)
                     {
                         if (element is float[] f) lot.Add(f);
-                        else if (element is ManualResetEventSlim g) { flush = g; break; }
+                        else if (element is MarcajReset)
+                        {
+                            // audio-ul de dinainte de reset nu mai conteaza
+                            lot.Clear();
+                            _stream.Reset();
+                            Provisional?.Invoke(Array.Empty<int>());
+                        }
+                        else if (element is ManualResetEventSlim g)
+                        {
+                            flush = g;
+                            break;
+                        }
                         if (!_coada.TryTake(out element)) element = null;
                     }
                     if (lot.Count > 0)
@@ -155,20 +167,20 @@ public sealed class DeepRttyReceiver : IDisposable
                     }
                     if (flush != null)
                     {
-                        var coada = _stream.Preview();
-                        if (coada.Count > 0) Confirmed?.Invoke(coada.Select(t => t.Index).ToArray());
-                        _stream.Reset();
+                        var rest = _stream.Finish();
+                        if (rest.Count > 0) Confirmed?.Invoke(rest.Select(t => t.Index).ToArray());
+                        RaporteazaEroare();
                         Provisional?.Invoke(Array.Empty<int>());
                         flush.Set();
                         continue;
                     }
                 }
-                RaporteazaEroare();
                 long acum = ceas.ElapsedMilliseconds;
                 if (acum - ultimulProvizoriu >= ProvizoriuMs)
                 {
                     ultimulProvizoriu = acum;
                     var p = _stream.Preview();
+                    RaporteazaEroare();
                     Provisional?.Invoke(p.Select(t => t.Index).ToArray());
                 }
             }

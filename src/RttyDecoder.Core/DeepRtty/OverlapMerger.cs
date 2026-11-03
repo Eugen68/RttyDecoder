@@ -82,6 +82,9 @@ public sealed class OverlapMerger
     /// <summary>Tot ce e inainte de acest esantion a fost deja returnat de Push.</summary>
     public double CommittedUntil { get; private set; } = double.NegativeInfinity;
 
+    /// <summary>Tokenii ultimei ferestre, de dupa <see cref="CommittedUntil"/>, inca neconfirmati.</summary>
+    public IReadOnlyList<CtcToken> Pending => _pending;
+
     public List<CtcToken> Push(long windowStart, long windowLength, IReadOnlyList<CtcToken> windowTokens)
     {
         long reliableStart = windowStart + (_windows > 0 ? _edgeGuard : 0L);

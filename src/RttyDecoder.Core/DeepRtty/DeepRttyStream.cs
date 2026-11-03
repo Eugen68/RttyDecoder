@@ -174,20 +174,36 @@ public sealed class DeepRttyStream
     }
 
     /// <summary>
-    /// Coada neconfirmata: decodeaza ultimele &lt;= 12 s (completate in oglinda pana la 12 s, ca in
-    /// referinta) si intoarce caracterele de dupa textul deja confirmat.
+    /// Coada neconfirmata: tokenii inca neconfirmati ai ultimei ferestre complete, pana la inceputul
+    /// zonei sigure a unei ferestre de final, plus fereastra de final (ultimele &lt;= 12 s, completate
+    /// in oglinda pana la 12 s, ca in referinta) de acolo incolo.
+    ///
+    /// CORECTIE fata de port-ul Android: acolo coada era doar fereastra de final, iar tokenii ultimei
+    /// ferestre dintre textul confirmat si inceputul ferestrei de final (pana la ~4 s) lipseau - din
+    /// textul gri, iar la sfarsitul unui fisier se pierdeau de tot.
     /// </summary>
     public List<CtcToken> Preview()
     {
-        long start = Math.Max(Math.Max(_lastWindowStart >= 0 ? _lastWindowStart : _bufStart, Total - DeepRttyConst.Window), _bufStart);
-        int lungime = (int)(Total - start);
-        if (lungime < DeepRttyConst.SampleRate) return new List<CtcToken>();
+        long total = Total;
+        long start = Math.Max(Math.Max(_lastWindowStart >= 0 ? _lastWindowStart : _bufStart, total - DeepRttyConst.Window), _bufStart);
+        int lungime = (int)(total - start);
+        double dupa = Math.Max(_merger.CommittedUntil, _ultimulConfirmat + DeepRttyConst.Tolerance);
+        // de aici incolo crede fereastra de final (fara marginea ei nesigura de la inceput)
+        double granita = Math.Max(_lastWindowStart >= 0 ? start + DeepRttyConst.EdgeGuard : start, dupa);
+        var rezultat = _merger.Pending.Where(t => t.Sample > dupa && t.Sample < granita).ToList();
+        if (lungime < DeepRttyConst.SampleRate) return rezultat;
         var audio = _buf.AsSpan((int)(start - _bufStart)).ToArray();
         var tokeni = Decode(Oglinda(audio, DeepRttyConst.Window), start);
-        if (tokeni == null) return new List<CtcToken>();
-        double dupa = Math.Max(_merger.CommittedUntil, _ultimulConfirmat + DeepRttyConst.Tolerance);
-        long total = Total;
-        return tokeni.Where(t => t.Sample > dupa && t.Sample < total).ToList();
+        if (tokeni != null) rezultat.AddRange(tokeni.Where(t => t.Sample >= granita && t.Sample > dupa && t.Sample < total));
+        return rezultat;
+    }
+
+    /// <summary>Sfarsitul unei surse finite: intoarce tot textul inca neconfirmat si reseteaza.</summary>
+    public List<CtcToken> Finish()
+    {
+        var rest = Preview();
+        Reset();
+        return rest;
     }
 
     /// <summary>Ultima eroare de inferenta (fereastra respectiva e tratata ca goala), sau null.</summary>

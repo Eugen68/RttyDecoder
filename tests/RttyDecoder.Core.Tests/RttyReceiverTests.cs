@@ -103,6 +103,51 @@ public class RttyReceiverTests : IClassFixture<DeepRttyModelFixture>
         lock (mesaje) Assert.True(cer < 0.03, $"DeepRTTY prin receptor: CER = {cer} ({text}) mesaje: {string.Join(" | ", mesaje)}");
     }
 
+    /// <summary>
+    /// Regresie (picase intermitent pe Windows): la sfarsitul fisierului, textul ultimei ferestre
+    /// dintre zona confirmata si fereastra de final se pierdea - pana la ~4 s, in functie de unde cade
+    /// grila ferestrelor fata de sfarsit. Taiem inceputul (doar ton Mark) ca sa mutam grila.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.3)]
+    [InlineData(0.6)]
+    [InlineData(0.9)]
+    [InlineData(1.2)]
+    [InlineData(1.5)]
+    public void DeepRttyFlushNuPierdeText(double taieSec)
+    {
+        var tot = ToFloat(Generate(Text, new Options { SnrDb = 10, Seed = 4, SampleRate = 44100 }));
+        var audio = tot.AsSpan((int)(taieSec * 44100)).ToArray();
+        using var rx = new RttyReceiver(_fixture.Model.Run);
+        rx.Update(s => s.Decoder = RttyDecoderType.DeepRtty);
+        string text = Run(rx, audio, 44100, chunk: 4410);
+        Assert.True(Cer(Text, text) < 0.02, $"taiat {taieSec} s: {text}");
+    }
+
+    /// <summary>Un Reset (CLEAR) in mijlocul receptiei arunca doar ce era inainte, nu si ce urmeaza.</summary>
+    [Fact]
+    public void DeepRttyResetInMijloc()
+    {
+        var a = ToFloat(Generate("RYRYRYRYRYRYRYRY RYRYRYRYRYRY\n", new Options { SnrDb = 10, Seed = 5 }));
+        var b = ToFloat(Generate(Text, new Options { SnrDb = 10, Seed = 6 }));
+        using var rx = new RttyReceiver(_fixture.Model.Run);
+        rx.Update(s => s.Decoder = RttyDecoderType.DeepRtty);
+        var sb = new StringBuilder();
+        rx.TextReceived += t => { lock (sb) sb.Append(t); };
+        rx.Start();
+        for (int p = 0; p < a.Length; p += 4800) rx.Process(a.AsSpan(p, Math.Min(4800, a.Length - p)), 48000);
+        rx.ClearDecoderState();
+        for (int p = 0; p < b.Length; p += 4800) rx.Process(b.AsSpan(p, Math.Min(4800, b.Length - p)), 48000);
+        rx.Flush();
+        rx.Stop();
+        string text;
+        lock (sb) text = sb.ToString();
+        // dupa reset, al doilea text trebuie sa iasa complet
+        int i = text.IndexOf("CQ CQ", StringComparison.Ordinal);
+        Assert.True(i >= 0 && Cer(Text, text[i..]) < 0.02, text);
+    }
+
     [Fact]
     public async Task ModelulInclusSeIncarcaPeFundal()
     {
