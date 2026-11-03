@@ -117,6 +117,21 @@ un ton a dominat majoritatea timpului - zgomotul dintre transmisii nu muta acord
 REV, deriva de 120 Hz, semnal slab, zgomot pur). Pe inregistrarile reale converge la acelasi Mark din
 orice punct de plecare (+-15 Hz), pe tonul masurat din spectru.
 
+Doua corectii ulterioare (Eugen, YO9VA), pentru zgomot: o fereastra AFC conteaza doar daca un ton
+domina si pe anvelopele decodorului, iar corectia se aplica doar dupa doua ferestre valide la rand.
+Fara ele, 3 minute de zgomot pur cu PLL mutau acordul cu pana la 60 Hz; acum ramane in +-1 Hz
+(`AfcTests.ZgomotulNuMutaAcordul`).
+
+## Volant: start corectat si cand space-ul incepe chiar inainte de mijlocul startului prezis
+
+Cu volantul blocat, daca space-ul incepea cu mai putin de 0.3 biti inainte de mijlocul startului
+prezis, cadrul pornea pe grila, necorectat - desi frontul real era cunoscut si mereu intarziat
+(mediana +0.3 biti): bitii erau cititi prea devreme, iar grila ramanea decalata si pentru caracterul
+urmator. Ramura aparea in 1-12% din cadre la Chebyshev si 8-20% la MF. Acum startul se corecteaza
+mereu, cu regula existenta (castig 0.5, plafon +-0.25 biti). Gasit de Eugen, YO9VA, verificat pe
+inregistrari: 14089 kHz Chebyshev 169 -> 60 erori, MF 97 -> 48; indicativul W6IWI corect 22 -> 28 / 31
+la MF.
+
 ## Matched Filter (imbunatatit fata de Android)
 
 Pe inregistrarile reale MF pierdea litere. Doua cauze, gasite cu ajutorul inregistrarilor W6IWI:

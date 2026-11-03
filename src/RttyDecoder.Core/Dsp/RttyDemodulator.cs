@@ -172,7 +172,8 @@ public sealed class RttyDemodulator
     private readonly AfcTon afcMark = new();
     private readonly AfcTon afcSpace = new();
     private double afcSumRe, afcSumIm, afcSumAbs;
-    private int afcContor, afcDominant;
+    private int afcContor, afcDominant, afcDominantDecodor;
+    private bool afcFereastraAnterioaraValida;
     private int afcFereastra;
     private int afcIntarziere;
     private double freqErrorFiltrat;
@@ -528,7 +529,7 @@ public sealed class RttyDemodulator
                     ? DecizieAtc(markFiltrat, spaceFiltrat)
                     : markFiltrat - spaceFiltrat;
 
-            if (modUrmarireFrecventa > 0) ActualizeazaAfc(sample);
+            if (modUrmarireFrecventa > 0) ActualizeazaAfc(sample, markFiltrat, spaceFiltrat);
 
             double magTotala = magMark + magSpace;
 
@@ -576,13 +577,17 @@ public sealed class RttyDemodulator
                         if (bitCurent == 0 && (esantionAbs == mijlocStart
                                                || contorConfirmareStart >= samplesPerBit * 0.3))
                         {
-                            double start = startPrezis;
-                            if (contorConfirmareStart >= samplesPerBit * 0.3)
-                            {
-                                double abatere = (esantionAbs - contorConfirmareStart) - startPrezis;
-                                double limita = 0.25 * samplesPerBit;
-                                start += VolantCorectie * Math.Max(-limita, Math.Min(limita, abatere));
-                            }
+                            // CORECTIE (Eugen, YO9VA): frontul real (esantionAbs - contorConfirmareStart) e
+                            // cunoscut si cand space-ul a inceput chiar inainte de mijlocStart (contor < 0.3
+                            // biti) - inainte, pe acea ramura cadrul pornea pe startul prezis, necorectat. Acolo
+                            // frontul e mereu intarziat (mediana +0.3 biti), deci biti cititi prea devreme si
+                            // grila decalata si pentru caracterul urmator. Apare in 1-12% din cadre la
+                            // Chebyshev si 8-20% la MF (trecerea MF prin zero e o rampa pe un bit, mai
+                            // imprastiata). Acum se corecteaza mereu, cu aceeasi regula (castig 0.5, plafon
+                            // +-0.25 biti). W6IWI 14089 kHz: Chebyshev 144 -> 38 erori, MF 83 -> 35.
+                            double abatere = (esantionAbs - contorConfirmareStart) - startPrezis;
+                            double limita = 0.25 * samplesPerBit;
+                            double start = startPrezis + VolantCorectie * Math.Max(-limita, Math.Min(limita, abatere));
                             IncepeCadru(start);
                         }
                         else if (esantionAbs >= sfarsitStart)
@@ -649,7 +654,8 @@ public sealed class RttyDemodulator
         afcMark.Reseteaza();
         afcSpace.Reseteaza();
         afcSumRe = afcSumIm = afcSumAbs = 0;
-        afcContor = afcDominant = 0;
+        afcContor = afcDominant = afcDominantDecodor = 0;
+        afcFereastraAnterioaraValida = false;
         freqErrorFiltrat = 0;
     }
 
@@ -662,7 +668,7 @@ public sealed class RttyDemodulator
     /// dintre transmisii nu muta acordul. Castigurile (AFC 5%, PLL 25% pe fereastra de ~44 ms)
     /// si limitele raman cele din aplicatia Android.
     /// </summary>
-    private void ActualizeazaAfc(double sample)
+    private void ActualizeazaAfc(double sample, double markFiltrat, double spaceFiltrat)
     {
         afcMark.Proceseaza(sample);
         afcSpace.Proceseaza(sample);
@@ -682,18 +688,33 @@ public sealed class RttyDemodulator
             afcSpace.Acumuleaza(ref afcSumRe, ref afcSumIm, ref afcSumAbs);
             afcDominant++;
         }
+        // CORECTIE (Eugen, YO9VA): filtrele AFC (50 Hz, cativa ms) sunt prea rapide ca sa deosebeasca
+        // singure semnalul de zgomot - pe zgomot un ton pare des "dominant", iar AFC-ul muta acordul
+        // (3 min de zgomot, Chebyshev + PLL: 2125 -> 2072 Hz; QRN W6IWI: 2048 -> 2036 Hz). Ca fereastra
+        // sa conteze trebuie sa fie semnal si dupa anvelopele decodorului (integrate pe bit): cu ele pe
+        // zgomot acordul nu se misca, iar masuratoarea ramane pe filtrele rapide.
+        if (markFiltrat > AfcDominanta * spaceFiltrat || spaceFiltrat > AfcDominanta * markFiltrat)
+            afcDominantDecodor++;
 
         if (++afcContor < afcFereastra) return;
         afcContor = 0;
-        bool semnal = afcDominant >= AfcFractieDominantaMin * afcFereastra;
-        afcDominant = 0;
+        bool semnal = afcDominant >= AfcFractieDominantaMin * afcFereastra
+                      && afcDominantDecodor >= AfcFractieDominantaMin * afcFereastra;
+        afcDominant = afcDominantDecodor = 0;
         double sumAbs = afcSumAbs;
         double coerenta = sumAbs > 0 ? Math.Sqrt(afcSumRe * afcSumRe + afcSumIm * afcSumIm) / sumAbs : 0;
         double eroareHz = Math.Atan2(afcSumIm, afcSumRe) * sampleRate / (2 * Math.PI * afcIntarziere);
         afcSumRe = afcSumIm = afcSumAbs = 0;
         afcMark.Renormalizeaza();
         afcSpace.Renormalizeaza();
-        if (!semnal || sumAbs <= 0 || coerenta < AfcCoerentaMin || Math.Abs(eroareHz) > AfcPragOutlierHz) return;
+        bool valida = semnal && sumAbs > 0 && coerenta >= AfcCoerentaMin && Math.Abs(eroareHz) <= AfcPragOutlierHz;
+        // CORECTIE (Eugen, YO9VA): corectia se aplica doar daca si fereastra anterioara a fost valida.
+        // Pe zgomot trec izolat ~0.6% din ferestre (niciodata doua la rand in 2 x 3 min), destul ca
+        // MF + PLL sa derive cu ~8 Hz in 3 minute; pe semnal ferestrele valide vin in serii (W6IWI
+        // 14086 kHz: 98.7% -> 98.0% aplicate).
+        bool aplica = valida && afcFereastraAnterioaraValida;
+        afcFereastraAnterioaraValida = valida;
+        if (!aplica) return;
 
         freqErrorFiltrat = freqErrorFiltrat * (1.0 - AfcEmaAlpha) + eroareHz * AfcEmaAlpha;
         double limitat = Math.Max(-AfcMaxCorectieHz, Math.Min(AfcMaxCorectieHz, freqErrorFiltrat));

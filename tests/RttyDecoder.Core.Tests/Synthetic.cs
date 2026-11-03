@@ -164,6 +164,28 @@ public static class Synthetic
         return pcm;
     }
 
+    /// <summary>Zgomot gaussian limitat la ~300-3000 Hz (aceleasi filtre ca Generate), RMS 0.1, la 48 kHz.</summary>
+    public static short[] Noise(double secunde, long seed)
+    {
+        int n = (int)(secunde * Fs);
+        var rnd = new JavaRandom(seed);
+        var hp1 = Biquad.Highpass(300, Fs);
+        var hp2 = Biquad.Highpass(300, Fs);
+        var lp1 = Biquad.Lowpass(3000, Fs);
+        var lp2 = Biquad.Lowpass(3000, Fs);
+        var z = new double[n];
+        double p = 0;
+        for (int i = 0; i < n; i++)
+        {
+            z[i] = lp2.Process(lp1.Process(hp2.Process(hp1.Process(rnd.NextGaussian()))));
+            p += z[i] * z[i];
+        }
+        double scala = 0.1 / Math.Sqrt(p / n);
+        var pcm = new short[n];
+        for (int i = 0; i < n; i++) pcm[i] = (short)Math.Clamp(Math.Round(z[i] * scala * 32767), -32768, 32767);
+        return pcm;
+    }
+
     private static double[] RayleighGain(int n, int fs, double fadingHz, long seed, Action<double[]>? faze = null)
     {
         var reA = new List<double>();

@@ -1,5 +1,5 @@
 diff --git a/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java
-index f7d0912..ce6fd25 100644
+index f7d0912..90941af 100644
 --- a/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java
 +++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java
 @@ -122,7 +122,6 @@ public class RttyDemodulator {
@@ -66,7 +66,7 @@ index f7d0912..ce6fd25 100644
  
      // ISTORIC: am experimentat cu esantionarea aproape de finalul bitului pentru
      // Matched Filter (teoria: fereastra corelatorului, care are exact lungimea unui
-@@ -203,31 +233,31 @@ public class RttyDemodulator {
+@@ -203,31 +233,32 @@ public class RttyDemodulator {
  
      private double dnrX1, dnrX2, dnrY1, dnrY2; // stare filtru bandpass DNR
  
@@ -99,7 +99,8 @@ index f7d0912..ce6fd25 100644
 +    private final AfcTon afcMark = new AfcTon();
 +    private final AfcTon afcSpace = new AfcTon();
 +    private double afcSumRe, afcSumIm, afcSumAbs;
-+    private int afcContor, afcDominant;
++    private int afcContor, afcDominant, afcDominantDecodor;
++    private boolean afcFereastraAnterioaraValida;
 +    private int afcFereastra;
 +    private int afcIntarziere;
      private double freqErrorFiltrat;
@@ -120,7 +121,7 @@ index f7d0912..ce6fd25 100644
  
      // CIZELARE: cand SNR Gating ingheata decizia (energie insuficienta), nu mai
      // pastram pur si simplu semnul vechi al integratorului - daca fade-ul incepe
-@@ -262,6 +292,12 @@ public class RttyDemodulator {
+@@ -262,6 +293,12 @@ public class RttyDemodulator {
      void initMatchedFilterTemplates(int sampleRate, double baud) {
          mfSamplesPerBit = (int) Math.round(sampleRate / baud);
          mfBuffer = new double[mfSamplesPerBit];
@@ -133,7 +134,7 @@ index f7d0912..ce6fd25 100644
          mfBufferPos = 0;
          mfMarkAccRe = mfMarkAccIm = 0;
          mfSpaceAccRe = mfSpaceAccIm = 0;
-@@ -300,10 +336,43 @@ public class RttyDemodulator {
+@@ -300,10 +337,43 @@ public class RttyDemodulator {
          // PsiN = e^{+j*w*N}  (corectia legata de esantionul care iese din fereastra)
          double wMarkN = wMark * mfSamplesPerBit;
          double wSpaceN = wSpace * mfSamplesPerBit;
@@ -177,7 +178,7 @@ index f7d0912..ce6fd25 100644
      }
  
      /** Calculeaza coeficientii pentru filtrul bandpass biquad DNR (RBJ cookbook). */
-@@ -329,9 +398,8 @@ public class RttyDemodulator {
+@@ -329,9 +399,8 @@ public class RttyDemodulator {
      }
  
      private void recalculeazaCoeficientiFrecventa() {
@@ -189,7 +190,7 @@ index f7d0912..ce6fd25 100644
  
          calculeazaCoeficientiDnr(sampleRateFiltre);
  
-@@ -355,21 +423,24 @@ public class RttyDemodulator {
+@@ -355,21 +424,24 @@ public class RttyDemodulator {
          nivelZgomotMediu = 0.05;
          inFrame = false;
          fazaCeasAcumulator = 0;
@@ -220,17 +221,15 @@ index f7d0912..ce6fd25 100644
  
          noiseFloor = 1e-9;
          if (lpfDecizieHz > 0) {
-@@ -396,8 +467,7 @@ public class RttyDemodulator {
+@@ -396,7 +468,6 @@ public class RttyDemodulator {
              integratVech = 0;
              inFrame = false;
              fazaCeasAcumulator = 0;
 -            fazaVectRe = 1.0; fazaVectIm = 0.0;
--            bitCounter = 0;
-+                bitCounter = 0;
+             bitCounter = 0;
              currentByte = 0;
              contorConfirmareStart = 0;
-             contorEroriFramingConsecutive = 0;
-@@ -410,6 +480,7 @@ public class RttyDemodulator {
+@@ -410,6 +481,7 @@ public class RttyDemodulator {
              dnrX1 = 0; dnrX2 = 0; dnrY1 = 0; dnrY2 = 0;
              lpfMark.reseteaza();
              lpfSpace.reseteaza();
@@ -238,7 +237,7 @@ index f7d0912..ce6fd25 100644
              reseteazaAtc();
              deblocheazaVolant();
              if (folosesteMatchedFilter && mfBuffer != null) {
-@@ -417,7 +488,14 @@ public class RttyDemodulator {
+@@ -417,7 +489,14 @@ public class RttyDemodulator {
                  mfBufferPos = 0;
                  mfMarkAccRe = mfMarkAccIm = 0;
                  mfSpaceAccRe = mfSpaceAccIm = 0;
@@ -253,7 +252,7 @@ index f7d0912..ce6fd25 100644
              solicitaResetFiltre = false;
          }
  
-@@ -483,6 +561,22 @@ public class RttyDemodulator {
+@@ -483,6 +562,22 @@ public class RttyDemodulator {
                  double scalareMF = 2.0 / mfSamplesPerBit;
                  magMark = Math.sqrt(mfMarkAccRe * mfMarkAccRe + mfMarkAccIm * mfMarkAccIm) * scalareMF;
                  magSpace = Math.sqrt(mfSpaceAccRe * mfSpaceAccRe + mfSpaceAccIm * mfSpaceAccIm) * scalareMF;
@@ -276,7 +275,7 @@ index f7d0912..ce6fd25 100644
                  diferentaBruta = magMark - magSpace;
              } else {
                  double m0 = sample - rCheb * rCheb * mx2 + qMarkA * rCheb * mx1;
-@@ -499,69 +593,14 @@ public class RttyDemodulator {
+@@ -499,69 +594,14 @@ public class RttyDemodulator {
              // identic cu filtrarea diferentei), ca ATC sa primeasca anvelopele netezite.
              double markFiltrat = lpfDecizieHz > 0 ? lpfMark.proceseaza(magMark) : magMark;
              double spaceFiltrat = lpfDecizieHz > 0 ? lpfSpace.proceseaza(magSpace) : magSpace;
@@ -347,11 +346,36 @@ index f7d0912..ce6fd25 100644
 -                    fazaVectIm /= normAfc;
 -                }
 -            }
-+            if (modUrmarireFrecventa > 0) actualizeazaAfc(sample);
++            if (modUrmarireFrecventa > 0) actualizeazaAfc(sample, markFiltrat, spaceFiltrat);
  
              double magTotala = magMark + magSpace;
  
-@@ -642,7 +681,7 @@ public class RttyDemodulator {
+@@ -618,12 +658,18 @@ public class RttyDemodulator {
+                     if (esantionAbs >= mijlocStart && (bitCurent == 0 || esantionAbs >= sfarsitStart)) {
+                         if (bitCurent == 0 && (esantionAbs == mijlocStart
+                                 || contorConfirmareStart >= samplesPerBit * 0.3)) {
+-                            double start = startPrezis;
+-                            if (contorConfirmareStart >= samplesPerBit * 0.3) {
+-                                double abatere = (esantionAbs - contorConfirmareStart) - startPrezis;
+-                                double limita = 0.25 * samplesPerBit;
+-                                start += VOLANT_CORECTIE * Math.max(-limita, Math.min(limita, abatere));
+-                            }
++                            // CORECTIE: frontul real (esantionAbs - contorConfirmareStart) e cunoscut si
++                            // cand space-ul a inceput chiar inainte de mijlocStart (contor < 0.3 biti) -
++                            // inainte, pe acea ramura cadrul pornea pe startul prezis, necorectat. Acolo
++                            // frontul e mereu intarziat (mediana +0.3 biti), deci biti cititi prea devreme
++                            // si grila decalata si pentru caracterul urmator. Apare in 1-12% din cadre la
++                            // Chebyshev si 8-20% la MF (trecerea MF prin zero e o rampa pe un bit, mai
++                            // imprastiata). Acum se corecteaza mereu, cu aceeasi regula (castig 0.5,
++                            // plafon +-0.25 biti). W6IWI 14089 kHz: Chebyshev 144 -> 38 erori, MF 83 -> 35.
++                            double abatere = (esantionAbs - contorConfirmareStart) - startPrezis;
++                            double limita = 0.25 * samplesPerBit;
++                            double start = startPrezis
++                                    + VOLANT_CORECTIE * Math.max(-limita, Math.min(limita, abatere));
+                             incepeCadru(start);
+                         } else if (esantionAbs >= sfarsitStart) {
+                             // Mark pe tot inceputul bitului de start prezis: de regula emitatorul
+@@ -642,7 +688,7 @@ public class RttyDemodulator {
                              fantomaActiva = true;
                          }
                      }
@@ -360,7 +384,7 @@ index f7d0912..ce6fd25 100644
                      // CORECTIE: faza nu porneste de la 0, ci de la cate esantioane au trecut
                      // deja de la INCEPUTUL real al starii "space" (cat am asteptat sa
                      // confirmam) - altfel am introduce o intarziere sistematica la fiecare bit.
-@@ -656,6 +695,7 @@ public class RttyDemodulator {
+@@ -656,6 +702,7 @@ public class RttyDemodulator {
  
                  if (fazaCeasAcumulator >= punctEstantionareTinta) {
                      fazaCeasAcumulator -= punctEstantionareTinta;
@@ -368,7 +392,7 @@ index f7d0912..ce6fd25 100644
                      if (bitCounter < 5) {
                          if (bitCurent == 1) currentByte |= (1 << bitCounter);
                          bitCounter++;
-@@ -681,6 +721,193 @@ public class RttyDemodulator {
+@@ -681,6 +728,210 @@ public class RttyDemodulator {
          }
      }
  
@@ -376,7 +400,8 @@ index f7d0912..ce6fd25 100644
 +        afcMark.reseteaza();
 +        afcSpace.reseteaza();
 +        afcSumRe = afcSumIm = afcSumAbs = 0;
-+        afcContor = afcDominant = 0;
++        afcContor = afcDominant = afcDominantDecodor = 0;
++        afcFereastraAnterioaraValida = false;
 +        freqErrorFiltrat = 0;
 +    }
 +
@@ -388,7 +413,7 @@ index f7d0912..ce6fd25 100644
 +     * (coerenta ~1), zgomotul le imprastie (~0) - sub prag corectia nu se aplica, deci pauzele
 +     * dintre transmisii nu muta acordul. Castigurile (AFC 5%, PLL 25%) si limitele sunt cele vechi.
 +     */
-+    private void actualizeazaAfc(double sample) {
++    private void actualizeazaAfc(double sample, double markFiltrat, double spaceFiltrat) {
 +        afcMark.proceseaza(sample);
 +        afcSpace.proceseaza(sample);
 +        // Dominanta se judeca pe filtrele proprii AFC (raspund in cateva ms), nu pe anvelopele
@@ -404,18 +429,34 @@ index f7d0912..ce6fd25 100644
 +            acumuleaza(afcSpace);
 +            afcDominant++;
 +        }
++        // CORECTIE: filtrele AFC (50 Hz, cativa ms) sunt prea rapide ca sa deosebeasca singure
++        // semnalul de zgomot - pe zgomot un ton pare des "dominant", iar AFC-ul muta acordul
++        // (3 min de zgomot, Chebyshev + PLL: 2125 -> 2072 Hz; QRN W6IWI: 2048 -> 2036 Hz). Ca
++        // ferestra sa conteze trebuie sa fie semnal si dupa anvelopele decodorului (integrate pe
++        // bit): cu ele pe zgomot acordul nu se misca, iar masuratoarea ramane pe filtrele rapide.
++        if (markFiltrat > AFC_DOMINANTA * spaceFiltrat || spaceFiltrat > AFC_DOMINANTA * markFiltrat) {
++            afcDominantDecodor++;
++        }
 +
 +        if (++afcContor < afcFereastra) return;
 +        afcContor = 0;
-+        boolean semnal = afcDominant >= AFC_FRACTIE_DOMINANTA_MIN * afcFereastra;
-+        afcDominant = 0;
++        boolean semnal = afcDominant >= AFC_FRACTIE_DOMINANTA_MIN * afcFereastra
++                && afcDominantDecodor >= AFC_FRACTIE_DOMINANTA_MIN * afcFereastra;
++        afcDominant = afcDominantDecodor = 0;
 +        double sumAbs = afcSumAbs;
 +        double coerenta = sumAbs > 0 ? Math.sqrt(afcSumRe * afcSumRe + afcSumIm * afcSumIm) / sumAbs : 0;
 +        double eroareHz = Math.atan2(afcSumIm, afcSumRe) * sampleRate / (2 * Math.PI * afcIntarziere);
 +        afcSumRe = afcSumIm = afcSumAbs = 0;
 +        afcMark.renormalizeaza();
 +        afcSpace.renormalizeaza();
-+        if (!semnal || sumAbs <= 0 || coerenta < AFC_COERENTA_MIN || Math.abs(eroareHz) > AFC_PRAG_OUTLIER_HZ) return;
++        boolean valida = semnal && sumAbs > 0 && coerenta >= AFC_COERENTA_MIN && Math.abs(eroareHz) <= AFC_PRAG_OUTLIER_HZ;
++        // Corectia se aplica doar daca si fereastra anterioara a fost valida. Pe zgomot trec
++        // izolat ~0.6% din ferestre (niciodata doua la rand in 2 x 3 min), destul ca MF + PLL sa
++        // derive cu ~8 Hz in 3 minute; pe semnal ferestrele valide vin in serii (W6IWI 14086 kHz:
++        // 98.7% -> 98.0% aplicate).
++        boolean aplica = valida && afcFereastraAnterioaraValida;
++        afcFereastraAnterioaraValida = valida;
++        if (!aplica) return;
 +
 +        freqErrorFiltrat = freqErrorFiltrat * (1.0 - AFC_EMA_ALPHA) + eroareHz * AFC_EMA_ALPHA;
 +        double limitat = Math.max(-AFC_MAX_CORECTIE_HZ, Math.min(AFC_MAX_CORECTIE_HZ, freqErrorFiltrat));

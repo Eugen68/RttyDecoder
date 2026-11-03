@@ -75,13 +75,23 @@ public class AfcTests
         Assert.True(cu <= fara + 0.01, $"PLL {cu} fata de fara {fara}");
     }
 
-    [Fact]
-    public void ZgomotulNuMutaAcordul()
+    /// <summary>
+    /// 3 minute de zgomot pur (gasit de Eugen, YO9VA): ferestrele AFC izolate care treceau de verificari
+    /// mutau acordul - Chebyshev + PLL pana la 2072 Hz, MF + PLL -8 Hz. Acum o fereastra trebuie sa fie
+    /// semnal si pe anvelopele decodorului, iar corectia se aplica doar dupa doua ferestre valide la rand.
+    /// </summary>
+    [Theory]
+    [InlineData(false, RttyTracking.Pll, 1L)]
+    [InlineData(true, RttyTracking.Pll, 1L)]
+    [InlineData(true, RttyTracking.Pll, 2L)]
+    [InlineData(true, RttyTracking.Afc, 3L)]
+    public void ZgomotulNuMutaAcordul(bool mf, RttyTracking mod, long seed)
     {
-        var pcm = Generate("", new Options { SnrDb = -20, Seed = 4 }); // practic doar zgomot (~1.6 s)
-        var lung = new short[pcm.Length * 30];
-        for (int k = 0; k < 30; k++) Array.Copy(Generate("", new Options { SnrDb = -20, Seed = 10 + k }), 0, lung, k * pcm.Length, pcm.Length);
-        var (_, mark) = Run(lung, s => s.Tracking = RttyTracking.Pll);
-        Assert.InRange(mark, MarkHz - 3, MarkHz + 3);
+        var (_, mark) = Run(Noise(180, seed), s =>
+        {
+            s.Tracking = mod;
+            s.Decoder = mf ? RttyDecoderType.MatchedFilter : RttyDecoderType.Chebyshev;
+        });
+        Assert.InRange(mark, MarkHz - 1, MarkHz + 1);
     }
 }
