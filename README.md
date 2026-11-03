@@ -131,6 +131,12 @@ Pe inregistrarile reale MF pierdea litere. Doua cauze, gasite cu ajutorul inregi
   partial. MF masoara coerenta semnalului si, daca e mica, trece singur pe doua jumatati de bit
   adunate necoerent; pe semnal stabil ramane pe suma coerenta.
 
+Corelatorul glisant isi recalculeaza sumele din buffer la fiecare schimbare de frecventa (gasit de
+Eugen, YO9VA): recursia lui e corecta doar la frecventa fixa, iar cu AFC-ul care corecteaza la ~2 biti
+eroarea se aduna (MF + PLL pe 14086 kHz: 1548 -> 110 erori). Tot de aici: AFC-ul judeca dominanta
+tonurilor pe filtrele lui proprii, nu pe anvelopele MF (care intarzie ~1/2 bit si deplasau acordul cu
++9..+10 Hz).
+
 Limita: la flutter rapid (fading complex de 5-10 Hz) MF ramane slab (~25% CER, fata de ~1% la
 Chebyshev) - integreaza un bit intreg, iar canalul se schimba mai repede. Acolo: Chebyshev sau DeepRTTY.
 Teste: `MatchedFilterTests`.

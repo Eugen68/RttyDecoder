@@ -231,6 +231,40 @@ public sealed class RttyDemodulator
         }
     }
 
+    /// <summary>
+    /// Suma exacta a corelatorului glisant din buffer: S = suma b_i e^{j w i}, b_0 = esantionul cel
+    /// mai vechi - forma inchisa a recursiei S(n+1) = e^{-jw} (S(n) - x_iesit + x_nou e^{jwN}).
+    /// </summary>
+    private static (double Re, double Im) SumaExacta(double[] buf, int pozCelMaiVechi, double w)
+    {
+        double re = 0, im = 0, pasRe = Math.Cos(w), pasIm = Math.Sin(w), fRe = 1, fIm = 0;
+        int n = buf.Length, idx = pozCelMaiVechi;
+        for (int i = 0; i < n; i++)
+        {
+            double x = buf[idx];
+            re += x * fRe;
+            im += x * fIm;
+            double t = fRe * pasRe - fIm * pasIm;
+            fIm = fRe * pasIm + fIm * pasRe;
+            fRe = t;
+            if (++idx == n) idx = 0;
+        }
+        return (re, im);
+    }
+
+    /// <summary>Depanare/teste: abaterea relativa a sumelor recursive MF fata de cele exacte.</summary>
+    internal double EroareCorelatorMf()
+    {
+        if (mfBuffer == null) return 0;
+        double jum = Math.Max(jumMark.Eroare(), jumSpace.Eroare());
+        var m = SumaExacta(mfBuffer, mfBufferPos, -Math.Atan2(mfMarkRotIm, mfMarkRotRe));
+        var sp = SumaExacta(mfBuffer, mfBufferPos, -Math.Atan2(mfSpaceRotIm, mfSpaceRotRe));
+        double dif = Math.Sqrt(Math.Pow(m.Re - mfMarkAccRe, 2) + Math.Pow(m.Im - mfMarkAccIm, 2))
+                     + Math.Sqrt(Math.Pow(sp.Re - mfSpaceAccRe, 2) + Math.Pow(sp.Im - mfSpaceAccIm, 2));
+        double niv = Math.Sqrt(m.Re * m.Re + m.Im * m.Im) + Math.Sqrt(sp.Re * sp.Re + sp.Im * sp.Im);
+        return Math.Max(dif / Math.Max(niv, 1e-12), jum);
+    }
+
     private void SetareaConstantelorMf(double fMark, double fSpace, double sr)
     {
         double wMark = 2.0 * Math.PI * fMark / sr;
@@ -249,6 +283,18 @@ public sealed class RttyDemodulator
         mfMarkPowNIm = Math.Sin(wMarkN);
         mfSpacePowNRe = Math.Cos(wSpaceN);
         mfSpacePowNIm = Math.Sin(wSpaceN);
+
+        // CORECTIE (gasita de Eugen, YO9VA): recursia S(n+1) = e^{-jw} (S(n) - x_iesit + x_nou e^{jwN})
+        // e corecta doar cat w ramane acelasi. La o schimbare de frecventa esantioanele din fereastra au
+        // intrat cu vechea referinta de faza si ar fi scazute cu cea noua - eroarea ramanea in suma
+        // pentru totdeauna (recursia nu uita nimic). Cu AFC-ul care corecteaza la ~2 biti, se aduna:
+        // 7-28% din nivelul semnalului. Sumele se recalculeaza exact din buffer (~2 x 1056 inmultiri
+        // la ~2 biti, neglijabil).
+        if (mfBuffer != null)
+        {
+            (mfMarkAccRe, mfMarkAccIm) = SumaExacta(mfBuffer, mfBufferPos, wMark);
+            (mfSpaceAccRe, mfSpaceAccIm) = SumaExacta(mfBuffer, mfBufferPos, wSpace);
+        }
     }
 
     /// <summary>Coeficientii bandpass-ului DNR (RBJ cookbook).</summary>
@@ -482,7 +528,7 @@ public sealed class RttyDemodulator
                     ? DecizieAtc(markFiltrat, spaceFiltrat)
                     : markFiltrat - spaceFiltrat;
 
-            if (modUrmarireFrecventa > 0) ActualizeazaAfc(sample, markFiltrat, spaceFiltrat);
+            if (modUrmarireFrecventa > 0) ActualizeazaAfc(sample);
 
             double magTotala = magMark + magSpace;
 
@@ -616,16 +662,22 @@ public sealed class RttyDemodulator
     /// dintre transmisii nu muta acordul. Castigurile (AFC 5%, PLL 25% pe fereastra de ~44 ms)
     /// si limitele raman cele din aplicatia Android.
     /// </summary>
-    private void ActualizeazaAfc(double sample, double markFiltrat, double spaceFiltrat)
+    private void ActualizeazaAfc(double sample)
     {
         afcMark.Proceseaza(sample);
         afcSpace.Proceseaza(sample);
-        if (markFiltrat > AfcDominanta * spaceFiltrat)
+        // Dominanta se judeca pe filtrele proprii AFC (raspund in cateva ms), nu pe anvelopele
+        // decodorului: cele MF intarzie ~1/2 bit, iar dupa fiecare tranzitie AFC-ul masura inca pe
+        // tonul disparut (coada filtrului + scurgerea celuilalt ton) - cu Mark mai slab decat Space,
+        // acordul aluneca in sus (MF + PLL: +9..+10 Hz pe inregistrarile W6IWI).
+        double pm = afcMark.Putere, ps = afcSpace.Putere;
+        double d2 = AfcDominanta * AfcDominanta;
+        if (pm > d2 * ps)
         {
             afcMark.Acumuleaza(ref afcSumRe, ref afcSumIm, ref afcSumAbs);
             afcDominant++;
         }
-        else if (spaceFiltrat > AfcDominanta * markFiltrat)
+        else if (ps > d2 * pm)
         {
             afcSpace.Acumuleaza(ref afcSumRe, ref afcSumIm, ref afcSumAbs);
             afcDominant++;
@@ -663,6 +715,9 @@ public sealed class RttyDemodulator
         private double[] intRe = new double[1], intIm = new double[1];
         private int poz;
         private double zRe, zIm, pRe, pIm;
+
+        /// <summary>|z|^2 - puterea tonului in banda de baza acum.</summary>
+        public double Putere => zRe * zRe + zIm * zIm;
 
         public void Configureaza(double lpfHz, double fs, int intarziere)
         {
@@ -766,6 +821,14 @@ public sealed class RttyDemodulator
             rotIm = Math.Sin(-w);
             powRe = Math.Cos(w * buf.Length);
             powIm = Math.Sin(w * buf.Length);
+            (accRe, accIm) = SumaExacta(buf, poz, w); // vezi SetareaConstantelorMf
+        }
+
+        /// <summary>Depanare/teste: abaterea relativa a sumei recursive fata de cea exacta.</summary>
+        public double Eroare()
+        {
+            var (re, im) = SumaExacta(buf, poz, w);
+            return Math.Sqrt(Math.Pow(re - accRe, 2) + Math.Pow(im - accIm, 2)) / Math.Max(Math.Sqrt(re * re + im * im), 1e-12);
         }
 
         public void Reseteaza()

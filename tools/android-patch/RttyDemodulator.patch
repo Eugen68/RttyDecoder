@@ -1,6 +1,8 @@
---- a/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java	2026-11-03 08:27:45.013614367 +0000
-+++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java	2026-11-03 09:35:57.310511035 +0000
-@@ -122,7 +122,6 @@
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java
+index f7d0912..ce6fd25 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java
++++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java
+@@ -122,7 +122,6 @@ public class RttyDemodulator {
  
      // ---- Coeficienti derivati din frecventa ----
      private double qMarkA, qSpaceA;
@@ -8,7 +10,7 @@
  
      // Matched Filter & SNR
      // OPTIMIZARE: nu mai pastram sabloanele sin/cos pe toata fereastra (O(N) per esantion),
-@@ -143,6 +142,38 @@
+@@ -143,6 +142,38 @@ public class RttyDemodulator {
      private double mfSpaceAccRe, mfSpaceAccIm;
      private double noiseFloor = 1e-9;
  
@@ -47,7 +49,7 @@
      // ---- Stare de decodare (pornita de porneste()) ----
      private int sampleRate = 48000;
      private double samplesPerBit;
-@@ -153,7 +184,6 @@
+@@ -153,7 +184,6 @@ public class RttyDemodulator {
      private double nivelZgomotMediu;
      private boolean inFrame;
      private double fazaCeasAcumulator;
@@ -55,7 +57,7 @@
      private int bitCounter;
      private int currentByte;
  
-@@ -167,7 +197,7 @@
+@@ -167,7 +197,7 @@ public class RttyDemodulator {
      private int contorConfirmareStart;
      // Prag confirmat de utilizator pe semnal real cu QRN/QRM (0.7 a mers mai bine
      // decat 0.6 la respingerea puseurilor scurte de zgomot).
@@ -64,7 +66,7 @@
  
      // ISTORIC: am experimentat cu esantionarea aproape de finalul bitului pentru
      // Matched Filter (teoria: fereastra corelatorului, care are exact lungimea unui
-@@ -203,31 +233,31 @@
+@@ -203,31 +233,31 @@ public class RttyDemodulator {
  
      private double dnrX1, dnrX2, dnrY1, dnrY2; // stare filtru bandpass DNR
  
@@ -118,7 +120,7 @@
  
      // CIZELARE: cand SNR Gating ingheata decizia (energie insuficienta), nu mai
      // pastram pur si simplu semnul vechi al integratorului - daca fade-ul incepe
-@@ -262,6 +292,12 @@
+@@ -262,6 +292,12 @@ public class RttyDemodulator {
      void initMatchedFilterTemplates(int sampleRate, double baud) {
          mfSamplesPerBit = (int) Math.round(sampleRate / baud);
          mfBuffer = new double[mfSamplesPerBit];
@@ -131,7 +133,7 @@
          mfBufferPos = 0;
          mfMarkAccRe = mfMarkAccIm = 0;
          mfSpaceAccRe = mfSpaceAccIm = 0;
-@@ -300,6 +336,8 @@
+@@ -300,10 +336,43 @@ public class RttyDemodulator {
          // PsiN = e^{+j*w*N}  (corectia legata de esantionul care iese din fereastra)
          double wMarkN = wMark * mfSamplesPerBit;
          double wSpaceN = wSpace * mfSamplesPerBit;
@@ -140,7 +142,42 @@
          mfMarkPowNRe = Math.cos(wMarkN);
          mfMarkPowNIm = Math.sin(wMarkN);
          mfSpacePowNRe = Math.cos(wSpaceN);
-@@ -329,9 +367,8 @@
+         mfSpacePowNIm = Math.sin(wSpaceN);
++
++        // CORECTIE: recursia S(n+1) = e^{-jw} (S(n) - x_iesit + x_nou e^{jwN}) e corecta doar cat w
++        // ramane acelasi. La o schimbare de frecventa esantioanele din fereastra au intrat cu vechea
++        // referinta de faza si ar fi scazute cu cea noua - eroarea ramanea in suma pentru totdeauna.
++        // Cu AFC-ul care corecteaza la ~2 biti se aduna (7-28% din nivelul semnalului; MF + PLL pe
++        // W6IWI 14086 kHz: 1548 -> 110 erori). Sumele se recalculeaza exact din buffer.
++        if (mfBuffer != null) {
++            double[] m = sumaExacta(mfBuffer, mfBufferPos, wMark);
++            mfMarkAccRe = m[0]; mfMarkAccIm = m[1];
++            double[] sp = sumaExacta(mfBuffer, mfBufferPos, wSpace);
++            mfSpaceAccRe = sp[0]; mfSpaceAccIm = sp[1];
++        }
++    }
++
++    /**
++     * Suma exacta a corelatorului glisant din buffer: S = suma b_i e^{j w i}, b_0 = esantionul cel
++     * mai vechi - forma inchisa a recursiei S(n+1) = e^{-jw} (S(n) - x_iesit + x_nou e^{jwN}).
++     */
++    private static double[] sumaExacta(double[] buf, int pozCelMaiVechi, double w) {
++        double re = 0, im = 0, pasRe = Math.cos(w), pasIm = Math.sin(w), fRe = 1, fIm = 0;
++        int n = buf.length, idx = pozCelMaiVechi;
++        for (int i = 0; i < n; i++) {
++            double x = buf[idx];
++            re += x * fRe;
++            im += x * fIm;
++            double t = fRe * pasRe - fIm * pasIm;
++            fIm = fRe * pasIm + fIm * pasRe;
++            fRe = t;
++            if (++idx == n) idx = 0;
++        }
++        return new double[]{re, im};
+     }
+ 
+     /** Calculeaza coeficientii pentru filtrul bandpass biquad DNR (RBJ cookbook). */
+@@ -329,9 +398,8 @@ public class RttyDemodulator {
      }
  
      private void recalculeazaCoeficientiFrecventa() {
@@ -152,7 +189,7 @@
  
          calculeazaCoeficientiDnr(sampleRateFiltre);
  
-@@ -355,21 +392,24 @@
+@@ -355,21 +423,24 @@ public class RttyDemodulator {
          nivelZgomotMediu = 0.05;
          inFrame = false;
          fazaCeasAcumulator = 0;
@@ -183,7 +220,7 @@
  
          noiseFloor = 1e-9;
          if (lpfDecizieHz > 0) {
-@@ -396,8 +436,7 @@
+@@ -396,8 +467,7 @@ public class RttyDemodulator {
              integratVech = 0;
              inFrame = false;
              fazaCeasAcumulator = 0;
@@ -193,7 +230,7 @@
              currentByte = 0;
              contorConfirmareStart = 0;
              contorEroriFramingConsecutive = 0;
-@@ -410,6 +449,7 @@
+@@ -410,6 +480,7 @@ public class RttyDemodulator {
              dnrX1 = 0; dnrX2 = 0; dnrY1 = 0; dnrY2 = 0;
              lpfMark.reseteaza();
              lpfSpace.reseteaza();
@@ -201,7 +238,7 @@
              reseteazaAtc();
              deblocheazaVolant();
              if (folosesteMatchedFilter && mfBuffer != null) {
-@@ -417,7 +457,14 @@
+@@ -417,7 +488,14 @@ public class RttyDemodulator {
                  mfBufferPos = 0;
                  mfMarkAccRe = mfMarkAccIm = 0;
                  mfSpaceAccRe = mfSpaceAccIm = 0;
@@ -216,7 +253,7 @@
              solicitaResetFiltre = false;
          }
  
-@@ -483,6 +530,22 @@
+@@ -483,6 +561,22 @@ public class RttyDemodulator {
                  double scalareMF = 2.0 / mfSamplesPerBit;
                  magMark = Math.sqrt(mfMarkAccRe * mfMarkAccRe + mfMarkAccIm * mfMarkAccIm) * scalareMF;
                  magSpace = Math.sqrt(mfSpaceAccRe * mfSpaceAccRe + mfSpaceAccIm * mfSpaceAccIm) * scalareMF;
@@ -239,7 +276,7 @@
                  diferentaBruta = magMark - magSpace;
              } else {
                  double m0 = sample - rCheb * rCheb * mx2 + qMarkA * rCheb * mx1;
-@@ -499,69 +562,14 @@
+@@ -499,69 +593,14 @@ public class RttyDemodulator {
              // identic cu filtrarea diferentei), ca ATC sa primeasca anvelopele netezite.
              double markFiltrat = lpfDecizieHz > 0 ? lpfMark.proceseaza(magMark) : magMark;
              double spaceFiltrat = lpfDecizieHz > 0 ? lpfSpace.proceseaza(magSpace) : magSpace;
@@ -310,11 +347,11 @@
 -                    fazaVectIm /= normAfc;
 -                }
 -            }
-+            if (modUrmarireFrecventa > 0) actualizeazaAfc(sample, markFiltrat, spaceFiltrat);
++            if (modUrmarireFrecventa > 0) actualizeazaAfc(sample);
  
              double magTotala = magMark + magSpace;
  
-@@ -642,7 +650,7 @@
+@@ -642,7 +681,7 @@ public class RttyDemodulator {
                              fantomaActiva = true;
                          }
                      }
@@ -323,7 +360,7 @@
                      // CORECTIE: faza nu porneste de la 0, ci de la cate esantioane au trecut
                      // deja de la INCEPUTUL real al starii "space" (cat am asteptat sa
                      // confirmam) - altfel am introduce o intarziere sistematica la fiecare bit.
-@@ -656,6 +664,7 @@
+@@ -656,6 +695,7 @@ public class RttyDemodulator {
  
                  if (fazaCeasAcumulator >= punctEstantionareTinta) {
                      fazaCeasAcumulator -= punctEstantionareTinta;
@@ -331,7 +368,7 @@
                      if (bitCounter < 5) {
                          if (bitCurent == 1) currentByte |= (1 << bitCounter);
                          bitCounter++;
-@@ -681,6 +690,179 @@
+@@ -681,6 +721,193 @@ public class RttyDemodulator {
          }
      }
  
@@ -351,13 +388,19 @@
 +     * (coerenta ~1), zgomotul le imprastie (~0) - sub prag corectia nu se aplica, deci pauzele
 +     * dintre transmisii nu muta acordul. Castigurile (AFC 5%, PLL 25%) si limitele sunt cele vechi.
 +     */
-+    private void actualizeazaAfc(double sample, double markFiltrat, double spaceFiltrat) {
++    private void actualizeazaAfc(double sample) {
 +        afcMark.proceseaza(sample);
 +        afcSpace.proceseaza(sample);
-+        if (markFiltrat > AFC_DOMINANTA * spaceFiltrat) {
++        // Dominanta se judeca pe filtrele proprii AFC (raspund in cateva ms), nu pe anvelopele
++        // decodorului: cele MF intarzie ~1/2 bit, iar dupa fiecare tranzitie AFC-ul masura inca pe
++        // tonul disparut (coada filtrului + scurgerea celuilalt ton) - cu Mark mai slab decat Space,
++        // acordul aluneca in sus (MF + PLL: +9..+10 Hz pe inregistrarile W6IWI).
++        double pm = afcMark.putere(), ps = afcSpace.putere();
++        double d2 = AFC_DOMINANTA * AFC_DOMINANTA;
++        if (pm > d2 * ps) {
 +            acumuleaza(afcMark);
 +            afcDominant++;
-+        } else if (spaceFiltrat > AFC_DOMINANTA * markFiltrat) {
++        } else if (ps > d2 * pm) {
 +            acumuleaza(afcSpace);
 +            afcDominant++;
 +        }
@@ -400,6 +443,11 @@
 +        private int poz;
 +        private double zRe, zIm;
 +        double pRe, pIm;
++
++        /** |z|^2 - puterea tonului in banda de baza acum. */
++        double putere() {
++            return zRe * zRe + zIm * zIm;
++        }
 +
 +        void configureaza(double lpfHz, double fs, int intarziere) {
 +            i1.configureazaTreceJos(lpfHz, fs); i2.configureazaTreceJos(lpfHz, fs);
@@ -485,6 +533,9 @@
 +            rotIm = Math.sin(-w);
 +            powRe = Math.cos(w * buf.length);
 +            powIm = Math.sin(w * buf.length);
++            double[] s = sumaExacta(buf, poz, w); // vezi setareaConstantelorMF
++            accRe = s[0];
++            accIm = s[1];
 +        }
 +
 +        void reseteaza() {

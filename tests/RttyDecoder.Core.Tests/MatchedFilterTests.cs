@@ -60,4 +60,23 @@ public class MatchedFilterTests
         DecodeClassic(pcm, true, x => d = x);
         Assert.False(d!.mfNecoerent, $"coerenta {d.coerentaMedie:F3}");
     }
+
+    /// <summary>
+    /// Regresie (gasita de Eugen, YO9VA): la fiecare corectie AFC/PLL corelatorul glisant pastra in
+    /// suma o eroare (esantionul care iesea din fereastra era scazut cu alta referinta de faza decat
+    /// cea cu care intrase) care nu mai disparea. Cu AFC-ul care chiar corecteaza, erorile se adunau.
+    /// </summary>
+    [Theory]
+    [InlineData(RttyTracking.Afc, 12.0)]
+    [InlineData(RttyTracking.Pll, 5.0)]
+    [InlineData(RttyTracking.Pll, -20.0)]
+    public void AfcNuStricaCorelatorul(RttyTracking mod, double offset)
+    {
+        string text = Text + Text + Text + Text;
+        var pcm = Generate(text, new Options { SnrDb = 6, Seed = 3, OffsetHz = offset });
+        RttyDecoder.Core.Dsp.RttyDemodulator? d = null;
+        double cer = Cer(text, DecodeClassic(pcm, true, x => { x.modUrmarireFrecventa = (int)mod; d = x; }));
+        Assert.True(d!.EroareCorelatorMf() < 1e-6, $"eroarea sumelor corelatorului: {d.EroareCorelatorMf():E2}");
+        Assert.True(cer < 0.01, $"MF + {mod}, acord gresit cu {offset} Hz: CER {cer}");
+    }
 }
