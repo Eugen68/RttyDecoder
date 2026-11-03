@@ -62,7 +62,11 @@ public sealed class DeepRttyReceiver : IDisposable
         _ruleaza = false;
         _worker?.Join(2000);
         _worker = null;
-        while (_coada.TryTake(out _)) { }
+        // un Flush in asteptare nu mai are cine sa-l proceseze: il eliberam
+        while (_coada.TryTake(out var element))
+        {
+            if (element is ManualResetEventSlim g) g.Set();
+        }
     }
 
     /// <summary>Arunca audio-ul si textul neconfirmat; textul deja confirmat ramane.</summary>
@@ -95,9 +99,15 @@ public sealed class DeepRttyReceiver : IDisposable
     public bool Flush(TimeSpan timeout)
     {
         if (!_ruleaza) return true;
-        var gata = new ManualResetEventSlim();
+        var gata = new ManualResetEventSlim(); // fara Dispose: firul de decodare il poate seta si dupa un timeout
         _coada.Add(gata);
-        return gata.Wait(timeout);
+        // verificam periodic: daca receptorul se opreste intre timp, nu mai asteptam degeaba
+        var limita = DateTime.UtcNow + timeout;
+        while (!gata.Wait(200))
+        {
+            if (!_ruleaza || DateTime.UtcNow > limita) return false;
+        }
+        return true;
     }
 
     private void Bucla()

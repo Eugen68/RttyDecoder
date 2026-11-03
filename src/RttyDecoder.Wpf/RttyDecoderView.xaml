@@ -1,0 +1,143 @@
+<UserControl x:Class="RttyDecoder.Wpf.RttyDecoderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:RttyDecoder.Wpf"
+             mc:Ignorable="d"
+             d:DesignWidth="1000" d:DesignHeight="700"
+             Background="{DynamicResource Rtty.Background}"
+             Foreground="{DynamicResource Rtty.Foreground}"
+             FontFamily="Segoe UI" FontSize="12">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RttyDecoder.Wpf;component/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />   <!-- sursa -->
+            <RowDefinition Height="Auto" />   <!-- stare -->
+            <RowDefinition Height="170" />    <!-- waterfall -->
+            <RowDefinition Height="Auto" />   <!-- comenzi -->
+            <RowDefinition Height="Auto" />   <!-- reglaje -->
+            <RowDefinition Height="*" />      <!-- terminal -->
+            <RowDefinition Height="Auto" />   <!-- mesaj -->
+        </Grid.RowDefinitions>
+
+        <!-- SURSA AUDIO -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" Text="Intrare:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox DockPanel.Dock="Left" Width="300" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                      IsEnabled="{Binding IsRunning, Converter={x:Static local:Converters.Not}}" ToolTip="Placa de sunet / interfata radio / cablu audio virtual" />
+            <Button DockPanel.Dock="Left" Content="&#x21BB;" Width="28" Command="{Binding RefreshDevicesCommand}" ToolTip="Reciteste lista placilor de sunet"
+                    IsEnabled="{Binding IsRunning, Converter={x:Static local:Converters.Not}}" />
+            <TextBlock DockPanel.Dock="Left" Text="Canal:" VerticalAlignment="Center" Margin="12,0,6,0" />
+            <ComboBox DockPanel.Dock="Left" Width="70" ItemsSource="{Binding Channels}" SelectedItem="{Binding Channel}"
+                      IsEnabled="{Binding IsRunning, Converter={x:Static local:Converters.Not}}" ToolTip="Canalul folosit dintr-o sursa stereo" />
+            <Button DockPanel.Dock="Left" Margin="12,0,0,0" Width="90" Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"
+                    Style="{StaticResource Rtty.PrimaryButton}" ToolTip="Porneste / opreste receptia de la placa de sunet" />
+            <Button DockPanel.Dock="Left" Margin="12,0,0,0" Content="Deschide WAV..." Click="OnOpenWav" ToolTip="Decodeaza o inregistrare .wav (orice rata, mono/stereo)" />
+            <CheckBox DockPanel.Dock="Left" Margin="8,0,0,0" VerticalAlignment="Center" Content="Timp real" IsChecked="{Binding RealTime}"
+                      ToolTip="Bifat: fisierul se reda in ritmul real. Debifat: decodare cat de repede se poate." />
+            <ProgressBar DockPanel.Dock="Left" Margin="8,0,0,0" Width="140" Height="10" Minimum="0" Maximum="1" Value="{Binding FileProgress, Mode=OneWay}"
+                         Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}" />
+        </DockPanel>
+
+        <!-- STARE -->
+        <DockPanel Grid.Row="1" Margin="0,0,0,4" LastChildFill="True">
+            <TextBlock DockPanel.Dock="Left" Text="{Binding MarkText}" Foreground="{StaticResource Rtty.Accent}" FontWeight="Bold" />
+            <TextBlock DockPanel.Dock="Left" Text="{Binding SnrText}" Margin="20,0,0,0" Foreground="{StaticResource Rtty.Accent}" FontWeight="Bold" />
+            <TextBlock DockPanel.Dock="Left" Text="{Binding LevelText}" Margin="20,0,6,0" />
+            <ProgressBar DockPanel.Dock="Left" Width="90" Height="8" Minimum="-60" Maximum="0" Value="{Binding InputLevelDb, Mode=OneWay}"
+                         ToolTip="Nivelul de intrare. Ideal intre -30 si -6 dBFS; la 0 dBFS semnalul e taiat." />
+            <TextBlock Text="{Binding SourceName}" HorizontalAlignment="Right" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+
+        <!-- WATERFALL -->
+        <Border Grid.Row="2" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+            <local:WaterfallControl x:Name="Waterfall"
+                                    MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}"
+                                    Reverse="{Binding Reverse, Mode=OneWay}"
+                                    FrequencyCommand="{Binding SetFrequencyCommand}"
+                                    ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz)." ToolTipService.InitialShowDelay="1500" />
+        </Border>
+
+        <!-- COMENZI -->
+        <WrapPanel Grid.Row="3" Margin="0,6,0,0" Orientation="Horizontal">
+            <Button Width="64" Content="{Binding ReverseText}" Command="{Binding ReverseCommand}" ToolTip="NORM / REV (Space sub Mark)" />
+            <Button Width="72" Content="A-TUNE" Command="{Binding AutoTuneCommand}" Style="{StaticResource Rtty.PrimaryButton}" ToolTip="Acord automat pe cel mai puternic semnal RTTY" />
+            <TextBlock Text="Decodor:" VerticalAlignment="Center" Margin="12,0,4,0" />
+            <ComboBox Width="130" ItemsSource="{Binding Decoders}" SelectedItem="{Binding Decoder}"
+                      ToolTip="Chebyshev (implicit), Matched Filter sau DeepRTTY (model neural; text provizoriu cu gri, confirmat dupa ~8-12 s)" />
+            <TextBlock Text="Urmarire:" VerticalAlignment="Center" Margin="12,0,4,0" />
+            <ComboBox Width="64" ItemsSource="{Binding TrackingModes}" SelectedItem="{Binding Tracking}" ToolTip="AFC lent / PLL rapid" />
+            <ToggleButton Margin="12,2,2,2" Content="NB" IsChecked="{Binding NoiseBlanker}" ToolTip="Noise Blanker - impulsuri QRN" />
+            <ToggleButton Content="DNR" IsChecked="{Binding Dnr}" ToolTip="Bandpass centrat intre Mark si Space" />
+            <ToggleButton Content="SNR-G" IsChecked="{Binding SnrGating}" ToolTip="La semnal sub prag, decizia ramane pe Mark (idle)" />
+            <ToggleButton Content="ATC" IsChecked="{Binding Atc}" IsEnabled="{Binding IsChebyshev}" ToolTip="ATC W7AY - pentru fading selectiv (Chebyshev)" />
+            <ToggleButton Content="Volant" IsChecked="{Binding Flywheel}" ToolTip="Sincronizare pe caracter la RTTY continuu" />
+            <ToggleButton Content="US-TTY" IsChecked="{Binding UsTty}" ToolTip="Tabelul FIGS US-TTY (apostrof, ghilimele, $) in loc de ITA2" />
+            <Button Margin="12,2,2,2" Width="64" Content="CLEAR" Command="{Binding ClearCommand}" />
+            <Button Width="80" Content="Salveaza..." Click="OnSaveText" ToolTip="Salveaza textul receptionat intr-un fisier .txt" />
+            <ToggleButton x:Name="AdvancedToggle" Margin="12,2,2,2" Content="Reglaje" ToolTip="Arata pragurile si latimile filtrelor" />
+        </WrapPanel>
+
+        <!-- REGLAJE -->
+        <Grid Grid.Row="4" Margin="0,6,0,0" Visibility="{Binding IsChecked, ElementName=AdvancedToggle, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="70" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="70" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition /><RowDefinition /><RowDefinition />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Sensibilitate" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding SensitivityPercent}" />
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding SensitivityPercent, StringFormat={}{0:0} %}" Style="{StaticResource Rtty.Value}" />
+
+            <TextBlock Grid.Row="0" Grid.Column="4" Text="Latime filtru" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="0" Grid.Column="5" Minimum="54.5" Maximum="114.6" Value="{Binding FilterWidthHz}" IsEnabled="{Binding IsChebyshev}" />
+            <TextBlock Grid.Row="0" Grid.Column="6" Text="{Binding FilterWidthHz, StringFormat=~{0:0} Hz}" Style="{StaticResource Rtty.Value}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Prag NB" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="1" Grid.Column="1" Minimum="2" Maximum="12" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding NoiseBlankerThreshold}" />
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding NoiseBlankerThreshold, StringFormat=x{0:0.0}}" Style="{StaticResource Rtty.Value}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="4" Text="Latime DNR" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="1" Grid.Column="5" Minimum="250" Maximum="1500" TickFrequency="62.5" IsSnapToTickEnabled="True" Value="{Binding DnrWidthHz}" />
+            <TextBlock Grid.Row="1" Grid.Column="6" Text="{Binding DnrWidthHz, StringFormat=~{0:0} Hz}" Style="{StaticResource Rtty.Value}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Prag SNR-G" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding SnrGatingK}" />
+            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding SnrGatingK, StringFormat=x{0:0.0}}" Style="{StaticResource Rtty.Value}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="4" Text="Contrast waterfall" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="2" Grid.Column="5" Minimum="20" Maximum="70" Value="{Binding RangeDb, ElementName=Waterfall}" IsDirectionReversed="True" />
+            <TextBlock Grid.Row="2" Grid.Column="6" Text="{Binding RangeDb, ElementName=Waterfall, StringFormat={}{0:0} dB}" Style="{StaticResource Rtty.Value}" />
+        </Grid>
+
+        <!-- TERMINAL -->
+        <Border Grid.Row="5" Margin="0,6,0,0" Background="Black" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding ProvisionalText}" Foreground="#808080" FontFamily="Consolas" FontSize="15"
+                           Margin="6,0,6,4" TextWrapping="Wrap" ToolTip="DeepRTTY: text provizoriu, inca neconfirmat" />
+                <TextBox x:Name="Terminal" IsReadOnly="True" Background="Black" Foreground="#00FF00" BorderThickness="0"
+                         FontFamily="Consolas" FontSize="15" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         AcceptsReturn="True" Padding="4" />
+            </DockPanel>
+        </Border>
+
+        <TextBlock Grid.Row="6" Margin="0,4,0,0" Text="{Binding Message}" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
+    </Grid>
+</UserControl>

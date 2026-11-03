@@ -14,10 +14,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RttyDecoder.Core\RttyDecoder.Core.csproj" />
+    <ProjectReference Include="..\..\src\RttyDecoder.Audio\RttyDecoder.Audio.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="Golden\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\*.wav" Link="samples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

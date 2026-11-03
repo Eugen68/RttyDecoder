@@ -1,6 +1,9 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RttyDecoder.App/RttyDecoder.App.csproj" />
+    <Project Path="src/RttyDecoder.Audio/RttyDecoder.Audio.csproj" />
     <Project Path="src/RttyDecoder.Core/RttyDecoder.Core.csproj" />
+    <Project Path="src/RttyDecoder.Wpf/RttyDecoder.Wpf.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RttyDecoder.Core.Tests/RttyDecoder.Core.Tests.csproj" />

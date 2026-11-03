@@ -1,0 +1,77 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Teste
+        run: dotnet test tests/RttyDecoder.Core.Tests -c Release --logger "console;verbosity=normal"
+
+      - name: Publicare (win-x64, un singur exe, fara .NET instalat)
+        run: >
+          dotnet publish src/RttyDecoder.App -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+
+      # ONNX Runtime (DeepRTTY) cere runtime-ul Visual C++. Il punem langa exe (deployment "app-local",
+      # permis de licenta VC++ Redistributable), ca DeepRTTY sa mearga si pe PC-uri fara el instalat.
+      - name: Runtime Visual C++ langa exe
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT" -Directory | Sort-Object FullName | Select-Object -Last 1
+          if (-not $crt) { throw "Nu gasesc Microsoft.VC14x.CRT" }
+          Write-Host "CRT: $($crt.FullName)"
+          foreach ($n in 'msvcp140.dll', 'msvcp140_1.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
+            Copy-Item (Join-Path $crt.FullName $n) publish\
+          }
+          Remove-Item publish\*.lib -ErrorAction SilentlyContinue
+          Copy-Item README.md, LICENSE, THIRD-PARTY-NOTICES.md publish\
+          Copy-Item samples\rtty_sample_11025hz.wav publish\
+          Get-ChildItem publish | Format-Table Name, Length
+
+      # Interfata reala, pornita cu un fisier WAV: decodarea trebuie sa iasa corect cap-coada.
+      - name: Test de fum (UI + WAV, Chebyshev si DeepRTTY)
+        shell: pwsh
+        run: |
+          foreach ($dec in 'Chebyshev', 'DeepRtty') {
+            $out = "smoke_$dec.txt"
+            $p = Start-Process publish\RttyDecoder.exe -ArgumentList '--smoke', 'samples\rtty_sample_11025hz.wav', $out, $dec, '1275' -PassThru -Wait
+            Write-Host "=== $dec (exit $($p.ExitCode)) ==="
+            Get-Content $out
+            if ($p.ExitCode -ne 0) { throw "${dec}: cod de iesire $($p.ExitCode)" }
+            $text = Get-Content $out -Raw
+            if ($text -notmatch 'THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG') { throw "${dec}: textul asteptat lipseste" }
+          }
+
+      - name: Arhiva
+        shell: pwsh
+        run: Compress-Archive -Path publish\* -DestinationPath RttyDecoder-win-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RttyDecoder-win-x64
+          path: RttyDecoder-win-x64.zip
+
+      - name: Release (doar pe tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" RttyDecoder-win-x64.zip --title "RTTY Decoder ${{ github.ref_name }}" --generate-notes

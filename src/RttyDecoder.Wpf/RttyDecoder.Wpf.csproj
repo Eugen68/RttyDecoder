@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>RttyDecoder.Wpf</RootNamespace>
+    <Description>Interfata WPF a decodorului RTTY (UserControl de inclus in alte aplicatii): waterfall, terminal, comenzi.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RttyDecoder.Core\RttyDecoder.Core.csproj" />
+    <ProjectReference Include="..\RttyDecoder.Audio\RttyDecoder.Audio.csproj" />
+  </ItemGroup>
+
+</Project>

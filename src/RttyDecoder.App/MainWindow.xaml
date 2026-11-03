@@ -1,0 +1,9 @@
+<Window x:Class="RttyDecoder.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:rtty="clr-namespace:RttyDecoder.Wpf;assembly=RttyDecoder.Wpf"
+        Title="RTTY Decoder - YO9VA"
+        Width="1100" Height="760" MinWidth="760" MinHeight="520"
+        Background="{StaticResource Rtty.Background}">
+    <rtty:RttyDecoderView x:Name="Decoder" />
+</Window>

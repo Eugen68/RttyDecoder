@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>RttyDecoder.App</RootNamespace>
+    <AssemblyName>RttyDecoder</AssemblyName>
+    <Product>RTTY Decoder</Product>
+    <Version>0.1.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RttyDecoder.Wpf\RttyDecoder.Wpf.csproj" />
+  </ItemGroup>
+
+</Project>
