@@ -79,6 +79,8 @@ public static class Synthetic
         public long Seed = 1;
         public double OffsetHz;
         public double DriftHzPerSec;   // deriva liniara a ambelor tonuri
+        public double ShiftHz = RttyDemodulator.ShiftHz;
+        public bool FadingComplex;     // fading Rayleigh cu faza (ca pe HF), nu doar amplitudine
         public double Baud = Synthetic.Baud;
         public double FadingHz;
         public bool SpaceBelow;      // REV
@@ -119,18 +121,20 @@ public static class Synthetic
         int n = (int)Math.Ceiling(biti.Length * samplesPerHalfBit);
         const double amplitudine = 0.3;
         var semnal = new double[n];
-        double[]? castigMark = o.FadingHz > 0 ? RayleighGain(n, fs, o.FadingHz, o.Seed * 31 + 7) : null;
-        double[]? castigSpace = o.FadingHz > 0 ? RayleighGain(n, fs, o.FadingHz, o.Seed * 31 + 11) : null;
+        double[]? fazaMark = null, fazaSpace = null;
+        double[]? castigMark = o.FadingHz > 0 ? RayleighGain(n, fs, o.FadingHz, o.Seed * 31 + 7, o.FadingComplex ? a => fazaMark = a : null) : null;
+        double[]? castigSpace = o.FadingHz > 0 ? RayleighGain(n, fs, o.FadingHz, o.Seed * 31 + 11, o.FadingComplex ? a => fazaSpace = a : null) : null;
         double faza = 0;
         for (int i = 0; i < n; i++)
         {
             int idx = Math.Min(biti.Length - 1, (int)(i / samplesPerHalfBit));
             bool mark = biti[idx] == '1';
-            double f = (mark ? o.MarkHz : o.MarkHz + (o.SpaceBelow ? -1 : 1) * RttyDemodulator.ShiftHz) + o.OffsetHz
+            double f = (mark ? o.MarkHz : o.MarkHz + (o.SpaceBelow ? -1 : 1) * o.ShiftHz) + o.OffsetHz
                        + o.DriftHzPerSec * i / fs;
             faza += 2 * Math.PI * f / fs;
             double castig = castigMark == null ? 1.0 : (mark ? castigMark[i] : castigSpace![i]);
-            semnal[i] = amplitudine * castig * Math.Sin(faza);
+            double fazaCanal = fazaMark == null ? 0 : (mark ? fazaMark[i] : fazaSpace![i]);
+            semnal[i] = amplitudine * castig * Math.Sin(faza + fazaCanal);
         }
 
         if (!double.IsInfinity(o.SnrDb))
@@ -160,8 +164,10 @@ public static class Synthetic
         return pcm;
     }
 
-    private static double[] RayleighGain(int n, int fs, double fadingHz, long seed)
+    private static double[] RayleighGain(int n, int fs, double fadingHz, long seed, Action<double[]>? faze = null)
     {
+        var reA = new List<double>();
+        var imA = new List<double>();
         const double rataControl = 200.0;
         int m = (int)Math.Ceiling(n / (double)fs * rataControl) + 2;
         var rnd = new JavaRandom(seed);
@@ -173,6 +179,8 @@ public static class Synthetic
         for (int k = 0; k < m; k++)
         {
             double re = lpRe.Process(rnd.NextGaussian()), im = lpIm.Process(rnd.NextGaussian());
+            reA.Add(re);
+            imA.Add(im);
             mag[k] = Math.Sqrt(re * re + im * im);
             putere += mag[k] * mag[k];
         }
@@ -184,6 +192,19 @@ public static class Synthetic
             int k = (int)t;
             double fr = t - k;
             g[i] = (mag[k] * (1 - fr) + mag[k + 1] * fr) / norm;
+        }
+        if (faze != null)
+        {
+            var ph = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)fs * rataControl;
+                int k = (int)t;
+                double fr = t - k;
+                double re = reA[k] * (1 - fr) + reA[k + 1] * fr, im = imA[k] * (1 - fr) + imA[k + 1] * fr;
+                ph[i] = Math.Atan2(im, re);
+            }
+            faze(ph);
         }
         return g;
     }

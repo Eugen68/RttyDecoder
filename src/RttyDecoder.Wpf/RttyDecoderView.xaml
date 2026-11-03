@@ -73,13 +73,13 @@
             <Button Width="72" Content="A-TUNE" Command="{Binding AutoTuneCommand}" Style="{StaticResource Rtty.PrimaryButton}" ToolTip="Acord automat pe cel mai puternic semnal RTTY" />
             <TextBlock Text="Decodor:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="130" ItemsSource="{Binding Decoders}" SelectedItem="{Binding Decoder}"
-                      ToolTip="Chebyshev (implicit), Matched Filter sau DeepRTTY (model neural; text provizoriu cu gri, confirmat dupa ~8-12 s)" />
+                      ToolTip="Chebyshev (implicit, bun si la flutter), Matched Filter (cel mai bun clasic pe semnal slab si fading lent) sau DeepRTTY (model neural, cel mai bun; text provizoriu cu gri, confirmat dupa ~8-12 s)" />
             <TextBlock Text="Urmarire:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="64" ItemsSource="{Binding TrackingModes}" SelectedItem="{Binding Tracking}" ToolTip="AFC lent / PLL rapid" />
             <ToggleButton Margin="12,2,2,2" Content="NB" IsChecked="{Binding NoiseBlanker}" ToolTip="Noise Blanker - impulsuri QRN" />
             <ToggleButton Content="DNR" IsChecked="{Binding Dnr}" ToolTip="Bandpass centrat intre Mark si Space" />
             <ToggleButton Content="SNR-G" IsChecked="{Binding SnrGating}" ToolTip="La semnal sub prag, decizia ramane pe Mark (idle)" />
-            <ToggleButton Content="ATC" IsChecked="{Binding Atc}" IsEnabled="{Binding IsChebyshev}" ToolTip="ATC W7AY - pentru fading selectiv (Chebyshev)" />
+            <ToggleButton Content="ATC" IsChecked="{Binding Atc}" IsEnabled="{Binding IsChebyshev}" ToolTip="ATC W7AY - pentru fading selectiv (Chebyshev; Matched Filter isi normalizeaza singur tonurile)" />
             <ToggleButton Content="Volant" IsChecked="{Binding Flywheel}" ToolTip="Sincronizare pe caracter la RTTY continuu" />
             <ToggleButton Content="US-TTY" IsChecked="{Binding UsTty}" ToolTip="Tabelul FIGS US-TTY (apostrof, ghilimele, $) in loc de ITA2" />
             <Button Margin="12,2,2,2" Width="64" Content="CLEAR" Command="{Binding ClearCommand}" />

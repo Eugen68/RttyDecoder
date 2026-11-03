@@ -117,9 +117,29 @@ un ton a dominat majoritatea timpului - zgomotul dintre transmisii nu muta acord
 REV, deriva de 120 Hz, semnal slab, zgomot pur). Pe inregistrarile reale converge la acelasi Mark din
 orice punct de plecare (+-15 Hz), pe tonul masurat din spectru.
 
-Aceeasi reparatie pentru aplicatia Android: `tools/android-afc/RttyDemodulator-afc.patch`
-(`git apply` in radacina Yaesu-FTX1-CAT-Control). Java-ul reparat da exact acelasi Mark ca C#
-(fisierul golden de paritate e generat cu el), iar decodarea fara AFC e neschimbata.
+## Matched Filter (imbunatatit fata de Android)
+
+Pe inregistrarile reale MF pierdea litere. Doua cauze, gasite cu ajutorul inregistrarilor W6IWI:
+
+- **Fading selectiv.** Corelatorul integreaza un bit intreg, deci la o tranzitie |Mark| si |Space| se
+  schimba liniar pe toata durata bitului. Cand un ton e mai slab, trecerea prin zero a diferentei se
+  muta spre el cu pana la 1/2 bit: fronturile de start si momentele de esantionare aluneca, iar
+  caracterele pica la bitul de stop. Acum fiecare ton e raportat la amplitudinea lui, invatata la
+  momentele de esantionare, iar startul se confirma dupa 0.35 biti (in loc de 0.7). Sintetic, la
+  fading 0.2-1 Hz: 24-32% -> 0.2-9% CER, fara cost pe semnalele slabe fara fading.
+- **Faza instabila in interiorul bitului** (flutter, Doppler): jumatatile ferestrei se anuleaza
+  partial. MF masoara coerenta semnalului si, daca e mica, trece singur pe doua jumatati de bit
+  adunate necoerent; pe semnal stabil ramane pe suma coerenta.
+
+Limita: la flutter rapid (fading complex de 5-10 Hz) MF ramane slab (~25% CER, fata de ~1% la
+Chebyshev) - integreaza un bit intreg, iar canalul se schimba mai repede. Acolo: Chebyshev sau DeepRTTY.
+Teste: `MatchedFilterTests`.
+
+## Patch pentru aplicatia Android
+
+`tools/android-patch/RttyDemodulator.patch` aduce in `RttyDemodulator.java` ambele reparatii (AFC si
+Matched Filter); se aplica cu `git apply` in radacina Yaesu-FTX1-CAT-Control. Java-ul reparat da exact
+acelasi text ca C# - fisierul golden de paritate e generat cu el. Chebyshev fara AFC e neschimbat.
 
 ## Rezultate pe inregistrari reale
 

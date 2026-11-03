@@ -97,6 +97,41 @@ public sealed class RttyDemodulator
     private double mfSpaceAccRe, mfSpaceAccIm;
     private double noiseFloor = 1e-9;
 
+    // Matched Filter - doua corectii fata de varianta Android, gasite pe inregistrari reale (W6IWI):
+    //
+    // 1. Fading selectiv. Corelatorul integreaza un bit intreg, deci la o tranzitie |Mark| si |Space|
+    //    se schimba liniar pe toata durata bitului; cand un ton e mai slab, trecerea prin zero a
+    //    diferentei se muta spre el, cu pana la 1/2 bit - fronturile de start si momentele de
+    //    esantionare aluneca, iar caracterele pica la bitul de stop. Fiecare ton e raportat acum la
+    //    amplitudinea lui, invatata la momentele de esantionare (fereastra aliniata pe bit, SNR maxim):
+    //    trecerea prin zero ramane la mijlocul tranzitiei. Cu MF, startul se confirma dupa 0.35 biti
+    //    (semnalul MF e deja integrat pe un bit; 0.7 biti respingea starturile scurtate de fading).
+    //    Sintetic, fading 0.2-1 Hz: 24-32% -> 0.2-9% CER; zgomot fara fading: neschimbat.
+    //
+    // 2. Faza instabila in interiorul unui bit (flutter, propagare cu Doppler): doua jumatati de
+    //    fereastra cu faze diferite se anuleaza partial in suma coerenta. In paralel ruleaza un
+    //    corelator de 1/2 bit; doua jumatati consecutive adunate necoerent (|S1| + |S2|) nu depind de
+    //    faza. Coerenta |S1 + S2| / (|S1| + |S2|) se masoara la fiecare bit; sub 0.93 (medie pe ~200
+    //    de biti) se trece pe jumatati, peste 0.97 inapoi. Pe semnal stabil nu comuta (suma coerenta
+    //    e cu ~1 dB mai buna in zgomot). Inregistrari W6IWI: 14089 kHz 171 -> 97 erori, 7086 kHz
+    //    1 -> 16 randuri perfecte.
+    //
+    // Limita: la flutter rapid (fading complex de 5-10 Hz) MF ramane slab (~25% CER) - integreaza
+    // un bit intreg, iar canalul se schimba mai repede. Acolo Chebyshev (~1%) sau DeepRTTY.
+    private const double MfPragStartBiti = 0.35;
+    private const double MfDdAlfa = 0.4;
+    private const double MfDdPodea = 0.1;
+    private const double MfPragNecoerent = 0.93;
+    private const double MfPragCoerent = 0.97;
+    private const double MfAlfaCoerenta = 0.005;
+    private double ddAm, ddAs;
+    private readonly CorelatorGlisant jumMark = new(), jumSpace = new();
+    private double[] jumIstMark = new double[1], jumIstSpace = new double[1];
+    private int jumPoz;
+    private double magCohMark, magCohSpace, magNcMark, magNcSpace;
+    internal double coerentaMedie = 1.0;
+    internal bool mfNecoerent;
+
     // ---- Stare de decodare ----
     private int sampleRate = 48000;
     private double samplesPerBit;
@@ -112,7 +147,7 @@ public sealed class RttyDemodulator
 
     // Debounce la startul de cadru: "space" trebuie sa persiste 0.7 biti.
     private int contorConfirmareStart;
-    private int pragConfirmareStart;
+    private int pragConfirmareStart, pragConfirmareStartMf;
 
     // Esantionare la mijlocul bitului (testat pe hardware: marja maxima fata de jitter).
     private const double PctEsantionare = 0.5;
@@ -176,6 +211,12 @@ public sealed class RttyDemodulator
     {
         mfSamplesPerBit = (int)JRound(sr / baud);
         mfBuffer = new double[mfSamplesPerBit];
+        int jumatate = Math.Max(1, (int)JRound(sr / baud / 2));
+        jumMark.Configureaza(jumatate);
+        jumSpace.Configureaza(jumatate);
+        jumIstMark = new double[jumatate];
+        jumIstSpace = new double[jumatate];
+        jumPoz = 0;
         mfBufferPos = 0;
         mfMarkAccRe = mfMarkAccIm = 0;
         mfSpaceAccRe = mfSpaceAccIm = 0;
@@ -202,6 +243,8 @@ public sealed class RttyDemodulator
 
         double wMarkN = wMark * mfSamplesPerBit;
         double wSpaceN = wSpace * mfSamplesPerBit;
+        jumMark.SetFrecventa(wMark);
+        jumSpace.SetFrecventa(wSpace);
         mfMarkPowNRe = Math.Cos(wMarkN);
         mfMarkPowNIm = Math.Sin(wMarkN);
         mfSpacePowNRe = Math.Cos(wSpaceN);
@@ -264,6 +307,10 @@ public sealed class RttyDemodulator
         currentByte = 0;
         contorConfirmareStart = 0;
         pragConfirmareStart = (int)JRound(samplesPerBit * 0.7);
+        pragConfirmareStartMf = (int)JRound(samplesPerBit * MfPragStartBiti);
+        ddAm = ddAs = 0;
+        coerentaMedie = 1.0;
+        mfNecoerent = false;
         contorEroriFramingConsecutive = 0;
         nbNivelMediu = 0.05;
         nbUltimulEsantionValid = 0;
@@ -303,7 +350,7 @@ public sealed class RttyDemodulator
             integratVech = 0;
             inFrame = false;
             fazaCeasAcumulator = 0;
-                bitCounter = 0;
+            bitCounter = 0;
             currentByte = 0;
             contorConfirmareStart = 0;
             contorEroriFramingConsecutive = 0;
@@ -322,7 +369,14 @@ public sealed class RttyDemodulator
                 mfBufferPos = 0;
                 mfMarkAccRe = mfMarkAccIm = 0;
                 mfSpaceAccRe = mfSpaceAccIm = 0;
+                jumMark.Reseteaza();
+                jumSpace.Reseteaza();
+                Array.Clear(jumIstMark);
+                Array.Clear(jumIstSpace);
+                jumPoz = 0;
             }
+            // amplitudinile invatate tin de semnal (acord, statie); coerenta tine de emitator - ramane
+            ddAm = ddAs = 0;
             solicitaResetFiltre = false;
         }
 
@@ -390,6 +444,23 @@ public sealed class RttyDemodulator
                 double scalareMf = 2.0 / mfSamplesPerBit;
                 magMark = Math.Sqrt(mfMarkAccRe * mfMarkAccRe + mfMarkAccIm * mfMarkAccIm) * scalareMf;
                 magSpace = Math.Sqrt(mfSpaceAccRe * mfSpaceAccRe + mfSpaceAccIm * mfSpaceAccIm) * scalareMf;
+
+                // jumatatile de bit: corelatorul de 1/2 bit acum si cel de acum 1/2 bit
+                jumMark.Proceseaza(sample);
+                jumSpace.Proceseaza(sample);
+                double jm = jumMark.Magnitudine * scalareMf, js = jumSpace.Magnitudine * scalareMf;
+                magCohMark = magMark;
+                magCohSpace = magSpace;
+                magNcMark = jm + jumIstMark[jumPoz];
+                magNcSpace = js + jumIstSpace[jumPoz];
+                jumIstMark[jumPoz] = jm;
+                jumIstSpace[jumPoz] = js;
+                if (++jumPoz == jumIstMark.Length) jumPoz = 0;
+                if (mfNecoerent)
+                {
+                    magMark = magNcMark;
+                    magSpace = magNcSpace;
+                }
             }
             else
             {
@@ -405,9 +476,11 @@ public sealed class RttyDemodulator
             // Filtrul de decizie pe fiecare ton, ca ATC sa primeasca anvelopele netezite.
             double markFiltrat = lpfDecizieHz > 0 ? lpfMark.Proceseaza(magMark) : magMark;
             double spaceFiltrat = lpfDecizieHz > 0 ? lpfSpace.Proceseaza(magSpace) : magSpace;
-            diferentaBruta = folosesteAtc && !folosesteMatchedFilter
-                ? DecizieAtc(markFiltrat, spaceFiltrat)
-                : markFiltrat - spaceFiltrat;
+            diferentaBruta = folosesteMatchedFilter
+                ? DecizieMf(markFiltrat, spaceFiltrat)
+                : folosesteAtc
+                    ? DecizieAtc(markFiltrat, spaceFiltrat)
+                    : markFiltrat - spaceFiltrat;
 
             if (modUrmarireFrecventa > 0) ActualizeazaAfc(sample, markFiltrat, spaceFiltrat);
 
@@ -478,7 +551,7 @@ public sealed class RttyDemodulator
                         }
                     }
                 }
-                else if (bitCurent == 0 && contorConfirmareStart >= pragConfirmareStart)
+                else if (bitCurent == 0 && contorConfirmareStart >= (folosesteMatchedFilter ? pragConfirmareStartMf : pragConfirmareStart))
                 {
                     // Faza porneste de la inceputul real al starii "space", nu de la confirmare.
                     IncepeCadru(esantionAbs - contorConfirmareStart);
@@ -494,6 +567,7 @@ public sealed class RttyDemodulator
                 if (fazaCeasAcumulator >= punctEsantionareTinta)
                 {
                     fazaCeasAcumulator -= punctEsantionareTinta;
+                    if (folosesteMatchedFilter) InvataMf(bitCurent, markFiltrat, spaceFiltrat);
                     if (bitCounter < 5)
                     {
                         if (bitCurent == 1) currentByte |= 1 << bitCounter;
@@ -646,6 +720,73 @@ public sealed class RttyDemodulator
             osRe /= n;
             osIm /= n;
         }
+    }
+
+    /// <summary>MF: fiecare ton raportat la amplitudinea lui invatata (vezi comentariul de la campuri).</summary>
+    private double DecizieMf(double mark, double space)
+    {
+        if (ddAm <= 0 || ddAs <= 0) return mark - space; // pana se invata ambele tonuri
+        double am = Math.Max(ddAm, MfDdPodea * ddAs);
+        double asp = Math.Max(ddAs, MfDdPodea * ddAm);
+        // inapoi pe scara unei amplitudini, ca pragul de Sensibilitate sa ramana comparabil
+        return (mark / am - space / asp) * 0.5 * (am + asp);
+    }
+
+    /// <summary>La fiecare bit esantionat: amplitudinea tonului decis si coerenta pe jumatati.</summary>
+    private void InvataMf(int bit, double markFiltrat, double spaceFiltrat)
+    {
+        if (bit == 1) ddAm = ddAm <= 0 ? markFiltrat : ddAm + MfDdAlfa * (markFiltrat - ddAm);
+        else ddAs = ddAs <= 0 ? spaceFiltrat : ddAs + MfDdAlfa * (spaceFiltrat - ddAs);
+
+        double coh = bit == 1 ? magCohMark : magCohSpace;
+        double nc = bit == 1 ? magNcMark : magNcSpace;
+        if (nc <= 0) return;
+        coerentaMedie += MfAlfaCoerenta * (Math.Min(1.0, coh / nc) - coerentaMedie);
+        mfNecoerent = mfNecoerent ? coerentaMedie < MfPragCoerent : coerentaMedie < MfPragNecoerent;
+    }
+
+    /// <summary>Corelator glisant recursiv pe o fereastra de lungime data (aceeasi formula ca MF).</summary>
+    private sealed class CorelatorGlisant
+    {
+        private double[] buf = new double[1];
+        private int poz;
+        private double w, rotRe = 1, rotIm, powRe = 1, powIm, accRe, accIm;
+
+        public void Configureaza(int lungime)
+        {
+            buf = new double[lungime];
+            Reseteaza();
+            SetFrecventa(w);
+        }
+
+        public void SetFrecventa(double omega)
+        {
+            w = omega;
+            rotRe = Math.Cos(-w);
+            rotIm = Math.Sin(-w);
+            powRe = Math.Cos(w * buf.Length);
+            powIm = Math.Sin(w * buf.Length);
+        }
+
+        public void Reseteaza()
+        {
+            Array.Clear(buf);
+            poz = 0;
+            accRe = accIm = 0;
+        }
+
+        public void Proceseaza(double x)
+        {
+            double iesit = buf[poz];
+            buf[poz] = x;
+            if (++poz == buf.Length) poz = 0;
+            double inRe = accRe - iesit + x * powRe;
+            double inIm = accIm + x * powIm;
+            accRe = rotRe * inRe - rotIm * inIm;
+            accIm = rotRe * inIm + rotIm * inRe;
+        }
+
+        public double Magnitudine => Math.Sqrt(accRe * accRe + accIm * accIm);
     }
 
     private void IncepeCadru(double start)

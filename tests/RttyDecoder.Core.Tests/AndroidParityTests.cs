@@ -33,7 +33,7 @@ public class AndroidParityTests
             d.snrGatingK = 1.3;
         })) + "|";
 
-        // AFC (varianta reparata, identica in Java - tools/android-afc/RttyDemodulator-afc.patch)
+        // AFC (varianta reparata, identica in Java - tools/android-patch/RttyDemodulator.patch)
         var h = Generate(Text + Text, new Options { SnrDb = 20, Seed = 1, OffsetHz = 12 });
         var dm = new RttyDemodulator { modUrmarireFrecventa = 2 };
         dm.Start(48000);

@@ -1,5 +1,5 @@
 --- a/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java	2026-11-03 08:27:45.013614367 +0000
-+++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java	2026-11-03 08:27:45.015557790 +0000
++++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyDemodulator.java	2026-11-03 09:35:57.310511035 +0000
 @@ -122,7 +122,6 @@
  
      // ---- Coeficienti derivati din frecventa ----
@@ -8,7 +8,46 @@
  
      // Matched Filter & SNR
      // OPTIMIZARE: nu mai pastram sabloanele sin/cos pe toata fereastra (O(N) per esantion),
-@@ -153,7 +152,6 @@
+@@ -143,6 +142,38 @@
+     private double mfSpaceAccRe, mfSpaceAccIm;
+     private double noiseFloor = 1e-9;
+ 
++    // Matched Filter - doua corectii gasite pe inregistrari reale (W6IWI):
++    //
++    // 1. Fading selectiv. Corelatorul integreaza un bit intreg, deci la o tranzitie |Mark| si |Space|
++    //    se schimba liniar pe toata durata bitului; cand un ton e mai slab, trecerea prin zero a
++    //    diferentei se muta spre el, cu pana la 1/2 bit - fronturile de start si momentele de
++    //    esantionare aluneca, iar caracterele pica la bitul de stop. Fiecare ton e raportat acum la
++    //    amplitudinea lui, invatata la momentele de esantionare (fereastra aliniata pe bit, SNR maxim):
++    //    trecerea prin zero ramane la mijlocul tranzitiei. Cu MF, startul se confirma dupa 0.35 biti
++    //    (semnalul MF e deja integrat pe un bit; 0.7 biti respingea starturile scurtate de fading).
++    //    Sintetic, fading 0.2-1 Hz: 24-32% -> 0.2-9% CER; zgomot fara fading: neschimbat.
++    //
++    // 2. Faza instabila in interiorul unui bit (flutter, propagare cu Doppler): doua jumatati de
++    //    fereastra cu faze diferite se anuleaza partial in suma coerenta. In paralel ruleaza un
++    //    corelator de 1/2 bit; doua jumatati consecutive adunate necoerent (|S1| + |S2|) nu depind de
++    //    faza. Coerenta |S1 + S2| / (|S1| + |S2|) se masoara la fiecare bit; sub 0.93 (medie pe ~200
++    //    de biti) se trece pe jumatati, peste 0.97 inapoi. Pe semnal stabil nu comuta.
++    //
++    // Limita: la flutter rapid (fading complex de 5-10 Hz) MF ramane slab (~25% CER). Acolo Chebyshev.
++    private static final double MF_PRAG_START_BITI = 0.35;
++    private static final double MF_DD_ALFA = 0.4;
++    private static final double MF_DD_PODEA = 0.1;
++    private static final double MF_PRAG_NECOERENT = 0.93;
++    private static final double MF_PRAG_COERENT = 0.97;
++    private static final double MF_ALFA_COERENTA = 0.005;
++    private double ddAm, ddAs;
++    private final CorelatorGlisant jumMark = new CorelatorGlisant(), jumSpace = new CorelatorGlisant();
++    private double[] jumIstMark = new double[1], jumIstSpace = new double[1];
++    private int jumPoz;
++    private double magCohMark, magCohSpace, magNcMark, magNcSpace;
++    double coerentaMedie = 1.0;
++    boolean mfNecoerent;
++
+     // ---- Stare de decodare (pornita de porneste()) ----
+     private int sampleRate = 48000;
+     private double samplesPerBit;
+@@ -153,7 +184,6 @@
      private double nivelZgomotMediu;
      private boolean inFrame;
      private double fazaCeasAcumulator;
@@ -16,7 +55,16 @@
      private int bitCounter;
      private int currentByte;
  
-@@ -203,31 +201,31 @@
+@@ -167,7 +197,7 @@
+     private int contorConfirmareStart;
+     // Prag confirmat de utilizator pe semnal real cu QRN/QRM (0.7 a mers mai bine
+     // decat 0.6 la respingerea puseurilor scurte de zgomot).
+-    private int pragConfirmareStart;
++    private int pragConfirmareStart, pragConfirmareStartMf;
+ 
+     // ISTORIC: am experimentat cu esantionarea aproape de finalul bitului pentru
+     // Matched Filter (teoria: fereastra corelatorului, care are exact lungimea unui
+@@ -203,31 +233,31 @@
  
      private double dnrX1, dnrX2, dnrY1, dnrY2; // stare filtru bandpass DNR
  
@@ -70,7 +118,29 @@
  
      // CIZELARE: cand SNR Gating ingheata decizia (energie insuficienta), nu mai
      // pastram pur si simplu semnul vechi al integratorului - daca fade-ul incepe
-@@ -329,9 +327,8 @@
+@@ -262,6 +292,12 @@
+     void initMatchedFilterTemplates(int sampleRate, double baud) {
+         mfSamplesPerBit = (int) Math.round(sampleRate / baud);
+         mfBuffer = new double[mfSamplesPerBit];
++        int jumatate = Math.max(1, (int) Math.round(sampleRate / baud / 2));
++        jumMark.configureaza(jumatate);
++        jumSpace.configureaza(jumatate);
++        jumIstMark = new double[jumatate];
++        jumIstSpace = new double[jumatate];
++        jumPoz = 0;
+         mfBufferPos = 0;
+         mfMarkAccRe = mfMarkAccIm = 0;
+         mfSpaceAccRe = mfSpaceAccIm = 0;
+@@ -300,6 +336,8 @@
+         // PsiN = e^{+j*w*N}  (corectia legata de esantionul care iese din fereastra)
+         double wMarkN = wMark * mfSamplesPerBit;
+         double wSpaceN = wSpace * mfSamplesPerBit;
++        jumMark.setFrecventa(wMark);
++        jumSpace.setFrecventa(wSpace);
+         mfMarkPowNRe = Math.cos(wMarkN);
+         mfMarkPowNIm = Math.sin(wMarkN);
+         mfSpacePowNRe = Math.cos(wSpaceN);
+@@ -329,9 +367,8 @@
      }
  
      private void recalculeazaCoeficientiFrecventa() {
@@ -82,7 +152,7 @@
  
          calculeazaCoeficientiDnr(sampleRateFiltre);
  
-@@ -355,7 +352,6 @@
+@@ -355,21 +392,24 @@
          nivelZgomotMediu = 0.05;
          inFrame = false;
          fazaCeasAcumulator = 0;
@@ -90,7 +160,13 @@
          bitCounter = 0;
          currentByte = 0;
          contorConfirmareStart = 0;
-@@ -365,11 +361,11 @@
+         pragConfirmareStart = (int) Math.round(samplesPerBit * 0.7);
++        pragConfirmareStartMf = (int) Math.round(samplesPerBit * MF_PRAG_START_BITI);
++        ddAm = ddAs = 0;
++        coerentaMedie = 1.0;
++        mfNecoerent = false;
+         contorEroriFramingConsecutive = 0;
+         nbNivelMediu = 0.05;
          nbUltimulEsantionValid = 0;
          nbContorBlankConsecutiv = 0;
          dnrX1 = 0; dnrX2 = 0; dnrY1 = 0; dnrY2 = 0;
@@ -107,7 +183,7 @@
  
          noiseFloor = 1e-9;
          if (lpfDecizieHz > 0) {
-@@ -396,8 +392,7 @@
+@@ -396,8 +436,7 @@
              integratVech = 0;
              inFrame = false;
              fazaCeasAcumulator = 0;
@@ -117,7 +193,7 @@
              currentByte = 0;
              contorConfirmareStart = 0;
              contorEroriFramingConsecutive = 0;
-@@ -410,6 +405,7 @@
+@@ -410,6 +449,7 @@
              dnrX1 = 0; dnrX2 = 0; dnrY1 = 0; dnrY2 = 0;
              lpfMark.reseteaza();
              lpfSpace.reseteaza();
@@ -125,7 +201,55 @@
              reseteazaAtc();
              deblocheazaVolant();
              if (folosesteMatchedFilter && mfBuffer != null) {
-@@ -505,63 +501,7 @@
+@@ -417,7 +457,14 @@
+                 mfBufferPos = 0;
+                 mfMarkAccRe = mfMarkAccIm = 0;
+                 mfSpaceAccRe = mfSpaceAccIm = 0;
++                jumMark.reseteaza();
++                jumSpace.reseteaza();
++                java.util.Arrays.fill(jumIstMark, 0);
++                java.util.Arrays.fill(jumIstSpace, 0);
++                jumPoz = 0;
+             }
++            // amplitudinile invatate tin de semnal (acord, statie); coerenta tine de emitator - ramane
++            ddAm = ddAs = 0;
+             solicitaResetFiltre = false;
+         }
+ 
+@@ -483,6 +530,22 @@
+                 double scalareMF = 2.0 / mfSamplesPerBit;
+                 magMark = Math.sqrt(mfMarkAccRe * mfMarkAccRe + mfMarkAccIm * mfMarkAccIm) * scalareMF;
+                 magSpace = Math.sqrt(mfSpaceAccRe * mfSpaceAccRe + mfSpaceAccIm * mfSpaceAccIm) * scalareMF;
++
++                // jumatatile de bit: corelatorul de 1/2 bit acum si cel de acum 1/2 bit
++                jumMark.proceseaza(sample);
++                jumSpace.proceseaza(sample);
++                double jm = jumMark.magnitudine() * scalareMF, js = jumSpace.magnitudine() * scalareMF;
++                magCohMark = magMark;
++                magCohSpace = magSpace;
++                magNcMark = jm + jumIstMark[jumPoz];
++                magNcSpace = js + jumIstSpace[jumPoz];
++                jumIstMark[jumPoz] = jm;
++                jumIstSpace[jumPoz] = js;
++                if (++jumPoz == jumIstMark.length) jumPoz = 0;
++                if (mfNecoerent) {
++                    magMark = magNcMark;
++                    magSpace = magNcSpace;
++                }
+                 diferentaBruta = magMark - magSpace;
+             } else {
+                 double m0 = sample - rCheb * rCheb * mx2 + qMarkA * rCheb * mx1;
+@@ -499,69 +562,14 @@
+             // identic cu filtrarea diferentei), ca ATC sa primeasca anvelopele netezite.
+             double markFiltrat = lpfDecizieHz > 0 ? lpfMark.proceseaza(magMark) : magMark;
+             double spaceFiltrat = lpfDecizieHz > 0 ? lpfSpace.proceseaza(magSpace) : magSpace;
+-            // ATC doar pe Chebyshev: pe inregistrarea reala cu fading (W6IWI, 14086 kHz) MF + ATC
+-            // a scos 36 de randuri perfecte din 95, fata de 55 la MF simplu.
+-            diferentaBruta = folosesteAtc && !folosesteMatchedFilter
++            // ATC doar pe Chebyshev; MF are propria normalizare a tonurilor (decizieMf).
++            diferentaBruta = folosesteMatchedFilter
++                    ? decizieMf(markFiltrat, spaceFiltrat)
++                    : folosesteAtc
                      ? decizieAtc(markFiltrat, spaceFiltrat)
                      : markFiltrat - spaceFiltrat;
  
@@ -190,7 +314,24 @@
  
              double magTotala = magMark + magSpace;
  
-@@ -681,6 +621,117 @@
+@@ -642,7 +650,7 @@
+                             fantomaActiva = true;
+                         }
+                     }
+-                } else if (bitCurent == 0 && contorConfirmareStart >= pragConfirmareStart) {
++                } else if (bitCurent == 0 && contorConfirmareStart >= (folosesteMatchedFilter ? pragConfirmareStartMf : pragConfirmareStart)) {
+                     // CORECTIE: faza nu porneste de la 0, ci de la cate esantioane au trecut
+                     // deja de la INCEPUTUL real al starii "space" (cat am asteptat sa
+                     // confirmam) - altfel am introduce o intarziere sistematica la fiecare bit.
+@@ -656,6 +664,7 @@
+ 
+                 if (fazaCeasAcumulator >= punctEstantionareTinta) {
+                     fazaCeasAcumulator -= punctEstantionareTinta;
++                    if (folosesteMatchedFilter) invataMf(bitCurent, markFiltrat, spaceFiltrat);
+                     if (bitCounter < 5) {
+                         if (bitCurent == 1) currentByte |= (1 << bitCounter);
+                         bitCounter++;
+@@ -681,6 +690,179 @@
          }
      }
  
@@ -302,6 +443,68 @@
 +            double n = Math.sqrt(osRe * osRe + osIm * osIm);
 +            osRe /= n;
 +            osIm /= n;
++        }
++    }
++
++    /** MF: fiecare ton raportat la amplitudinea lui invatata (vezi comentariul de la campuri). */
++    private double decizieMf(double mark, double space) {
++        if (ddAm <= 0 || ddAs <= 0) return mark - space; // pana se invata ambele tonuri
++        double am = Math.max(ddAm, MF_DD_PODEA * ddAs);
++        double asp = Math.max(ddAs, MF_DD_PODEA * ddAm);
++        // inapoi pe scara unei amplitudini, ca pragul de Sensibilitate sa ramana comparabil
++        return (mark / am - space / asp) * 0.5 * (am + asp);
++    }
++
++    /** La fiecare bit esantionat: amplitudinea tonului decis si coerenta pe jumatati. */
++    private void invataMf(int bit, double markFiltrat, double spaceFiltrat) {
++        if (bit == 1) ddAm = ddAm <= 0 ? markFiltrat : ddAm + MF_DD_ALFA * (markFiltrat - ddAm);
++        else ddAs = ddAs <= 0 ? spaceFiltrat : ddAs + MF_DD_ALFA * (spaceFiltrat - ddAs);
++
++        double coh = bit == 1 ? magCohMark : magCohSpace;
++        double nc = bit == 1 ? magNcMark : magNcSpace;
++        if (nc <= 0) return;
++        coerentaMedie += MF_ALFA_COERENTA * (Math.min(1.0, coh / nc) - coerentaMedie);
++        mfNecoerent = mfNecoerent ? coerentaMedie < MF_PRAG_COERENT : coerentaMedie < MF_PRAG_NECOERENT;
++    }
++
++    /** Corelator glisant recursiv pe o fereastra de lungime data (aceeasi formula ca MF). */
++    private static final class CorelatorGlisant {
++        private double[] buf = new double[1];
++        private int poz;
++        private double w, rotRe = 1, rotIm, powRe = 1, powIm, accRe, accIm;
++
++        void configureaza(int lungime) {
++            buf = new double[lungime];
++            reseteaza();
++            setFrecventa(w);
++        }
++
++        void setFrecventa(double omega) {
++            w = omega;
++            rotRe = Math.cos(-w);
++            rotIm = Math.sin(-w);
++            powRe = Math.cos(w * buf.length);
++            powIm = Math.sin(w * buf.length);
++        }
++
++        void reseteaza() {
++            java.util.Arrays.fill(buf, 0);
++            poz = 0;
++            accRe = accIm = 0;
++        }
++
++        void proceseaza(double x) {
++            double iesit = buf[poz];
++            buf[poz] = x;
++            if (++poz == buf.length) poz = 0;
++            double inRe = accRe - iesit + x * powRe;
++            double inIm = accIm + x * powIm;
++            accRe = rotRe * inRe - rotIm * inIm;
++            accIm = rotRe * inIm + rotIm * inRe;
++        }
++
++        double magnitudine() {
++            return Math.sqrt(accRe * accRe + accIm * accIm);
 +        }
 +    }
 +

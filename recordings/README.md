@@ -55,10 +55,23 @@ dintre transmisii); "perfecte" = randuri decodate fara nicio greseala. Acord pe 
 
 Din orice punct de plecare AFC-ul ajunge la acelasi Mark, pe tonul real masurat din spectru.
 
+### Matched Filter dupa imbunatatiri
+
+Acord pe tonul real (2123 / 2048 / 2120 Hz):
+
+| Fisier | MF vechi | MF nou | Chebyshev | Chebyshev + ATC |
+|---|---|---|---|---|
+| 14086 | 270 erori, 59 perfecte | **88 erori, 80 perfecte** | 128 / 80 | 98 / 80 |
+| 14089 | 1008 erori, 5 perfecte | **97 erori, 33 perfecte** | 169 / 40 | 132 / 45 |
+| 7086 (QRN) | 0 perfecte | 16 perfecte | 36 perfecte | 32 perfecte |
+
+Pe 7086 MF trece singur pe jumatati necoerente (coerenta masurata ~0.84 - faza instabila); ramane
+in urma lui Chebyshev, ca la orice flutter.
+
 ### Observatii
 
 - **DeepRTTY** e clar cel mai bun pe toate trei (de 4-16 ori mai putine erori decat Chebyshev).
-- **Matched Filter** pierde caractere pe aceste inregistrari (litere lipsa in fiecare rand) - de
-  investigat separat.
+- **Matched Filter** nou e cel mai bun decodor clasic pe 14086 si 14089; la flutter (7086) Chebyshev.
+- W6IWI transmite in **US-TTY** (`DOG'S` = FIGS+J): cu tabelul ITA2 apostroful iese BELL.
 - Intre transmisii, decodoarele clasice scot "gunoi" din zgomot; un squelch ar reduce mult erorile
   pe 7086 kHz.
