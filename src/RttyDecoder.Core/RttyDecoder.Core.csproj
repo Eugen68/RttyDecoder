@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>RttyDecoder.Core</RootNamespace>
+    <Description>Decodor RTTY (45.45 baud, 170 Hz): Chebyshev, Matched Filter si DeepRTTY (ONNX). Fara dependente de UI.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.27.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Modelul DeepRTTY e inclus in DLL, ca modulul sa fie un singur fisier de referit. -->
+    <EmbeddedResource Include="Models\model_rtty_2026-10.onnx" LogicalName="RttyDecoder.Core.Models.model_rtty.onnx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RttyDecoder.Core.Tests" />
+  </ItemGroup>
+
+</Project>
