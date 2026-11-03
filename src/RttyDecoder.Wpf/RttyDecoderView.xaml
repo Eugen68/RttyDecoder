@@ -171,7 +171,7 @@
                     <Button DockPanel.Dock="Left" Content="CSV..." Click="OnSaveStations" ToolTip="Salveaza lista statiilor (CSV, ore UTC)" />
                     <Button DockPanel.Dock="Left" Content="Goleste" Command="{Binding ClearStationsCommand}" ToolTip="Goleste lista statiilor" />
                     <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" FontSize="11">
-                        <Run Text="&#x25A0;" Foreground="{StaticResource Call.Known}" /><Run Text=" MASTER.SCP  " />
+                        <Run Text="&#x25A0;" Foreground="{StaticResource Call.Known}" /><Run Text=" cunoscut (MASTER.SCP / LoTW)  " />
                         <Run Text="&#x25A0;" Foreground="{StaticResource Call.FormatOnly}" /><Run Text=" necunoscut" />
                     </TextBlock>
                 </DockPanel>

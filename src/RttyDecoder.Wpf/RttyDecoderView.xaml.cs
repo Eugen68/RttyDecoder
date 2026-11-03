@@ -178,8 +178,7 @@ public partial class RttyDecoderView : UserControl
                       m.Status switch
                       {
                           CallsignStatus.Own => "\nindicativul propriu",
-                          CallsignStatus.Known => "\nin MASTER.SCP",
-                          _ => "\nnu e in MASTER.SCP (verifica: poate fi o eroare de decodare)",
+                          _ => "\n" + HeardStationRow.KnownText(m.KnownIn),
                       } +
                       "\nClick: copiaza   Dublu click: QRZ.com";
     }

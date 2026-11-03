@@ -64,7 +64,7 @@ public sealed partial class RttyDecoderViewModel
     internal event Action? CallsignSettingsChanged;
 
     /// <summary>
-    /// Bazele cty.dat / MASTER.SCP (de obicei <see cref="ReferenceData.Load"/> facut in fundal la pornire).
+    /// Bazele cty.dat / MASTER.SCP / LoTW (de obicei <see cref="ReferenceData.Load"/> facut in fundal la pornire).
     /// Pana atunci se recunoaste doar forma indicativelor. Lista statiilor se goleste.
     /// </summary>
     public void UseReferenceData(ReferenceData data)
@@ -154,7 +154,7 @@ public sealed class HeardStationRow : ObservableObject
     {
         Callsign = s.Callsign;
         Entity = s.Entity;
-        IsKnown = s.IsKnown;
+        KnownIn = s.KnownIn;
         FirstHeardUtc = s.FirstHeard.UtcDateTime;
         Update(s);
     }
@@ -171,8 +171,10 @@ public sealed class HeardStationRow : ObservableObject
 
     public string CqZone => Entity == null ? "" : Entity.CqZone.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-    /// <summary>Gasit in MASTER.SCP.</summary>
-    public bool IsKnown { get; }
+    /// <summary>Gasit in MASTER.SCP sau LoTW.</summary>
+    public bool IsKnown => KnownIn != KnownSources.None;
+
+    public KnownSources KnownIn { get; }
 
     public DateTime FirstHeardUtc { get; }
 
@@ -192,7 +194,16 @@ public sealed class HeardStationRow : ObservableObject
 
     public string ToolTip =>
         Entity == null ? Call : $"{Call} - {Entity.Name} ({Entity.Continent}), CQ {Entity.CqZone}, ITU {Entity.ItuZone}" +
-                                (IsKnown ? "\nin MASTER.SCP" : "\nnu e in MASTER.SCP (verifica: poate fi o eroare de decodare)");
+                                "\n" + KnownText(KnownIn);
+
+    /// <summary>"in MASTER.SCP", "in LoTW", "in MASTER.SCP si LoTW" sau avertismentul de necunoscut.</summary>
+    internal static string KnownText(KnownSources k) => k switch
+    {
+        KnownSources.MasterScp => "in MASTER.SCP",
+        KnownSources.Lotw => "in lista LoTW",
+        KnownSources.MasterScp | KnownSources.Lotw => "in MASTER.SCP si LoTW",
+        _ => "nu e in MASTER.SCP / LoTW (verifica: poate fi o eroare de decodare)",
+    };
 
     internal void Update(HeardStation s)
     {

@@ -36,14 +36,16 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
 5. **DeepRTTY** decodeaza mai bine semnalele slabe, dar cu intarziere: textul gri de sub terminal e
    provizoriu si se confirma (verde) dupa ~8-12 s.
 
-6. **Indicativele** din textul decodat apar evidentiate: verde = cunoscut (in MASTER.SCP), auriu =
+6. **Indicativele** din textul decodat apar evidentiate: verde = cunoscut (in MASTER.SCP sau in lista LoTW), auriu =
    forma corecta dar necunoscut (poate fi si o eroare de decodare), portocaliu = indicativul propriu
    (campul *Indicativul meu* din lista statiilor). Mouse-ul deasupra arata tara si zonele.
    **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com (la fel
    si in lista). Lista (butonul **Statii**) se poate sorta pe orice coloana si salva ca CSV.
    cty.dat si MASTER.SCP sunt incluse; daca au peste 7 zile, aplicatia descarca in fundal versiunile
-   noi in `%LOCALAPPDATA%\YO9VA\RttyDecoder` (folosite de la pornirea urmatoare; fara internet nu se
-   intampla nimic).
+   noi in `%LOCALAPPDATA%\YO9VA\RttyDecoder`, plus zilnic lista utilizatorilor LoTW activi (~6 MB,
+   doar daca s-a schimbat). Se folosesc de la pornirea urmatoare; fara internet nu se intampla nimic.
+   Indicativele cu prefix litera+cifra (`S50A`, `A61BK`, `E73A`) sunt recunoscute daca cty.dat
+   confirma prefixul.
 
 Pentru o inregistrare: **Deschide WAV...**. Cu *Timp real* debifat, un fisier de o ora se decodeaza in
 cateva zeci de secunde (DeepRTTY: cateva minute).
