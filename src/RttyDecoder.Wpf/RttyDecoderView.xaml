@@ -26,6 +26,8 @@
             <RowDefinition Height="Auto" />   <!-- comenzi -->
             <RowDefinition Height="Auto" />   <!-- reglaje -->
             <RowDefinition Height="*" />      <!-- terminal -->
+            <RowDefinition Height="Auto" />   <!-- macro-uri -->
+            <RowDefinition Height="Auto" />   <!-- emisie -->
             <RowDefinition Height="Auto" />   <!-- mesaj -->
         </Grid.RowDefinitions>
 
@@ -234,6 +236,49 @@
             </DockPanel>
         </Grid>
 
-        <TextBlock Grid.Row="6" Margin="0,4,0,0" Text="{Binding Message}" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
+        <!-- MACRO-URI (F1..F8), de la stanga -->
+        <ItemsControl Grid.Row="6" Margin="0,6,0,0" ItemsSource="{Binding Macros}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button MinWidth="96" Margin="0,0,4,0" HorizontalContentAlignment="Left"
+                            Command="{Binding DataContext.MacroCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}" ToolTip="{Binding ToolTip}" MouseRightButtonUp="OnEditMacro">
+                        <TextBlock>
+                            <Run Text="{Binding Key, Mode=OneWay}" Foreground="{StaticResource Rtty.Accent}" FontWeight="Bold" />
+                            <Run Text="{Binding Name, Mode=OneWay}" />
+                        </TextBlock>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- EMISIE -->
+        <DockPanel Grid.Row="7" Margin="0,4,0,0">
+            <Button DockPanel.Dock="Right" Content="STOP (Esc)" Command="{Binding StopTxCommand}" ToolTip="Opreste imediat emisia (Esc)">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsTransmitting}" Value="True">
+                                <Setter Property="Background" Value="#B71C1C" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button DockPanel.Dock="Right" Content="Trimite" Command="{Binding SendTextCommand}" ToolTip="Trimite textul (Enter)" />
+            <ToggleButton DockPanel.Dock="Right" Content="LIVE" IsChecked="{Binding LiveMode}"
+                          ToolTip="LIVE: emisia sta pornita, fiecare caracter pleaca imediat ce il scrii (diddle intre ele)" />
+            <TextBox x:Name="TxBox" Style="{StaticResource Rtty.Input}" FontFamily="Consolas" FontSize="15" Height="28" Margin="0,2,4,2"
+                     Text="{Binding TxText, UpdateSourceTrigger=PropertyChanged}" CharacterCasing="Upper"
+                     PreviewKeyDown="OnTxKeyDown" PreviewTextInput="OnTxTextInput"
+                     ToolTip="Text de trimis: Enter = trimite. In LIVE, caracterele pleaca pe masura ce scrii. Variabile: {MYCALL} {CALL} {RST}" />
+        </DockPanel>
+
+        <TextBlock Grid.Row="8" Margin="0,4,0,0" Text="{Binding Message}" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
     </Grid>
 </UserControl>

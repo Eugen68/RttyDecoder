@@ -56,6 +56,13 @@ public partial class MainWindow : Window
         _vm.MonitorVolume = _settings.MonitorVolume;
         _vm.MyCall = _settings.MyCall ?? "";
         _vm.ShowStations = _settings.ShowStations;
+        _vm.TxSettings = _settings.Tx;
+        _vm.ImportMacros(_settings.Macros);
+        Decoder.MacrosChanged += () =>
+        {
+            _settings.Macros = _vm.ExportMacros();
+            _settings.Save();
+        };
         _vm.SetOnlineCredentials(_settings.QrzUsername, _settings.GetQrzPassword(), _settings.HamQthUsername, _settings.GetHamQthPassword());
         Decoder.DataContext = _vm;
         _callsignData = LoadCallsignDataAsync();
@@ -164,6 +171,8 @@ public partial class MainWindow : Window
 
     private void DisconnectRig()
     {
+        // emisia se opreste inainte ca statia sa fie deconectata (PTT si FSK pe 0)
+        if (_vm.IsTransmitting || _vm.Tx.IsTransmitting) _vm.StopTx();
         var r = _rig;
         _rig = null;
         _vm.AttachRig(null);
@@ -184,6 +193,15 @@ public partial class MainWindow : Window
     }
 
     private async void OnRigReconnect(object sender, RoutedEventArgs e) => await ConnectRigAsync();
+
+    private void OnTxSettings(object sender, RoutedEventArgs e)
+    {
+        var dlg = new TxSettingsWindow(_vm.TxSettings) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _settings.Tx = dlg.Result;
+        _vm.TxSettings = dlg.Result;
+        _settings.Save();
+    }
 
     private void OnLookupSettings(object sender, RoutedEventArgs e)
     {
@@ -285,6 +303,8 @@ public partial class MainWindow : Window
         _settings.RealTime = _vm.RealTime;
         _settings.MonitorVolume = _vm.MonitorVolume;
         _settings.MyCall = _vm.MyCall;
+        _settings.Tx = _vm.TxSettings;
+        _settings.Macros = _vm.ExportMacros();
         _settings.ShowStations = _vm.ShowStations;
         _settings.Maximized = WindowState == WindowState.Maximized;
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;

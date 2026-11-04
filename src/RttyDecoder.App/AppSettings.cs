@@ -39,6 +39,12 @@ public sealed class AppSettings
 
     public bool ShowStations { get; set; } = true;
 
+    /// <summary>Emisia RTTY (FSK).</summary>
+    public RttyDecoder.Core.Tx.RttyTxSettings Tx { get; set; } = new();
+
+    /// <summary>Macro-urile F1..F8 (lipsa = cele implicite).</summary>
+    public List<RttyDecoder.Wpf.MacroSettings>? Macros { get; set; }
+
     /// <summary>Conexiunea la statie (HamRig): direct CAT Yaesu sau OmniRig.</summary>
     public HamRig.RigSettings Rig { get; set; } = new();
 

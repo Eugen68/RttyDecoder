@@ -69,6 +69,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         _callsigns = CreateTracker(new CallsignRecognizer());
         CreateVerifier();
         InitRig();
+        InitTx();
         HeardStationsView = CreateStationsView();
 
         RefreshDevices();
@@ -496,8 +497,12 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     private void OnSamples(float[] buffer, int count, int sampleRate)
     {
-        Receiver.Process(buffer.AsSpan(0, count), sampleRate);
-        Scope.Process(buffer.AsSpan(0, count), sampleRate);
+        // in timpul emisiei statia nu receptioneaza: decodarea sta (monitorizarea merge mai departe)
+        if (!_tx.IsTransmitting)
+        {
+            Receiver.Process(buffer.AsSpan(0, count), sampleRate);
+            Scope.Process(buffer.AsSpan(0, count), sampleRate);
+        }
         // fisier decodat "cat de repede se poate": sunetul ar fi accelerat - nu il redam
         var file = _file;
         if (file == null || file.RealTime) Monitor.Write(buffer, count, sampleRate);
@@ -577,12 +582,14 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         }
 
         if (_file != null) FileProgress = _file.Progress;
+        DrainTxEcho();
     }
 
     partial void OnMarkChangedForRig();
 
     public void Dispose()
     {
+        _tx.Dispose();   // emisia oprita (PTT, FSK) inainte de orice
         _timer.Stop();
         StopSource();
         Monitor.Dispose();

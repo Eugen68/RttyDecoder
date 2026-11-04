@@ -12,6 +12,7 @@ aplicatie mai mare.
 - **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**
 - **indicator de acord** cu elipse incrucisate (ca pe osciloscop), in dreapta waterfall-ului
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
+- **emisie RTTY prin FSK**: 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
 - **indicative** evidentiate in terminal si **lista statiilor auzite** (tara, continent, CQ, de cate
   ori, prima/ultima data), cu biblioteca [HamCallsign](https://github.com/Eugen68/HamCallsign)
@@ -55,6 +56,19 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
    doar daca s-a schimbat). Se folosesc de la pornirea urmatoare; fara internet nu se intampla nimic.
    Indicativele cu prefix litera+cifra (`S50A`, `A61BK`, `E73A`) sunt recunoscute daca cty.dat
    confirma prefixul.
+
+**Emisia (FSK)** - statia in modul RTTY (de obicei RTTY-L), PTT-ul si pinul FSK din Setari >
+Conexiune statie:
+- **Macro-urile F1..F8** sub terminal (click sau tasta F1..F8). Click dreapta pe un buton =
+  editare (nume si text). Variabile: `{MYCALL}` (campul "Indicativul meu"), `{CALL}` (ultimul
+  indicativ pe care ai dat click in terminal sau in lista), `{RST}` (599).
+- **Campul de emisie**: Enter = trimite. **LIVE**: emisia sta pornita si fiecare caracter pleaca
+  imediat ce il scrii (intre ele, diddle = LTRS).
+- Mesajele trimise in timpul unei emisii se adauga la coada (un singur PTT). **STOP (Esc)** opreste
+  imediat. Textul trimis apare in terminal cu galben; cat timp se emite, decodarea sta.
+- **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
+  limita unei emisii (180 s), CR/LF automat, diddle, polaritate (urmeaza NORM/REV; inversare pin).
+  Valorile implicite sunt cele din aplicatia Android. AFSK urmeaza.
 
 **Meniul** de sus:
 - **Fisier**: Deschide WAV (Ctrl+O), Salveaza textul (Ctrl+S), Salveaza lista statiilor (CSV), Iesire

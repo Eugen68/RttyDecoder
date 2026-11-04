@@ -38,6 +38,15 @@ public partial class RttyDecoderView : UserControl
     public RttyDecoderView()
     {
         InitializeComponent();
+        // F1..F8 si Esc oriunde in fereastra, nu doar cand modulul are focusul
+        Loaded += (_, _) =>
+        {
+            if (Window.GetWindow(this) is { } w)
+            {
+                w.PreviewKeyDown -= OnWindowKeyDown;
+                w.PreviewKeyDown += OnWindowKeyDown;
+            }
+        };
         _highlighter = new CallsignHighlighter(w => _vm?.RecognizeWord(w));
         DataContextChanged += (_, e) => Bind(e.NewValue as RttyDecoderViewModel);
     }
@@ -52,6 +61,7 @@ public partial class RttyDecoderView : UserControl
             _vm.SpectrumRow -= Waterfall.PushRow;
             Tuning.Scope = null;
             _vm.CallsignSettingsChanged -= RecolorCallsigns;
+            _vm.TxEcho -= OnTxEcho;
             _vm.PropertyChanged -= OnVmPropertyChanged;
         }
         _vm = vm;
@@ -63,6 +73,7 @@ public partial class RttyDecoderView : UserControl
             vm.SpectrumRow += Waterfall.PushRow;
             Tuning.Scope = vm.Scope;
             vm.CallsignSettingsChanged += RecolorCallsigns;
+            vm.TxEcho += OnTxEcho;
             vm.PropertyChanged += OnVmPropertyChanged;
             UpdateStationsColumn();
         }
@@ -74,6 +85,106 @@ public partial class RttyDecoderView : UserControl
     // ------------------------------------------------------------------
     // Terminal: text decodat cu indicativele evidentiate
     // ------------------------------------------------------------------
+
+    /// <summary>Textul trimis: galben, fara evidentierea indicativelor.</summary>
+    private void OnTxEcho(string text)
+    {
+        foreach (var seg in _highlighter.Flush())
+        {
+            if (seg.Match is { } m) AddCallsign(seg.Text, m);
+            else AddPlain(seg.Text);
+        }
+        if (_pendingRun != null)
+        {
+            TerminalParagraph.Inlines.Remove(_pendingRun);
+            _pendingRun = null;
+        }
+        text = text.Replace("\r", "");
+        bool laCapat = Terminal.VerticalOffset + Terminal.ViewportHeight >= Terminal.ExtentHeight - 2;
+        var inlines = TerminalParagraph.Inlines;
+        int i = 0;
+        while (i < text.Length)
+        {
+            int nl = text.IndexOf('\n', i);
+            int end = nl < 0 ? text.Length : nl;
+            if (end > i)
+            {
+                inlines.Add(new Run(text.Substring(i, end - i)) { Foreground = TxBrush });
+                _plain = null;
+            }
+            if (nl < 0) break;
+            inlines.Add(new LineBreak());
+            _plain = null;
+            i = nl + 1;
+        }
+        _text.Append(text);
+        if (_text.Length > MaxTerminalChars)
+        {
+            TrimStart(_text.Length - MaxTerminalChars * 3 / 4);
+            laCapat = true;
+        }
+        if (laCapat) Terminal.ScrollToEnd();
+    }
+
+    private static readonly Brush TxBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xEB, 0x3B));
+
+    // ------------------------------------------------------------------
+    // Emisie: tastatura si macro-uri
+    // ------------------------------------------------------------------
+
+    private void OnWindowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_vm == null) return;
+        if (e.Key == Key.Escape && _vm.IsTransmitting)
+        {
+            _vm.StopTx();
+            e.Handled = true;
+            return;
+        }
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key >= Key.F1 && key <= Key.F8 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            _vm.SendMacro(key - Key.F1);
+            e.Handled = true;
+        }
+    }
+
+    private void OnTxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_vm == null || e.Key != Key.Enter) return;
+        if (_vm.LiveMode)
+        {
+            _vm.SendLiveChar('\n');
+            _vm.TxText = "";
+        }
+        else
+        {
+            _vm.SendText();
+        }
+        e.Handled = true;
+    }
+
+    private void OnTxTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (_vm == null || !_vm.LiveMode) return;
+        foreach (char c in e.Text) _vm.SendLiveChar(c);
+    }
+
+    private void OnEditMacro(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: MacroItem m }) return;
+        var dlg = new MacroEditWindow(m.Key, m.Name, m.Text) { Owner = Window.GetWindow(this) };
+        if (dlg.ShowDialog() == true)
+        {
+            m.Name = dlg.MacroName;
+            m.Text = dlg.MacroText;
+            MacrosChanged?.Invoke();
+        }
+        e.Handled = true;
+    }
+
+    /// <summary>Un macro a fost editat (gazda salveaza setarile).</summary>
+    public event Action? MacrosChanged;
 
     /// <summary>Text decodat: indicativele se evidentiaza.</summary>
     private void OnText(string text) => Append(text, true);

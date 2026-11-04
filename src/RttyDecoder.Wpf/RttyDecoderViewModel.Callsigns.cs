@@ -126,6 +126,7 @@ public sealed partial class RttyDecoderViewModel
     /// <summary>Click pe un indicativ: in clipboard si catre gazda.</summary>
     public void SelectCallsign(Callsign call)
     {
+        LastCallsign = call.Full;   // pentru {CALL} in macro-uri
         try
         {
             Clipboard.SetText(call.Full);
