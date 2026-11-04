@@ -108,6 +108,18 @@ Langa nivel apar frecventa VFO si modul statiei, iar in USB/LSB/DATA si frecvent
 waterfall** = QSY: statia se muta astfel incat semnalul de sub mouse sa ajunga pe Mark-ul
 decodorului.
 
+**Statia in RTTY-L / RTTY-U (FSK).** La FSK statia emite exact unde e acordata, deci ca sa raspunzi
+pe frecventa corespondentului se muta **statia**, nu decodorul:
+- decodorul sta pe **Mark 2125 Hz, shift 170**; NORM/REV se pune dupa modul statiei (RTTY-L =
+  NORM, RTTY-U = REV);
+- **click pe waterfall** si **A-TUNE** fac **QSY**: statia se muta astfel incat semnalul sa ajunga
+  pe 2125 (in RTTY-L ca in LSB, in RTTY-U ca in USB);
+- pinul FSK nu mai urmeaza REV-ul (polaritatea o da statia).
+
+Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L la ~1825 Hz;
+click pe el (sau A-TUNE) muta statia pe 3.501.300 si semnalul vine pe 2125. In USB/DATA ramane ca
+inainte: click = acordul decodorului, Shift+click = QSY.
+
 Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
 apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,
 `SaveStationsDialog()`, `RttyDecoderViewModel.UseReferenceData(...)`).

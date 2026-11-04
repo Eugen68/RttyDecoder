@@ -283,7 +283,8 @@ public sealed partial class RttyDecoderViewModel
     /// <summary>Emisia urmeaza REV-ul si tabelul US-TTY de la receptie.</summary>
     private void PrepareTx()
     {
-        _tx.RxReverse = Reverse;
+        // in modul RTTY al statiei polaritatea o da statia (REV-ul vine din RTTY-U): pinul nu-l mai urmeaza
+        _tx.RxReverse = RigInRtty ? false : Reverse;
         if (_tx.Settings.UsTty != UsTty)
         {
             var s = _tx.Settings.Clone();

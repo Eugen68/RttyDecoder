@@ -66,27 +66,65 @@ public sealed partial class RttyDecoderViewModel
         UpdateRigText();
     }
 
+    /// <summary>
+    /// Tonul Mark in modul RTTY al statiei (FSK): fix 2125 Hz, shift 170. Statia emite exact unde e
+    /// acordata, deci la FSK se muta statia (QSY), nu decodorul.
+    /// </summary>
+    public const double FskMarkHz = 2125;
+
+    /// <summary>Statia e conectata si in RTTY-L / RTTY-U (FSK).</summary>
+    public bool RigInRtty => _rig != null && _rigState.Connected && RigMath.IsRtty(_rigState.Mode);
+
     private void OnRigState(RigState s) => _dispatcher.BeginInvoke(() =>
     {
+        var prev = _rigState;
         // VFO mutat (QSY, butonul statiei): urmatorul text decodat primeste ora
-        if (s.Connected && _rigState.Connected && s.FrequencyHz != _rigState.FrequencyHz) TuningChanged?.Invoke();
+        if (s.Connected && prev.Connected && s.FrequencyHz != prev.FrequencyHz) TuningChanged?.Invoke();
         _rigState = s;
+        // statia a intrat in RTTY (sau L <-> U): decodorul pe 2125, NORM/REV dupa mod
+        if (s.Connected && RigMath.IsRtty(s.Mode) && (!prev.Connected || prev.Mode != s.Mode)) EnterRttyMode(s.Mode);
         UpdateRigText();
     });
+
+    /// <summary>
+    /// Modul RTTY al statiei: Mark 2125, iar NORM/REV dupa mod - in RTTY-L tonul Space e deasupra
+    /// Mark-ului in audio (NORM), in RTTY-U dedesubt (REV).
+    /// </summary>
+    private void EnterRttyMode(RigMode mode)
+    {
+        bool rev = mode == RigMode.RttyU;
+        Receiver.Update(x =>
+        {
+            x.MarkFrequencyHz = FskMarkHz;
+            x.Reverse = rev;
+        });
+        SyncFromSettings(Receiver.Settings);
+        TuningChanged?.Invoke();
+        Message = $"Statia in {RigMath.ModeName(mode)}: decodor pe Mark {FskMarkHz:0} Hz, {(rev ? "REV" : "NORM")}; click pe waterfall = QSY.";
+    }
 
     private bool CanQsy() =>
         _rig != null && _rigState.Connected && RigMath.QsyDial(_rigState.FrequencyHz, _rigState.Mode, 1000, 2000) != null;
 
-    /// <summary>QSY: semnalul auzit la <paramref name="audioHz"/> ajunge pe Mark-ul curent.</summary>
+    /// <summary>
+    /// QSY: semnalul auzit la <paramref name="audioHz"/> ajunge pe Mark-ul curent - in modul RTTY al
+    /// statiei pe 2125 (si decodorul revine pe 2125), ca emisia FSK sa plece pe frecventa lui.
+    /// </summary>
     public void Qsy(double audioHz)
     {
-        if (_rig == null || RigMath.QsyDial(_rigState.FrequencyHz, _rigState.Mode, audioHz, MarkFrequencyHz) is not { } dial)
+        double target = RigInRtty ? FskMarkHz : MarkFrequencyHz;
+        if (_rig == null || RigMath.QsyDial(_rigState.FrequencyHz, _rigState.Mode, audioHz, target) is not { } dial)
         {
-            Message = "QSY: doar cu statia conectata, in USB/LSB/DATA.";
+            Message = "QSY: doar cu statia conectata, in USB/LSB/DATA/RTTY.";
             return;
         }
         _rig.SetFrequency(dial);
-        Message = $"QSY: statia pe {RigMath.FormatFrequency(dial)} - semnalul de la {audioHz:0} Hz vine pe Mark ({MarkFrequencyHz:0} Hz).";
+        if (RigInRtty && Math.Abs(MarkFrequencyHz - FskMarkHz) > 0.05)
+        {
+            // dupa eventualul SyncFromSettings pus deja in coada (ex. de A-TUNE)
+            _dispatcher.BeginInvoke(() => MarkFrequencyHz = FskMarkHz, System.Windows.Threading.DispatcherPriority.Background);
+        }
+        Message = $"QSY: statia pe {RigMath.FormatFrequency(dial)} - semnalul de la {audioHz:0} Hz vine pe Mark ({target:0} Hz).";
     }
 
     /// <summary>Si la schimbarea Mark-ului (acord, AFC) se reface frecventa RF afisata.</summary>
@@ -115,9 +153,11 @@ public sealed partial class RttyDecoderViewModel
             : vfo;
         RigToolTip = _rig.Description + "\nVFO " + vfo +
                      (RigMath.ToneToRf(s.FrequencyHz, s.Mode, MarkFrequencyHz) is { } m ? $"\nMark (RF): {RigMath.FormatFrequency(m)} Hz" : "") +
-                     (RigMath.IsUpperSideband(s.Mode) || RigMath.IsLowerSideband(s.Mode)
-                         ? "\nShift+click pe waterfall: QSY - semnalul ajunge pe Mark"
-                         : "\nQSY prin Shift+click: doar in USB/LSB/DATA");
+                     (RigMath.IsRtty(s.Mode)
+                         ? $"\nRTTY (FSK): click pe waterfall sau A-TUNE = QSY - semnalul ajunge pe Mark {FskMarkHz:0} Hz"
+                         : RigMath.IsUpperSideband(s.Mode) || RigMath.IsLowerSideband(s.Mode)
+                             ? "\nShift+click pe waterfall: QSY - semnalul ajunge pe Mark"
+                             : "\nQSY: doar in USB/LSB/DATA/RTTY");
         CommandManager.InvalidateRequerySuggested();
     }
 }

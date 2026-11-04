@@ -101,7 +101,7 @@
                                         Reverse="{Binding Reverse, Mode=OneWay}"
                                         FrequencyCommand="{Binding SetFrequencyCommand}"
                                         QsyCommand="{Binding QsyCommand}"
-                                        ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz). Shift+click: QSY - statia se muta ca semnalul sa ajunga pe Mark." ToolTipService.InitialShowDelay="1500" />
+                                        ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz). Shift+click: QSY - statia se muta ca semnalul sa ajunga pe Mark. Cu statia in RTTY-L/U (FSK), click-ul si A-TUNE fac QSY pe Mark 2125." ToolTipService.InitialShowDelay="1500" />
             </Border>
             <!-- la ~2 mm de waterfall; aceeasi rama, fond si colturi ca waterfall-ul -->
             <Border Grid.Column="1" Width="170" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">

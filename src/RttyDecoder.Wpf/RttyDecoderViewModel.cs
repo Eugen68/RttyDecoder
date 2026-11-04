@@ -64,7 +64,13 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         });
         ClearCommand = new RelayCommand(Clear);
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
-        SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) MarkFrequencyHz = hz; });
+        // click / rotita pe waterfall: acordul decodorului; in modul RTTY al statiei (FSK) - QSY pe 2125
+        SetFrequencyCommand = new RelayCommand(p =>
+        {
+            if (p is not double hz) return;
+            if (RigInRtty) Qsy(hz);
+            else MarkFrequencyHz = hz;
+        });
 
         ClearStationsCommand = new RelayCommand(ClearStations);
         _callsigns = CreateTracker(new CallsignRecognizer());
@@ -539,6 +545,12 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     {
         var mark = Receiver.AutoTune();
         if (mark != null) TuningChanged?.Invoke();
+        // modul RTTY al statiei (FSK): nu muta doar decodorul - muta statia, semnalul ajunge pe 2125
+        if (mark is { } found && RigInRtty)
+        {
+            Qsy(found);
+            return;
+        }
         Message = mark is { } m
             ? $"A-TUNE: {m.ToString("0", CultureInfo.InvariantCulture)} Hz"
             : "A-TUNE: semnal prea slab - acordeaza manual (click pe waterfall).";
