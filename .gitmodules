@@ -1,3 +1,6 @@
 [submodule "external/HamCallsign"]
 	path = external/HamCallsign
 	url = https://github.com/Eugen68/HamCallsign.git
+[submodule "external/HamRig"]
+	path = external/HamRig
+	url = https://github.com/Eugen68/HamRig.git

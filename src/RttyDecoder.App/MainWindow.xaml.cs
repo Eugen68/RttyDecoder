@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
 using HamCallsign;
+using HamRig;
 using RttyDecoder.Core;
 using RttyDecoder.Wpf;
 
@@ -58,6 +59,7 @@ public partial class MainWindow : Window
         _vm.SetOnlineCredentials(_settings.QrzUsername, _settings.GetQrzPassword(), _settings.HamQthUsername, _settings.GetHamQthPassword());
         Decoder.DataContext = _vm;
         _callsignData = LoadCallsignDataAsync();
+        if (_smoke == null) Loaded += async (_, _) => await ConnectRigAsync();
 
         if (_settings.Width > 0 && _settings.Height > 0)
         {
@@ -109,6 +111,56 @@ public partial class MainWindow : Window
     private void OnExit(object sender, RoutedEventArgs e) => Close();
 
     private void OnOpenDataFolder(object sender, RoutedEventArgs e) => OpenFolder(CallsignCache);
+
+    // ------------------------------------------------------------------
+    // Statia (HamRig): aplicatia o detine, modulul o foloseste
+    // ------------------------------------------------------------------
+
+    private IRig? _rig;
+
+    private async Task ConnectRigAsync()
+    {
+        DisconnectRig();
+        if (_settings.Rig.CreateRig() is not { } rig)
+        {
+            _vm.AttachRig(null);
+            return;
+        }
+        _rig = rig;
+        _vm.AttachRig(rig);
+        try
+        {
+            await rig.ConnectAsync();
+            _vm.Message = $"Statia: {rig.Description} - conectata.";
+        }
+        catch (Exception ex)
+        {
+            _vm.Message = "Statia: " + ex.Message + " (Setari > Reconecteaza statia)";
+        }
+    }
+
+    private void DisconnectRig()
+    {
+        var r = _rig;
+        _rig = null;
+        _vm.AttachRig(null);
+        r?.Dispose();
+    }
+
+    private async void OnRigSettings(object sender, RoutedEventArgs e)
+    {
+        // portul trebuie eliberat, ca "Testeaza" din fereastra sa-l poata deschide
+        DisconnectRig();
+        var dlg = new RigSettingsWindow(_settings.Rig) { Owner = this };
+        if (dlg.ShowDialog() == true)
+        {
+            _settings.Rig = dlg.Result;
+            _settings.Save();
+        }
+        await ConnectRigAsync();
+    }
+
+    private async void OnRigReconnect(object sender, RoutedEventArgs e) => await ConnectRigAsync();
 
     private void OnLookupSettings(object sender, RoutedEventArgs e)
     {
@@ -216,6 +268,7 @@ public partial class MainWindow : Window
         _settings.Width = b.Width;
         _settings.Height = b.Height;
         _settings.Save();
+        DisconnectRig();
         _vm.Dispose();
         base.OnClosing(e);
     }

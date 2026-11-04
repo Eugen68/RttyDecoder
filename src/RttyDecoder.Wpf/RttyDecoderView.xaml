@@ -58,6 +58,22 @@
             <TextBlock DockPanel.Dock="Left" Text="{Binding LevelText}" Margin="20,0,6,0" />
             <ProgressBar DockPanel.Dock="Left" Width="90" Height="8" Minimum="-60" Maximum="0" Value="{Binding InputLevelDb, Mode=OneWay}"
                          ToolTip="Nivelul de intrare. Ideal intre -30 si -6 dBFS; la 0 dBFS semnalul e taiat." />
+            <Border DockPanel.Dock="Left" Margin="20,0,0,0" Padding="6,0" CornerRadius="2" Background="#B71C1C"
+                    Visibility="{Binding RigTransmitting, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="TX" FontWeight="Bold" Foreground="White" />
+            </Border>
+            <TextBlock DockPanel.Dock="Left" Text="{Binding RigText}" Margin="12,0,0,0" FontWeight="Bold" ToolTip="{Binding RigToolTip}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{StaticResource Rtty.Muted}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RigConnected}" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Call.FormatOnly}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <TextBlock Text="{Binding SourceName}" HorizontalAlignment="Right" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
         </DockPanel>
 
@@ -72,7 +88,8 @@
                                         MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}"
                                         Reverse="{Binding Reverse, Mode=OneWay}"
                                         FrequencyCommand="{Binding SetFrequencyCommand}"
-                                        ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz)." ToolTipService.InitialShowDelay="1500" />
+                                        QsyCommand="{Binding QsyCommand}"
+                                        ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz). Shift+click: QSY - statia se muta ca semnalul sa ajunga pe Mark." ToolTipService.InitialShowDelay="1500" />
             </Border>
             <!-- la ~2 mm de waterfall; aceeasi rama, fond si colturi ca waterfall-ul -->
             <Border Grid.Column="1" Width="170" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">

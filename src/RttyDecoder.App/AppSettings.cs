@@ -39,6 +39,9 @@ public sealed class AppSettings
 
     public bool ShowStations { get; set; } = true;
 
+    /// <summary>Conexiunea la statie (HamRig): direct CAT Yaesu sau OmniRig.</summary>
+    public HamRig.RigSettings Rig { get; set; } = new();
+
     // Conturile QRZ.com / HamQTH.com pentru verificarea online a indicativelor (ca in CwDecoder).
     // Utilizatorii in clar; parolele criptate cu Windows DPAPI (doar acest cont Windows, pe acest
     // calculator le poate citi). Parolele se citesc/scriu doar prin Get/Set*Password.

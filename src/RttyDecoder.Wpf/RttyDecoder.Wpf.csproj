@@ -12,6 +12,7 @@
     <ProjectReference Include="..\RttyDecoder.Audio\RttyDecoder.Audio.csproj" />
     <ProjectReference Include="..\..\external\HamCallsign\src\HamCallsign\HamCallsign.csproj" />
     <ProjectReference Include="..\..\external\HamCallsign\src\HamCallsign.Online\HamCallsign.Online.csproj" />
+    <ProjectReference Include="..\..\external\HamRig\src\HamRig\HamRig.csproj" />
   </ItemGroup>
 
 </Project>

@@ -53,6 +53,10 @@ public sealed class WaterfallControl : FrameworkElement
     public static readonly DependencyProperty FrequencyCommandProperty = DependencyProperty.Register(
         nameof(FrequencyCommand), typeof(ICommand), typeof(WaterfallControl));
 
+    /// <summary>Shift+click: QSY - statia se muta astfel incat semnalul de sub mouse sa ajunga pe Mark.</summary>
+    public static readonly DependencyProperty QsyCommandProperty = DependencyProperty.Register(
+        nameof(QsyCommand), typeof(ICommand), typeof(WaterfallControl));
+
     private static readonly int[] Palette = BuildPalette();
     private static readonly Pen MarkPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xFF, 0x3D, 0x3D)), 1.5));
     private static readonly Pen SpacePen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0x3D)), 1.5));
@@ -90,6 +94,9 @@ public sealed class WaterfallControl : FrameworkElement
 
     /// <summary>Comanda primeste frecventa (double, Hz) la click sau rotita.</summary>
     public ICommand? FrequencyCommand { get => (ICommand?)GetValue(FrequencyCommandProperty); set => SetValue(FrequencyCommandProperty, value); }
+
+    /// <summary>Comanda de QSY (parametru: frecventa audio in Hz de sub mouse); fara statie nu se poate executa.</summary>
+    public ICommand? QsyCommand { get => (ICommand?)GetValue(QsyCommandProperty); set => SetValue(QsyCommandProperty, value); }
 
     /// <summary>Click sau rotita: noua frecventa Mark ceruta (Hz).</summary>
     public event Action<double>? FrequencySelected;
@@ -245,7 +252,12 @@ public sealed class WaterfallControl : FrameworkElement
     {
         Focus();
         var p = e.GetPosition(this);
-        if (p.Y <= ActualHeight - ScaleHeight) Select(Math.Round(XToHz(p.X)));
+        if (p.Y <= ActualHeight - ScaleHeight)
+        {
+            double hz = Math.Round(XToHz(p.X));
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && QsyCommand?.CanExecute(hz) == true) QsyCommand.Execute(hz);
+            else Select(hz);
+        }
         e.Handled = true;
     }
 

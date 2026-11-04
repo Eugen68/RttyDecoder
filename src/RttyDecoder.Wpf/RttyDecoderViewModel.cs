@@ -68,6 +68,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         ClearStationsCommand = new RelayCommand(ClearStations);
         _callsigns = CreateTracker(new CallsignRecognizer());
         CreateVerifier();
+        InitRig();
         HeardStationsView = CreateStationsView();
 
         RefreshDevices();
@@ -249,6 +250,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             if (Set(ref _markFrequencyHz, value))
             {
                 OnPropertyChanged(nameof(MarkText));
+                OnMarkChangedForRig();
                 Push(s => s.MarkFrequencyHz = value);
             }
         }
@@ -576,6 +578,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
         if (_file != null) FileProgress = _file.Progress;
     }
+
+    partial void OnMarkChangedForRig();
 
     public void Dispose()
     {

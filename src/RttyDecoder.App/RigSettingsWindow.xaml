@@ -1,0 +1,92 @@
+<Window x:Class="RttyDecoder.App.RigSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Conexiune statie" Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{StaticResource Rtty.Background}" Foreground="{StaticResource Rtty.Foreground}"
+        FontFamily="Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource Rtty.Foreground}" />
+            <Setter Property="Margin" Value="0,3" />
+        </Style>
+        <Style TargetType="TextBlock" x:Key="Hint">
+            <Setter Property="Foreground" Value="{StaticResource Rtty.Muted}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="16">
+        <TextBlock Text="Cum e legata statia" FontWeight="Bold" Margin="0,0,0,4" />
+        <RadioButton x:Name="KindNone" Content="Fara statie" Checked="OnKindChanged" />
+        <RadioButton x:Name="KindDirect" Content="Direct pe portul serial (CAT Yaesu: FTX-1, FTDX10, FT-710, FT-991A...)" Checked="OnKindChanged" />
+        <RadioButton x:Name="KindOmni" Content="Prin OmniRig (statia poate fi folosita si de alte programe)" Checked="OnKindChanged" />
+
+        <!-- DIRECT -->
+        <Border x:Name="DirectPanel" Margin="0,10,0,0" Padding="10" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Port CAT:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="CatPortBox" Grid.Row="0" Grid.Column="1" IsEditable="True" />
+                    <Button Grid.Row="0" Grid.Column="2" Content="&#x21BB;" Width="28" Click="OnRefreshPorts" ToolTip="Reciteste porturile COM" />
+
+                    <TextBlock Grid.Row="1" Text="Viteza (baud):" VerticalAlignment="Center" />
+                    <ComboBox x:Name="BaudBox" Grid.Row="1" Grid.Column="1" />
+
+                    <TextBlock Grid.Row="2" Text="PTT:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="PttBox" Grid.Row="2" Grid.Column="1" SelectionChanged="OnPttChanged" />
+
+                    <TextBlock Grid.Row="3" Text="Port PTT:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="PttPortBox" Grid.Row="3" Grid.Column="1" IsEditable="True"
+                              ToolTip="Pentru PTT pe RTS/DTR. Gol = acelasi port ca CAT." />
+                </Grid>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                           Text="FTX-1 (cablu USB) apare ca doua porturi COM: primul (Enhanced) e CAT, al doilea (Standard) e pentru PTT/FSK pe RTS/DTR. Viteza trebuie sa fie aceeasi ca in meniul statiei (CAT RATE); implicit 38400. Portul COM poate fi folosit de un singur program." />
+            </StackPanel>
+        </Border>
+
+        <!-- OMNIRIG -->
+        <Border x:Name="OmniPanel" Margin="0,10,0,0" Padding="10" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="140" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition /><RowDefinition />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Statia OmniRig:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="OmniRigBox" Grid.Column="1" />
+                    <TextBlock Grid.Row="1" Text="PTT:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="OmniPttBox" Grid.Row="1" Grid.Column="1" />
+                </Grid>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                           Text="OmniRig trebuie instalat si configurat pentru statie (tipul statiei, portul, viteza). OmniRig stie doar frecventa, modul si PTT-ul." />
+            </StackPanel>
+        </Border>
+
+        <DockPanel Margin="0,14,0,0">
+            <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Testeaza" Width="90" Click="OnTest"
+                    ToolTip="Se conecteaza cu setarile de mai sus si citeste frecventa si modul" />
+            <Button x:Name="PttTestButton" DockPanel.Dock="Left" Content="Test PTT 0.5 s" Click="OnTestPtt"
+                    ToolTip="Pune statia pe emisie o jumatate de secunda (fara audio: in DATA/SSB nu iese putere). Verifica antena/sarcina!" />
+            <TextBlock x:Name="TestStatus" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" />
+        </DockPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Anuleaza" Width="90" IsCancel="True" />
+            <Button Content="Salveaza" Width="90" IsDefault="True" Style="{StaticResource Rtty.PrimaryButton}" Click="OnSave" />
+        </StackPanel>
+    </StackPanel>
+</Window>

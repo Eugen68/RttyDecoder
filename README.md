@@ -60,10 +60,23 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
 - **Indicative**: Deschide folderul cu date (`%LOCALAPPDATA%\YO9VA\RttyDecoder`), Actualizeaza datele
   acum (verifica imediat cty.dat, MASTER.SCP si LoTW si le foloseste pe cele noi, fara repornire si
   fara sa goleasca lista statiilor), Starea datelor (cate indicative si de cand e fiecare fisier)
-- **Setari**: Verificare online (QRZ.com / HamQTH.com) - conturile pentru confirmarea indicativelor
+- **Setari**: Conexiune statie (vezi mai jos), Reconecteaza statia; Verificare online (QRZ.com / HamQTH.com) - conturile pentru confirmarea indicativelor
   necunoscute local (parolele criptate cu Windows DPAPI in `settings.json`, ca in CwDecoder);
   Deschide folderul setarilor (`%APPDATA%\YO9VA\RttyDecoder`, `settings.json`)
 - **Ajutor**: Despre
+
+**Statia** (biblioteca [HamRig](https://github.com/Eugen68/HamRig), submodul `external/HamRig`),
+din **Setari > Conexiune statie**:
+- **Direct pe portul serial** (CAT Yaesu: FTX-1, FTDX10, FT-710, FT-991A...): portul CAT (la FTX-1
+  primul port USB, "Enhanced"), viteza (ca in meniul statiei, implicit 38400), PTT prin CAT, RTS sau
+  DTR (pe al doilea port, "Standard"). Statia anunta singura schimbarile (AI1).
+- **Prin OmniRig**: Rig 1 / Rig 2; statia poate fi folosita in acelasi timp si de alte programe.
+- **Testeaza** citeste frecventa si modul; **Test PTT 0.5 s** comuta emisia o jumatate de secunda.
+
+Langa nivel apar frecventa VFO si modul statiei, iar in USB/LSB/DATA si frecventa RF a Mark-ului
+(ex. `14.083.500 DATA-U   Mark 14.085.625`); **TX** rosu cand statia emite. **Shift+click pe
+waterfall** = QSY: statia se muta astfel incat semnalul de sub mouse sa ajunga pe Mark-ul
+decodorului.
 
 Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
 apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,
@@ -80,6 +93,7 @@ cateva zeci de secunde (DeepRTTY: cateva minute).
 | `src/RttyDecoder.Audio` | `WasapiInputSource` (placa de sunet, Windows), `WavFileSource` | NAudio |
 | `src/RttyDecoder.Wpf` | `RttyDecoderView` (UserControl), `RttyDecoderViewModel`, `WaterfallControl` | WPF, HamCallsign |
 | `external/HamCallsign` | Submodul git: recunoasterea indicativelor (biblioteca comuna aplicatiilor noastre) | |
+| `external/HamRig` | Submodul git: controlul statiei (CAT Yaesu direct, OmniRig) | System.IO.Ports |
 | `src/RttyDecoder.App` | Fereastra aplicatiei si salvarea setarilor | |
 | `tests/RttyDecoder.Core.Tests` | Teste xUnit | |
 
