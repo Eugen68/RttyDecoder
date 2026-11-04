@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using HamCallsign;
 using RttyDecoder.Audio;
 using RttyDecoder.Core;
+using RttyDecoder.Core.Dsp;
 
 namespace RttyDecoder.Wpf;
 
@@ -35,7 +36,11 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         Receiver = new RttyReceiver();
         Receiver.TextReceived += t => { lock (_textLock) _pendingText.Append(t); };
         Receiver.ProvisionalTextChanged += t => _pendingProvisional = t;
-        Receiver.StatusUpdated += s => Volatile.Write(ref _pendingStatus, s);
+        Receiver.StatusUpdated += s =>
+        {
+            Volatile.Write(ref _pendingStatus, s);
+            Scope.SetTones(s.MarkFrequencyHz, s.MarkFrequencyHz + (s.Reverse ? -RttySettings.ShiftHz : RttySettings.ShiftHz));
+        };
         Receiver.SpectrumAvailable += row => SpectrumRow?.Invoke(row);
         Receiver.SettingsChanged += s => _dispatcher.BeginInvoke(() => SyncFromSettings(s));
         Receiver.Message += m => _dispatcher.BeginInvoke(() => Message = m);
@@ -72,6 +77,9 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     }
 
     public RttyReceiver Receiver { get; }
+
+    /// <summary>Indicatorul de acord (elipsele Mark/Space), alimentat cu acelasi semnal ca decodorul.</summary>
+    public TuningScope Scope { get; } = new();
 
     // ------------------------------------------------------------------
     // Evenimente catre View
@@ -336,6 +344,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     private void SyncFromSettings(RttySettings s)
     {
+        Scope.SetTones(s.MarkFrequencyHz, s.MarkFrequencyHz + (s.Reverse ? -RttySettings.ShiftHz : RttySettings.ShiftHz));
         _syncing = true;
         try
         {
@@ -485,6 +494,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     private void OnSamples(float[] buffer, int count, int sampleRate)
     {
         Receiver.Process(buffer.AsSpan(0, count), sampleRate);
+        Scope.Process(buffer.AsSpan(0, count), sampleRate);
         // fisier decodat "cat de repede se poate": sunetul ar fi accelerat - nu il redam
         var file = _file;
         if (file == null || file.RealTime) Monitor.Write(buffer, count, sampleRate);

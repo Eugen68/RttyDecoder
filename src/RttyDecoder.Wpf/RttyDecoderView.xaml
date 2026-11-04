@@ -62,14 +62,21 @@
             <TextBlock Text="{Binding SourceName}" HorizontalAlignment="Right" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
         </DockPanel>
 
-        <!-- WATERFALL -->
-        <Border Grid.Row="2" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
-            <local:WaterfallControl x:Name="Waterfall"
-                                    MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}"
-                                    Reverse="{Binding Reverse, Mode=OneWay}"
-                                    FrequencyCommand="{Binding SetFrequencyCommand}"
-                                    ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz)." ToolTipService.InitialShowDelay="1500" />
-        </Border>
+        <!-- WATERFALL + INDICATOR DE ACORD -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+                <local:WaterfallControl x:Name="Waterfall"
+                                        MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}"
+                                        Reverse="{Binding Reverse, Mode=OneWay}"
+                                        FrequencyCommand="{Binding SetFrequencyCommand}"
+                                        ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz)." ToolTipService.InitialShowDelay="1500" />
+            </Border>
+            <local:TuningIndicator x:Name="Tuning" Grid.Column="1" Width="170" Height="170" Margin="8,0,0,0" VerticalAlignment="Center" />
+        </Grid>
 
         <!-- COMENZI -->
         <WrapPanel Grid.Row="3" Margin="0,6,0,0" Orientation="Horizontal">

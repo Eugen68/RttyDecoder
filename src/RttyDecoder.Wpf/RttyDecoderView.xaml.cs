@@ -50,6 +50,7 @@ public partial class RttyDecoderView : UserControl
             _vm.InfoAppended -= OnInfo;
             _vm.TerminalCleared -= OnCleared;
             _vm.SpectrumRow -= Waterfall.PushRow;
+            Tuning.Scope = null;
             _vm.CallsignSettingsChanged -= RecolorCallsigns;
             _vm.PropertyChanged -= OnVmPropertyChanged;
         }
@@ -60,6 +61,7 @@ public partial class RttyDecoderView : UserControl
             vm.InfoAppended += OnInfo;
             vm.TerminalCleared += OnCleared;
             vm.SpectrumRow += Waterfall.PushRow;
+            Tuning.Scope = vm.Scope;
             vm.CallsignSettingsChanged += RecolorCallsigns;
             vm.PropertyChanged += OnVmPropertyChanged;
             UpdateStationsColumn();

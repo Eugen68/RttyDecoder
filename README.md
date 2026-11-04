@@ -10,6 +10,7 @@ aplicatie mai mare.
 - decodare din **fisiere WAV** (PCM 8/16/24/32 bit sau float, mono/stereo, orice rata), in timp
   real sau cat de repede se poate
 - **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**
+- **indicator de acord** cu elipse incrucisate (ca pe osciloscop), in dreapta waterfall-ului
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
 - **indicative** evidentiate in terminal si **lista statiilor auzite** (tara, continent, CQ, de cate
@@ -29,6 +30,9 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
    Nivelul ideal e intre -30 si -6 dBFS (indicatorul de langa SNR).
 2. Click pe semnal in waterfall (pe tonul Mark - linia rosie; linia portocalie e Space) sau **A-TUNE**.
    Rotita mouse-ului muta acordul cu 1 Hz (cu Ctrl, 10 Hz).
+   **Indicatorul de acord** din dreapta waterfall-ului: Mark pe orizontala, Space pe verticala.
+   Acordat corect = o cruce din doua elipse subtiri. Elipse inclinate sau groase = dezacordat;
+   o singura elipsa = doar purtatoare sau REV gresit; o pata = zgomot sau semnal prea slab.
 3. Daca iese text fara sens, incearca **REV**.
 4. **MONITOR** reda in difuzoare exact ce primeste decodorul (intarziere ~0.1-0.4 s). Atentie la
    reactie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), sunetul se reintoarce.
