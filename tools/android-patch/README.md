@@ -77,6 +77,15 @@ aici doar ca referinta; **nu se aplica**.
    pui REV ca sa citesti statia, raspunzi fara sa treci inapoi pe NORM, iar emisia iese inversata si
    corespondentul nu te mai decodeaza.
 
+**Meniurile statiilor:**
+- **FTDX10** are in meniu setari NORM/REV **separate** pentru receptie si pentru emisie (plus decodor
+  RTTY intern si butoane de macrouri RTTY);
+- **FTX-1** are meniul mai sarac: fara decodor RTTY, fara macrouri RTTY, iar NORM/REV **doar pentru
+  emisie**. Receptia RTTY o face numai aplicatia, deci butonul NORM/REV din aplicatie tine locul
+  setarii de RX pe care FTX-1 nu o are.
+
+Yaesu trateaza deci polaritatea de RX si de TX separat; aplicatia le leaga de acelasi buton.
+
 **Propunere (inca neaplicata in Android, de discutat):** emisia FSK sa nu mai urmeze butonul
 NORM/REV - pinul pleaca mereu cu polaritatea normala (Mark = pin activ); REV ramane doar pentru
 receptie. Optional, mai tarziu, o setare separata „TX REV” pentru cazurile rare cand chiar vrei sa
