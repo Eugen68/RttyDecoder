@@ -54,7 +54,9 @@ jobs:
         run: |
           foreach ($dec in 'Chebyshev', 'DeepRtty') {
             $out = "smoke_$dec.txt"
-            $p = Start-Process publish\RttyDecoder.exe -ArgumentList '--smoke', 'samples\rtty_sample_11025hz.wav', $out, $dec, '1275' -PassThru -Wait
+            $p = Start-Process publish\RttyDecoder.exe -ArgumentList '--smoke', 'samples\rtty_sample_11025hz.wav', $out, $dec, '1275' -PassThru
+            # aplicatia blocata (ex. o fereastra de mesaj) nu trebuie sa tina CI-ul ore intregi
+            if (-not $p.WaitForExit(240000)) { $p.Kill(); throw "${dec}: aplicatia nu s-a terminat in 4 minute" }
             Write-Host "=== $dec (exit $($p.ExitCode)) ==="
             Get-Content $out
             if ($p.ExitCode -ne 0) { throw "${dec}: cod de iesire $($p.ExitCode)" }

@@ -118,6 +118,8 @@ public partial class RttyDecoderView : UserControl
 
     private void UpdateLevels()
     {
+        // bifa Auto isi primeste valoarea inca din InitializeComponent, inainte sa existe textele de langa ea
+        if (SignalText == null || FloorText == null || FloorSlider == null) return;
         SignalText.Text = Waterfall.CurrentLevelRangeDb is { } r ? $"{r.MinDb:0}..{r.MaxDb:0} dB" : "-";
         double floor = Waterfall.AutoFloor ? Waterfall.CurrentAutoFloorDb - 3 : Waterfall.FloorDb;
         FloorText.Text = double.IsNaN(floor) ? "auto" : $"{floor:0} dB";
