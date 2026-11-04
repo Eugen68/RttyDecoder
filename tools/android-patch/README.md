@@ -5,7 +5,8 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | Patch | Ce face | Stare |
 |---|---|---|
 | `RttyDemodulator.patch` | `RttyDemodulator.java` de la versiunea initiala pana la `65fd101` (AFC, Matched Filter, volant) | aplicat deja in Android (`refactorizare_claude_2`); pastrat ca referinta |
-| `DeepRtty.patch` | DeepRTTY: textul gri fara gol si resetarea ca marcaj in coada | propus, de aplicat |
+| `DeepRtty.patch` | DeepRTTY: textul gri fara gol si resetarea ca marcaj in coada | aplicat in Android (`9910082` pe `refactorizare_claude_2`) |
+| `fsk-rtty-u.patch` | emisia FSK inversata in RTTY-U | **respins** - testul pe statii arata ca emisia era deja corecta (vezi mai jos) |
 
 ## DeepRtty.patch
 
@@ -34,25 +35,61 @@ Context/Log/SystemClock/InferenceWrapper):
   "JUMPS OVER THE LAZY DOG" in 7 din 7 rulari, cu patch-ul 7 din 7 complete. Cursa de la pornire nu
   s-a putut provoca pe Linux (in C# aparea doar pe Windows); reparatia ei e prin constructie.
 
-## fsk-rtty-u.patch - emisia FSK in RTTY-U
+## fsk-rtty-u.patch - RESPINS (test pe statii, 2026-11-04)
 
-Simptom (verificat pe FTDX10): emisia FSK din aplicatie e buna in RTTY-L, dar in RTTY-U receptorul
-trebuie sa dea REV ca sa decodeze.
+### Ipoteza patch-ului
 
-Cauza: tonurile le genereaza statia, programul doar comuta pinul FSK. In RTTY-L statia pune Mark pe
-frecventa RF mai mare (polaritatea standard), in RTTY-U invers - acelasi pin da un semnal inversat in
-aer. `trimiteCodBaudotMetronom` (si idle-ul pe Mark fara diddle) foloseau doar butonul NORM/REV
-(`demod.regimReverseSoftware`), fara sa tina cont de modul statiei.
+Emisia FSK din aplicatie ar fi buna in RTTY-L, dar in RTTY-U statia ar inversa tonurile (Mark pe
+frecventa RF mai mica), deci receptorul ar trebui sa dea REV. Patch-ul inversa pinul FSK cand statia e
+in RTTY-U: `polaritate = NORM/REV XOR RTTY-U` (modul din raspunsul CAT `MD0x`, x = `9`), in
+`trimiteCodBaudotMetronom` si la idle-ul pe Mark fara diddle (`EcranRttyDroid.java`). Patch-ul ramane
+aici doar ca referinta; **nu se aplica**.
 
-Patch-ul (`EcranRttyDroid.java`): polaritatea pinului = NORM/REV (ca pana acum - emisia urmeaza in
-continuare REV-ul de la receptie), inversata in plus cand statia e in RTTY-U. Modul e ultimul
-raspuns CAT `MD0x` (`StareRadio.getModText()`, x = `9` = RTTY-U), care vine si singur la schimbare
-(AI1).
+### Testul (Eugen, YO9VA)
 
-```bash
-git apply fsk-rtty-u.patch
-```
+- FTDX10: emisie si receptie direct cu statia (tastatura/decodorul intern);
+- FTX-1: emisie (pin FSK) si receptie cu aplicatia YaesuCATControlADV (FTX-1 nu are decodor intern);
+- ambele statii cu setarile default; **toate emisiile pe NORM**; REV s-a pus doar la receptie, unde
+  era nevoie.
 
-De verificat pe statie: in RTTY-U, cu NORM pe aplicatie, receptorul trebuie sa decodeze pe NORM (ca
-in RTTY-L). Daca in RTTY-U ai nevoie de REV si la receptie ca sa citesti statiile, emisia urmeaza
-acel REV (comportamentul pastrat) - atunci verifica si combinatia RTTY-U + REV.
+![Tabelul testului](test-polaritate-fsk-2026-11-04.jpg)
+
+| Emite (NORM) | Receptioneaza | FTDX10 -> FTX-1 + aplicatia | FTX-1 + aplicatia -> FTDX10 |
+|---|---|---|---|
+| RTTY-L | RTTY-L | OK pe NORM | OK pe NORM |
+| RTTY-L | RTTY-U | OK doar cu REV | OK doar cu REV |
+| RTTY-U | RTTY-U | OK doar cu REV | OK doar cu REV |
+| RTTY-U | RTTY-L | OK pe NORM | OK pe NORM |
+
+### Concluzii
+
+1. **Cele doua tabele sunt identice**: FTX-1 + aplicatia se comporta exact ca FTDX10 singur.
+2. **Emisia e corecta in ambele moduri**: la ambele statii semnalul din aer e acelasi in RTTY-L si in
+   RTTY-U (receptorul in RTTY-L il citeste pe NORM indiferent de modul emitatorului). Aplicatia nu
+   are nevoie de nicio inversare suplimentara la emisie in RTTY-U.
+3. **Receptia in RTTY-U cere REV** - la decodorul intern al FTDX10 la fel ca la aplicatie. E
+   comportamentul statiilor Yaesu cu setarile default, nu un bug al aplicatiei.
+4. `fsk-rtty-u.patch` ar fi **stricat** emisia FTX-1 in RTTY-U pe NORM (ar fi inversat-o). Pe
+   combinatia RTTY-U + REV ar fi dat din intamplare semnal corect, dar doar pentru ca anula cuplajul
+   de la punctul 5.
+5. **Problema reala din aplicatie**: butonul NORM/REV schimba si receptia, si emisia
+   (`demod.regimReverseSoftware` e folosit si de `trimiteCodBaudotMetronom`). Cazul tipic: in RTTY-U
+   pui REV ca sa citesti statia, raspunzi fara sa treci inapoi pe NORM, iar emisia iese inversata si
+   corespondentul nu te mai decodeaza.
+
+**Propunere (inca neaplicata in Android, de discutat):** emisia FSK sa nu mai urmeze butonul
+NORM/REV - pinul pleaca mereu cu polaritatea normala (Mark = pin activ); REV ramane doar pentru
+receptie. Optional, mai tarziu, o setare separata „TX REV” pentru cazurile rare cand chiar vrei sa
+emiti inversat.
+
+### Observatii
+
+- Un test anterior, mai putin sistematic, parea sa arate ca FTDX10 in RTTY-U decodeaza fara REV o
+  emisie FTX-1 din RTTY-L; tabelul de mai sus (randul RTTY-L -> RTTY-U cere REV) il contrazice si e
+  cel de referinta.
+- **RttyDecoder (programul de PC)**: commit-ul `a870049` („Emisia FSK corecta si in RTTY-U",
+  `RttyFskTransmitter.RigInvertsTones`) se bazeaza pe aceeasi ipoteza. Testul de mai sus nu a acoperit
+  emisia FTDX10 prin pinul FSK al programului de PC, doar emisia directa a statiei; dar daca statia se
+  comporta la fel cand e comandata prin pin (cum se vede la FTX-1), si `a870049` inverseaza gresit in
+  RTTY-U. **De reverificat pe statie** inainte de a-l pastra (inainte de el, in modul RTTY al statiei
+  pinul deja nu urma REV-ul receptiei - adica exact propunerea de mai sus).
