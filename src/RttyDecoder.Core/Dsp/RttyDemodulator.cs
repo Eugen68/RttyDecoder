@@ -20,6 +20,13 @@ public sealed class RttyDemodulator
     /// <summary>Cod Baudot de 5 biti cu stop-bit valid.</summary>
     public Action<int>? CodeReceived;
 
+    /// <summary>
+    /// La sfarsitul fiecarui caracter (valid sau nu): bitul de stop a fost Mark, codul. Pentru squelch:
+    /// pe un semnal RTTY aproape toate caracterele se incadreaza, pe zgomot doar cam jumatate.
+    /// </summary>
+    /// <remarks>Al treilea parametru: inceputul caracterului, in biti de la pornire (ritmul caracterelor).</remarks>
+    public Action<bool, int, double>? FrameCompleted;
+
     /// <summary>Apelat periodic (~10/s la 48 kHz) cu SNR-ul (dB) si frecventa Mark curenta.</summary>
     public Action<double, double>? StatusUpdated;
 
@@ -628,6 +635,7 @@ public sealed class RttyDemodulator
                     {
                         bool volantEraBlocat = folosesteVolant && volantBlocat;
                         if (folosesteVolant) ActualizeazaVolant(bitCurent == 1);
+                        FrameCompleted?.Invoke(bitCurent == 1, currentByte & 0x1F, startCadru / samplesPerBit);
                         if (bitCurent == 1)
                         {
                             CodeReceived?.Invoke(currentByte & 0x1F);

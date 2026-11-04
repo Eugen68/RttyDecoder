@@ -146,6 +146,8 @@
             <ToggleButton Margin="12,2,2,2" Content="NB" IsChecked="{Binding NoiseBlanker}" ToolTip="Noise Blanker - impulsuri QRN" />
             <ToggleButton Content="DNR" IsChecked="{Binding Dnr}" ToolTip="Bandpass centrat intre Mark si Space" />
             <ToggleButton Content="SNR-G" IsChecked="{Binding SnrGating}" ToolTip="La semnal sub prag, decizia ramane pe Mark (idle)" />
+            <ToggleButton Content="SQL" IsChecked="{Binding Squelch}"
+                          ToolTip="Squelch: textul apare doar cand caracterele vin in ritmul RTTY (semnal real), nu pe zgomot. Nu schimba decodarea; inceputul mesajului nu se pierde. Pragul in Reglaje. (Chebyshev si Matched Filter; DeepRTTY are filtrul lui.)" />
             <ToggleButton Content="ATC" IsChecked="{Binding Atc}" IsEnabled="{Binding IsChebyshev}" ToolTip="ATC W7AY - pentru fading selectiv (Chebyshev; Matched Filter isi normalizeaza singur tonurile)" />
             <ToggleButton Content="Volant" IsChecked="{Binding Flywheel}" ToolTip="Sincronizare pe caracter la RTTY continuu" />
             <ToggleButton Content="US-TTY" IsChecked="{Binding UsTty}" ToolTip="Tabelul FIGS US-TTY (apostrof, ghilimele, $) in loc de ITA2" />
@@ -189,6 +191,12 @@
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Prag SNR-G" Style="{StaticResource Rtty.Label}" />
             <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding SnrGatingK}" />
             <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding SnrGatingK, StringFormat=x{0:0.0}}" Style="{StaticResource Rtty.Value}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="4" Text="Prag SQL" Style="{StaticResource Rtty.Label}" />
+            <Slider Grid.Row="2" Grid.Column="5" Minimum="10" Maximum="80" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SquelchPercent}"
+                    IsEnabled="{Binding Squelch}"
+                    ToolTip="Proportia minima de caractere in ritm ca textul sa apara. Mai mic = deschide mai usor (si pe semnale tastate rar); mai mare = mai putin gunoi. Implicit 35%." />
+            <TextBlock Grid.Row="2" Grid.Column="6" Text="{Binding SquelchPercent, StringFormat={}{0:0} %}" Style="{StaticResource Rtty.Value}" />
 
         </Grid>
 

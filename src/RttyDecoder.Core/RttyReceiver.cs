@@ -41,6 +41,7 @@ public sealed class RttyReceiver : IDisposable
     private DeepRttyModel? _model;
     private RttyInference? _inference;
     private DeepRttyReceiver? _deep;
+    private readonly TextSquelch _squelch;
     private Task? _modelLoad;
 
     /// <summary>Text confirmat (unul sau mai multe caractere; '\n' pentru rand nou, CR ignorat).</summary>
@@ -70,7 +71,9 @@ public sealed class RttyReceiver : IDisposable
     public RttyReceiver(Func<DeepRttyModel>? modelFactory = null)
     {
         _modelFactory = modelFactory ?? (() => DeepRttyModel.LoadEmbedded());
-        _demod.CodeReceived = OnClassicCode;
+        // textul decodorului clasic trece prin squelch (fiecare caracter terminat, valid sau nu)
+        _squelch = new TextSquelch(code => EmitCodes(new[] { code }));
+        _demod.FrameCompleted = OnClassicFrame;
         _demod.StatusUpdated = OnDemodStatus;
         _spectrum.RowAvailable += row => SpectrumAvailable?.Invoke(row);
         ApplyToDemod(_settings, null);
@@ -198,6 +201,7 @@ public sealed class RttyReceiver : IDisposable
     public void ClearDecoderState()
     {
         lock (_codecLock) _rx.ResetShift();
+        lock (_lock) _squelch.Reset();
         _deep?.Reset();
         ProvisionalTextChanged?.Invoke(string.Empty);
     }
@@ -287,10 +291,20 @@ public sealed class RttyReceiver : IDisposable
     // Text
     // ------------------------------------------------------------------
 
-    private void OnClassicCode(int code)
+    private void OnClassicFrame(bool valid, int code, double startBits)
     {
         if (_settings.Decoder == RttyDecoderType.DeepRtty) return; // textul vine de la model
-        EmitCodes(new[] { code });
+        FrameProbe?.Invoke(valid, startBits);
+        _squelch.Frame(valid, code, startBits);
+    }
+
+    /// <summary>Doar pentru teste/diagnostic: fiecare caracter terminat (valid, inceput in biti).</summary>
+    internal Action<bool, double>? FrameProbe;
+
+    /// <summary>SQL deschis: textul decodorului clasic iese (pentru afisare).</summary>
+    public bool SquelchOpen
+    {
+        get { lock (_lock) return _squelch.IsOpen || !_squelch.Enabled; }
     }
 
     private void EmitCodes(int[] codes)
@@ -353,6 +367,8 @@ public sealed class RttyReceiver : IDisposable
         dst.Sensitivity = src.Sensitivity;
         dst.FilterWidthHz = src.FilterWidthHz;
         dst.UsTty = src.UsTty;
+        dst.Squelch = src.Squelch;
+        dst.SquelchLevel = src.SquelchLevel;
     }
 
     private static void Sanitize(RttySettings s)
@@ -366,6 +382,7 @@ public sealed class RttyReceiver : IDisposable
         s.SnrGatingK = Math.Clamp(s.SnrGatingK, 1, 3);
         s.Sensitivity = Math.Clamp(s.Sensitivity, 0, 0.2);
         s.FilterWidthHz = Math.Clamp(s.FilterWidthHz, RttySettings.MinFilterWidthHz, RttySettings.MaxFilterWidthHz);
+        s.SquelchLevel = Math.Clamp(s.SquelchLevel, 0.1, 0.8);
     }
 
     /// <summary>Aplica diferentele (sau totul, daca <paramref name="old"/> e null). Sub _lock.</summary>
@@ -383,6 +400,8 @@ public sealed class RttyReceiver : IDisposable
         d.folosesteVolant = s.Flywheel;
         d.pragSensibilitate = s.Sensitivity;
         lock (_codecLock) _rx.UsTty = s.UsTty;
+        _squelch.Enabled = s.Squelch;
+        _squelch.Threshold = s.SquelchLevel;
 
         bool mf = s.Decoder == RttyDecoderType.MatchedFilter;
         bool decoderChanged = all || d.folosesteMatchedFilter != mf;
@@ -408,6 +427,7 @@ public sealed class RttyReceiver : IDisposable
         {
             d.frecventaTunedBaza = s.MarkFrequencyHz;
             d.regimReverseSoftware = s.Reverse;
+            _squelch.Reset();   // alt semnal: se judeca de la capat
         }
 
         d.folosesteDnr = s.Dnr;

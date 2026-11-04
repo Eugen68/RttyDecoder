@@ -339,6 +339,14 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     private bool _usTty;
     public bool UsTty { get => _usTty; set { if (Set(ref _usTty, value)) Push(s => s.UsTty = value); } }
 
+    private bool _squelch;
+    /// <summary>SQL: textul decodorului clasic iese doar cand caracterele vin in ritmul RTTY.</summary>
+    public bool Squelch { get => _squelch; set { if (Set(ref _squelch, value)) Push(s => s.Squelch = value); } }
+
+    private double _squelchPercent;
+    /// <summary>Pragul SQL in procente (10-80): proportia minima de caractere in ritm.</summary>
+    public double SquelchPercent { get => _squelchPercent; set { if (Set(ref _squelchPercent, value)) Push(s => s.SquelchLevel = value / 100.0); } }
+
     public RttySettings ExportSettings() => Receiver.Settings;
 
     public void ImportSettings(RttySettings settings)
@@ -376,6 +384,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             SensitivityPercent = Math.Round(s.Sensitivity * 100, 1);
             FilterWidthHz = s.FilterWidthHz;
             UsTty = s.UsTty;
+            Squelch = s.Squelch;
+            SquelchPercent = Math.Round(s.SquelchLevel * 100);
         }
         finally
         {

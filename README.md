@@ -13,6 +13,12 @@ aplicatie mai mare.
   (Auto sau manuala), interval, gama si nivelul semnalului, cu paleta din CwDecoder
 - **indicator de acord** cu elipse incrucisate (ca pe osciloscop), in dreapta waterfall-ului
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
+- **SQL** (squelch, pornit implicit): pe zgomot nu mai apar caractere aleatoare. Criteriul e ritmul
+  caracterelor - pe un semnal RTTY real vin la ~7.5 biti unul dupa altul (chiar si cu pauze de
+  tastare, in interiorul cuvintelor), pe zgomot la intervale intamplatoare (masurat: zgomot 6% in
+  ritm, semnal 56-100%; bitul de stop si SNR-ul nu deosebesc zgomotul). La deschidere se scrie si
+  inceputul mesajului, iar la pauzele de tastare nu se pierde nimic. Afecteaza doar textul afisat,
+  nu decodarea; pragul (implicit 35%) in Reglaje. Decodoarele clasice; DeepRTTY are filtrul lui.
 - **emisie RTTY prin FSK**: 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
 - **indicative** evidentiate in terminal si **lista statiilor auzite** (tara, continent, CQ, de cate

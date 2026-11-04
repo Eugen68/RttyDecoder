@@ -80,5 +80,14 @@ public sealed class RttySettings
     /// <summary>Tabelul FIGS US-TTY in loc de ITA2.</summary>
     public bool UsTty { get; set; }
 
+    /// <summary>
+    /// SQL: textul decodorului clasic iese doar cand caracterele vin in ritmul RTTY (semnal real), nu
+    /// pe zgomot. Nu afecteaza decodarea; la DeepRTTY nu se aplica.
+    /// </summary>
+    public bool Squelch { get; set; } = true;
+
+    /// <summary>Pragul SQL: proportia minima de caractere in ritm (0.1..0.8).</summary>
+    public double SquelchLevel { get; set; } = 0.35;
+
     public RttySettings Clone() => (RttySettings)MemberwiseClone();
 }
