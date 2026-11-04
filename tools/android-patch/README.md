@@ -88,8 +88,9 @@ Yaesu trateaza deci polaritatea de RX si de TX separat; aplicatia le leaga de ac
 
 **Propunere (inca neaplicata in Android, de discutat):** emisia FSK sa nu mai urmeze butonul
 NORM/REV - pinul pleaca mereu cu polaritatea normala (Mark = pin activ); REV ramane doar pentru
-receptie. Optional, mai tarziu, o setare separata „TX REV” pentru cazurile rare cand chiar vrei sa
-emiti inversat.
+receptie. Emisia inversata, cand chiar e nevoie, se face din setarea
+de TX din meniul statiei (exista la ambele); o optiune „TX REV” si in aplicatie nu e necesara si ar
+putea da o dubla inversare.
 
 ### Observatii
 
