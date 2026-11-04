@@ -5,5 +5,39 @@
         Title="RTTY Decoder - YO9VA"
         Width="1100" Height="760" MinWidth="760" MinHeight="520"
         Background="{StaticResource Rtty.Background}">
-    <rtty:RttyDecoderView x:Name="Decoder" />
+    <Window.InputBindings>
+        <KeyBinding Key="O" Modifiers="Control" Command="{x:Static ApplicationCommands.Open}" />
+        <KeyBinding Key="S" Modifiers="Control" Command="{x:Static ApplicationCommands.Save}" />
+    </Window.InputBindings>
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static ApplicationCommands.Open}" Executed="OnOpenWav" />
+        <CommandBinding Command="{x:Static ApplicationCommands.Save}" Executed="OnSaveText" />
+    </Window.CommandBindings>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_Fisier">
+                <MenuItem Header="_Deschide WAV..." InputGestureText="Ctrl+O" Command="{x:Static ApplicationCommands.Open}" />
+                <MenuItem Header="_Salveaza textul..." InputGestureText="Ctrl+S" Command="{x:Static ApplicationCommands.Save}" />
+                <MenuItem Header="Salveaza lista _statiilor (CSV)..." Click="OnSaveStations" />
+                <Separator />
+                <MenuItem Header="_Iesire" InputGestureText="Alt+F4" Click="OnExit" />
+            </MenuItem>
+            <MenuItem Header="_Indicative">
+                <MenuItem Header="Deschide _folderul cu date" Click="OnOpenDataFolder"
+                          ToolTip="cty.dat, MASTER.SCP si lista LoTW descarcate (%LOCALAPPDATA%\YO9VA\RttyDecoder)" />
+                <MenuItem x:Name="UpdateDataItem" Header="_Actualizeaza datele acum" Click="OnUpdateData"
+                          ToolTip="Verifica pe internet cty.dat, MASTER.SCP si LoTW si le foloseste imediat pe cele noi" />
+                <MenuItem Header="_Starea datelor..." Click="OnDataStatus" />
+            </MenuItem>
+            <MenuItem Header="_Setari">
+                <MenuItem Header="Deschide folderul _setarilor" Click="OnOpenSettingsFolder"
+                          ToolTip="settings.json (%APPDATA%\YO9VA\RttyDecoder)" />
+            </MenuItem>
+            <MenuItem Header="_Ajutor">
+                <MenuItem Header="_Despre RTTY Decoder..." Click="OnAbout" />
+            </MenuItem>
+        </Menu>
+        <rtty:RttyDecoderView x:Name="Decoder" />
+    </DockPanel>
 </Window>

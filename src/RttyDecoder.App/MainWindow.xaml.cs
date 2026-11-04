@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
 using HamCallsign;
@@ -91,6 +93,90 @@ public partial class MainWindow : Window
             cod = 1;
         }
         Application.Current.Shutdown(cod);
+    }
+
+    // ------------------------------------------------------------------
+    // Meniu
+    // ------------------------------------------------------------------
+
+    private void OnOpenWav(object sender, RoutedEventArgs e) => Decoder.OpenWavDialog();
+
+    private void OnSaveText(object sender, RoutedEventArgs e) => Decoder.SaveTextDialog();
+
+    private void OnSaveStations(object sender, RoutedEventArgs e) => Decoder.SaveStationsDialog();
+
+    private void OnExit(object sender, RoutedEventArgs e) => Close();
+
+    private void OnOpenDataFolder(object sender, RoutedEventArgs e) => OpenFolder(CallsignCache);
+
+    private void OnOpenSettingsFolder(object sender, RoutedEventArgs e) => OpenFolder(AppSettings.Folder);
+
+    /// <summary>Deschide folderul in Explorer (il creeaza daca inca nu exista).</summary>
+    private void OpenFolder(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + path + "\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _vm.Message = "Nu pot deschide folderul: " + ex.Message;
+        }
+    }
+
+    /// <summary>Verifica acum pe internet bazele de indicative; cele noi se folosesc imediat.</summary>
+    private async void OnUpdateData(object sender, RoutedEventArgs e)
+    {
+        UpdateDataItem.IsEnabled = false;
+        _vm.Message = "Verific cty.dat, MASTER.SCP si LoTW...";
+        try
+        {
+            int n = await ReferenceData.UpdateAsync(CallsignCache, TimeSpan.Zero);
+            if (n > 0) _vm.UseReferenceData(await Task.Run(() => ReferenceData.Load(CallsignCache)));
+            _vm.Message = n > 0
+                ? $"Date de indicative actualizate: {n} {(n == 1 ? "fisier" : "fisiere")} nou{(n == 1 ? "" : "i")}, folosite de acum."
+                : "Nimic nou: datele sunt la zi (sau nu e conexiune la internet).";
+        }
+        catch (Exception ex)
+        {
+            _vm.Message = "Actualizarea a esuat: " + ex.Message;
+        }
+        finally
+        {
+            UpdateDataItem.IsEnabled = true;
+        }
+    }
+
+    private void OnDataStatus(object sender, RoutedEventArgs e)
+    {
+        var r = _vm.Callsigns.Recognizer;
+        string Fisier(string name, string embedded)
+        {
+            string p = Path.Combine(CallsignCache, name);
+            return File.Exists(p) ? $"descarcat {File.GetLastWriteTime(p):yyyy-MM-dd HH:mm}" : embedded;
+        }
+        string text =
+            $"cty.dat: {r.Cty?.EntityCount ?? 0} entitati DXCC - {Fisier(ReferenceData.CtyFileName, "copia inclusa in aplicatie")}\n" +
+            $"MASTER.SCP: {r.Scp?.Count ?? 0:N0} indicative - {Fisier(ReferenceData.MasterScpFileName, "copia inclusa in aplicatie")}\n" +
+            $"LoTW: {r.Lotw?.Count ?? 0:N0} indicative active - {Fisier(ReferenceData.LotwFileName, "inca nedescarcata")}\n\n" +
+            $"Folder: {CallsignCache}\n\n" +
+            "cty.dat si MASTER.SCP se verifica saptamanal, LoTW zilnic, in fundal.";
+        MessageBox.Show(this, text, "Starea datelor de indicative", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void OnAbout(object sender, RoutedEventArgs e)
+    {
+        var a = Assembly.GetExecutingAssembly();
+        string version = a.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+                         ?? a.GetName().Version?.ToString() ?? "";
+        MessageBox.Show(this,
+            $"RTTY Decoder {version}\n" +
+            "Copyright (c) 2026 Eugen Trifu, YO9VA - licenta MIT\n\n" +
+            "Decodor RTTY (Chebyshev, Matched Filter, DeepRTTY) portat din aplicatia Android Yaesu-FTX1-CAT-Control.\n" +
+            "Indicative: biblioteca HamCallsign (cty.dat AD1C, MASTER.SCP, LoTW).\n\n" +
+            "https://github.com/Eugen68/RttyDecoder",
+            "Despre RTTY Decoder", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     protected override void OnClosing(CancelEventArgs e)

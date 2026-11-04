@@ -9,7 +9,8 @@ namespace RttyDecoder.App;
 /// <summary>Setarile aplicatiei, in %APPDATA%\YO9VA\RttyDecoder\settings.json.</summary>
 public sealed class AppSettings
 {
-    private static readonly string Folder =
+    /// <summary>Folderul setarilor: %APPDATA%\YO9VA\RttyDecoder.</summary>
+    public static readonly string Folder =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "YO9VA", "RttyDecoder");
 
     private static readonly string FilePath = Path.Combine(Folder, "settings.json");

@@ -285,7 +285,10 @@ public partial class RttyDecoderView : UserControl
         Keyboard.ClearFocus();
     }
 
-    private void OnSaveStations(object sender, RoutedEventArgs e)
+    private void OnSaveStations(object sender, RoutedEventArgs e) => SaveStationsDialog();
+
+    /// <summary>Dialogul de salvare a listei statiilor (CSV) - si pentru meniul gazdei.</summary>
+    public void SaveStationsDialog()
     {
         if (_vm == null) return;
         var dlg = new SaveFileDialog
@@ -305,7 +308,10 @@ public partial class RttyDecoderView : UserControl
         }
     }
 
-    private void OnOpenWav(object sender, RoutedEventArgs e)
+    private void OnOpenWav(object sender, RoutedEventArgs e) => OpenWavDialog();
+
+    /// <summary>Dialogul de deschidere a unui fisier WAV - si pentru meniul gazdei.</summary>
+    public void OpenWavDialog()
     {
         var dlg = new OpenFileDialog
         {
@@ -315,7 +321,10 @@ public partial class RttyDecoderView : UserControl
         if (dlg.ShowDialog(Window.GetWindow(this)) == true) _vm?.OpenFileCommand.Execute(dlg.FileName);
     }
 
-    private void OnSaveText(object sender, RoutedEventArgs e)
+    private void OnSaveText(object sender, RoutedEventArgs e) => SaveTextDialog();
+
+    /// <summary>Dialogul de salvare a textului receptionat - si pentru meniul gazdei.</summary>
+    public void SaveTextDialog()
     {
         var dlg = new SaveFileDialog
         {

@@ -47,6 +47,18 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
    Indicativele cu prefix litera+cifra (`S50A`, `A61BK`, `E73A`) sunt recunoscute daca cty.dat
    confirma prefixul.
 
+**Meniul** de sus:
+- **Fisier**: Deschide WAV (Ctrl+O), Salveaza textul (Ctrl+S), Salveaza lista statiilor (CSV), Iesire
+- **Indicative**: Deschide folderul cu date (`%LOCALAPPDATA%\YO9VA\RttyDecoder`), Actualizeaza datele
+  acum (verifica imediat cty.dat, MASTER.SCP si LoTW si le foloseste pe cele noi, fara repornire si
+  fara sa goleasca lista statiilor), Starea datelor (cate indicative si de cand e fiecare fisier)
+- **Setari**: Deschide folderul setarilor (`%APPDATA%\YO9VA\RttyDecoder`, `settings.json`)
+- **Ajutor**: Despre
+
+Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
+apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,
+`SaveStationsDialog()`, `RttyDecoderViewModel.UseReferenceData(...)`).
+
 Pentru o inregistrare: **Deschide WAV...**. Cu *Timp real* debifat, un fisier de o ora se decodeaza in
 cateva zeci de secunde (DeepRTTY: cateva minute).
 

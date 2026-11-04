@@ -64,15 +64,15 @@ public sealed partial class RttyDecoderViewModel
     internal event Action? CallsignSettingsChanged;
 
     /// <summary>
-    /// Bazele cty.dat / MASTER.SCP / LoTW (de obicei <see cref="ReferenceData.Load"/> facut in fundal la pornire).
-    /// Pana atunci se recunoaste doar forma indicativelor. Lista statiilor se goleste.
+    /// Bazele cty.dat / MASTER.SCP / LoTW (de obicei <see cref="ReferenceData.Load"/> facut in fundal la
+    /// pornire, apoi din nou dupa o actualizare). Pana atunci se recunoaste doar forma. Lista statiilor
+    /// ramane; indicativele din terminal se recoloreaza.
     /// </summary>
     public void UseReferenceData(ReferenceData data)
     {
-        var old = _callsigns;
-        old.StationHeard -= OnStationHeard;
-        _callsigns = CreateTracker(data.CreateRecognizer());
-        ClearStations();
+        var r = data.CreateRecognizer();
+        r.MyCall = _myCall;
+        _callsigns.Recognizer = r;
         CallsignSettingsChanged?.Invoke();
     }
 

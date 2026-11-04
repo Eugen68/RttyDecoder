@@ -9,6 +9,8 @@
     <Product>RTTY Decoder</Product>
     <Version>0.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Documentatia XML a bibliotecilor (HamCallsign.xml) nu trebuie langa exe. -->
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
 
   <ItemGroup>
