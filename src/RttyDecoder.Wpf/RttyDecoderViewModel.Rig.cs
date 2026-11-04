@@ -68,6 +68,8 @@ public sealed partial class RttyDecoderViewModel
 
     private void OnRigState(RigState s) => _dispatcher.BeginInvoke(() =>
     {
+        // VFO mutat (QSY, butonul statiei): urmatorul text decodat primeste ora
+        if (s.Connected && _rigState.Connected && s.FrequencyHz != _rigState.FrequencyHz) TuningChanged?.Invoke();
         _rigState = s;
         UpdateRigText();
     });

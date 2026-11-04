@@ -68,6 +68,7 @@ public partial class RttyDecoderView : UserControl
             Tuning.Scope = null;
             _vm.CallsignSettingsChanged -= RecolorCallsigns;
             _vm.TxEcho -= OnTxEcho;
+            _vm.TuningChanged -= OnTuningChanged;
             _vm.PropertyChanged -= OnVmPropertyChanged;
         }
         _vm = vm;
@@ -80,6 +81,7 @@ public partial class RttyDecoderView : UserControl
             Tuning.Scope = vm.Scope;
             vm.CallsignSettingsChanged += RecolorCallsigns;
             vm.TxEcho += OnTxEcho;
+            vm.TuningChanged += OnTuningChanged;
             vm.PropertyChanged += OnVmPropertyChanged;
             UpdateStationsColumn();
         }
@@ -116,8 +118,17 @@ public partial class RttyDecoderView : UserControl
         }
     }
 
+    private void UpdateClocks()
+    {
+        if (UtcClock == null || LocalClock == null) return;
+        var now = DateTime.Now;
+        UtcClock.Text = now.ToUniversalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        LocalClock.Text = now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     private void UpdateLevels()
     {
+        UpdateClocks();
         // bifa Auto isi primeste valoarea inca din InitializeComponent, inainte sa existe textele de langa ea
         if (SignalText == null || FloorText == null || FloorSlider == null) return;
         SignalText.Text = Waterfall.CurrentLevelRangeDb is { } r ? $"{r.MinDb:0}..{r.MaxDb:0} dB" : "-";
@@ -145,6 +156,7 @@ public partial class RttyDecoderView : UserControl
         }
         text = text.Replace("\r", "");
         bool laCapat = Terminal.VerticalOffset + Terminal.ViewportHeight >= Terminal.ExtentHeight - 2;
+        text = MaybeStamp(text, Speaker.Tx, () => { });
         var inlines = TerminalParagraph.Inlines;
         int i = 0;
         while (i < text.Length)
@@ -234,7 +246,83 @@ public partial class RttyDecoderView : UserControl
     private void OnText(string text) => Append(text, true);
 
     /// <summary>Mesaj al aplicatiei (ex. numele fisierului): text simplu.</summary>
-    private void OnInfo(string text) => Append(text, false);
+    private void OnInfo(string text)
+    {
+        Append(text, false);
+        _lastSpeaker = Speaker.None;   // dupa un mesaj al aplicatiei, urmatorul text primeste ora
+    }
+
+    // ------------------------------------------------------------------
+    // Ora UTC in fata mesajelor: [23:44:34]: - verde la receptie, rosu la emisie
+    // ------------------------------------------------------------------
+
+    private enum Speaker { None, Rx, Tx }
+
+    /// <summary>Peste atata pauza, urmatorul mesaj (receptie sau emisie) incepe cu ora.</summary>
+    private static readonly TimeSpan StampGap = TimeSpan.FromSeconds(5);
+
+    private static readonly Brush StampTxBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+
+    private Speaker _lastSpeaker = Speaker.None;
+    private DateTime _lastRxUtc = DateTime.MinValue;
+    private DateTime _lastTxUtc = DateTime.MinValue;
+    private bool _stampNextRx = true;
+
+    /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora.</summary>
+    private void OnTuningChanged() => _stampNextRx = true;
+
+    /// <summary>
+    /// Pune ora in fata textului daca e un mesaj nou: dupa o pauza de cel putin 5 s, la trecerea
+    /// intre receptie si emisie, sau (la receptie) dupa o schimbare de acord. Ora incepe un rand nou;
+    /// spatiile / randurile goale de la inceputul mesajului se sar. Un text doar din spatii nu conteaza
+    /// ca activitate. <paramref name="beforeStamp"/> incheie ce era inceput (cuvantul neterminat).
+    /// </summary>
+    private string MaybeStamp(string text, Speaker who, Action beforeStamp)
+    {
+        int first = 0;
+        while (first < text.Length && char.IsWhiteSpace(text[first])) first++;
+        if (first == text.Length) return text;
+
+        var now = DateTime.UtcNow;
+        var last = who == Speaker.Rx ? _lastRxUtc : _lastTxUtc;
+        bool need = who != _lastSpeaker || now - last >= StampGap || (who == Speaker.Rx && _stampNextRx);
+        if (who == Speaker.Rx)
+        {
+            _lastRxUtc = now;
+            _stampNextRx = false;
+        }
+        else
+        {
+            _lastTxUtc = now;
+        }
+        _lastSpeaker = who;
+        if (!need) return text;
+
+        beforeStamp();
+        bool lineStart = _text.Length == 0 || _text[^1] == '\n';
+        string stamp = $"[{now:HH:mm:ss}]: ";
+        var inlines = TerminalParagraph.Inlines;
+        if (!lineStart)
+        {
+            inlines.Add(new LineBreak());
+            _text.Append('\n');
+        }
+        var run = new Run(stamp);
+        if (who == Speaker.Tx) run.Foreground = StampTxBrush;   // la receptie: verdele textului
+        inlines.Add(run);
+        _text.Append(stamp);
+        _plain = null;
+        return text.Substring(first);
+    }
+
+    private void FlushPendingWord()
+    {
+        foreach (var seg in _highlighter.Flush())
+        {
+            if (seg.Match is { } m) AddCallsign(seg.Text, m);
+            else AddPlain(seg.Text);
+        }
+    }
 
     private void Append(string text, bool decoded)
     {
@@ -251,6 +339,7 @@ public partial class RttyDecoderView : UserControl
 
         if (decoded)
         {
+            text = MaybeStamp(text, Speaker.Rx, FlushPendingWord);
             foreach (var seg in _highlighter.Feed(text))
             {
                 if (seg.Match is { } m) AddCallsign(seg.Text, m);
@@ -374,6 +463,8 @@ public partial class RttyDecoderView : UserControl
         _plain = null;
         _pendingRun = null;
         _highlighter.Reset();
+        _lastSpeaker = Speaker.None;
+        _stampNextRx = true;
         Waterfall.Clear();
     }
 

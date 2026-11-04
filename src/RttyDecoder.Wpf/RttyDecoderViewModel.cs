@@ -60,6 +60,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         {
             Receiver.ToggleReverse();
             SyncFromSettings(Receiver.Settings);
+            TuningChanged?.Invoke();
         });
         ClearCommand = new RelayCommand(Clear);
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
@@ -90,6 +91,12 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     /// <summary>Text decodat de adaugat in terminal (pe firul UI).</summary>
     public event Action<string>? TextAppended;
+
+    /// <summary>
+    /// Acordul s-a schimbat (click/rotita pe waterfall, A-TUNE, NORM/REV, frecventa statiei) - nu si
+    /// deriva AFC. Pe firul UI.
+    /// </summary>
+    public event Action? TuningChanged;
 
     /// <summary>Mesaj al aplicatiei de adaugat in terminal, nu text decodat (pe firul UI).</summary>
     public event Action<string>? InfoAppended;
@@ -252,6 +259,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(MarkText));
                 OnMarkChangedForRig();
+                // acordul schimbat de utilizator (nu deriva AFC): urmatorul text decodat primeste ora
+                if (!_syncing) TuningChanged?.Invoke();
                 Push(s => s.MarkFrequencyHz = value);
             }
         }
@@ -529,6 +538,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     private void AutoTune()
     {
         var mark = Receiver.AutoTune();
+        if (mark != null) TuningChanged?.Invoke();
         Message = mark is { } m
             ? $"A-TUNE: {m.ToString("0", CultureInfo.InvariantCulture)} Hz"
             : "A-TUNE: semnal prea slab - acordeaza manual (click pe waterfall).";

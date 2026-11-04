@@ -49,6 +49,12 @@
                           ToolTip="Semnalul primit se aude in difuzoare (placa de iesire implicita). Atentie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), apare reactie." />
             <Slider DockPanel.Dock="Left" Width="80" Minimum="0" Maximum="100" Value="{Binding MonitorVolume}" VerticalAlignment="Center"
                     ToolTip="Volumul monitorizarii" />
+            <TextBlock DockPanel.Dock="Left" Text="UTC" Margin="20,0,6,0" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" />
+            <TextBlock x:Name="UtcClock" DockPanel.Dock="Left" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" FontWeight="Bold"
+                       Foreground="{StaticResource Rtty.Accent}" ToolTip="Ora UTC" />
+            <TextBlock DockPanel.Dock="Left" Text="LOCAL" Margin="16,0,6,0" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" />
+            <TextBlock x:Name="LocalClock" DockPanel.Dock="Left" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" FontWeight="Bold"
+                       Foreground="{StaticResource Rtty.Foreground}" ToolTip="Ora locala a calculatorului" />
             <ProgressBar DockPanel.Dock="Left" Margin="8,0,0,0" Width="140" Height="10" Minimum="0" Maximum="1" Value="{Binding FileProgress, Mode=OneWay}"
                          Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}" />
         </DockPanel>
