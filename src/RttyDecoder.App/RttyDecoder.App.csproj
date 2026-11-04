@@ -9,6 +9,8 @@
     <Product>RTTY Decoder</Product>
     <Version>0.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Iconita (turnul radio) din CwDecoder; ferestrele fara Icon propriu o folosesc pe a exe-ului. -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- Documentatia XML a bibliotecilor (HamCallsign.xml) nu trebuie langa exe. -->
     <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>

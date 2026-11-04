@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/external/">
     <Project Path="external/HamCallsign/src/HamCallsign/HamCallsign.csproj" />
+    <Project Path="external/HamCallsign/src/HamCallsign.Online/HamCallsign.Online.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RttyDecoder.Core.Tests/RttyDecoder.Core.Tests.csproj" />

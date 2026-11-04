@@ -166,10 +166,14 @@ public partial class RttyDecoderView : UserControl
 
     private void ApplyCallsignStyle(Run run, CallsignMatch m)
     {
+        // necunoscut local, dar confirmat de QRZ.com / HamQTH.com: verde ca un indicativ cunoscut
+        var online = _vm?.Verifier.GetState(m.Callsign) ?? HamCallsign.Online.CallsignVerificationState.Pending;
+        var result = _vm?.Verifier.GetResult(m.Callsign);
         string key = m.Status switch
         {
             CallsignStatus.Own => "Call.Own",
             CallsignStatus.Known => "Call.Known",
+            _ when online == HamCallsign.Online.CallsignVerificationState.Confirmed => "Call.Known",
             _ => "Call.FormatOnly",
         };
         run.Tag = m;
@@ -180,7 +184,7 @@ public partial class RttyDecoderView : UserControl
                       m.Status switch
                       {
                           CallsignStatus.Own => "\nindicativul propriu",
-                          _ => "\n" + HeardStationRow.KnownText(m.KnownIn),
+                          _ => "\n" + HeardStationRow.KnownText(m.KnownIn) + HeardStationRow.OnlineText(online, result),
                       } +
                       "\nClick: copiaza   Dublu click: QRZ.com";
     }
@@ -309,8 +313,6 @@ public partial class RttyDecoderView : UserControl
             _vm.Message = "Nu pot salva: " + ex.Message;
         }
     }
-
-    private void OnOpenWav(object sender, RoutedEventArgs e) => OpenWavDialog();
 
     /// <summary>Dialogul de deschidere a unui fisier WAV - si pentru meniul gazdei.</summary>
     public void OpenWavDialog()

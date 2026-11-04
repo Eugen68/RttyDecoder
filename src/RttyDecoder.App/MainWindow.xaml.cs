@@ -55,6 +55,7 @@ public partial class MainWindow : Window
         _vm.MonitorVolume = _settings.MonitorVolume;
         _vm.MyCall = _settings.MyCall ?? "";
         _vm.ShowStations = _settings.ShowStations;
+        _vm.SetOnlineCredentials(_settings.QrzUsername, _settings.GetQrzPassword(), _settings.HamQthUsername, _settings.GetHamQthPassword());
         Decoder.DataContext = _vm;
         _callsignData = LoadCallsignDataAsync();
 
@@ -108,6 +109,22 @@ public partial class MainWindow : Window
     private void OnExit(object sender, RoutedEventArgs e) => Close();
 
     private void OnOpenDataFolder(object sender, RoutedEventArgs e) => OpenFolder(CallsignCache);
+
+    private void OnLookupSettings(object sender, RoutedEventArgs e)
+    {
+        var dlg = new LookupSettingsWindow(_settings.QrzUsername ?? "", _settings.GetQrzPassword(),
+            _settings.HamQthUsername ?? "", _settings.GetHamQthPassword()) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _settings.QrzUsername = dlg.QrzUsername;
+        _settings.SetQrzPassword(dlg.QrzPassword);
+        _settings.HamQthUsername = dlg.HamQthUsername;
+        _settings.SetHamQthPassword(dlg.HamQthPassword);
+        _settings.Save();
+        _vm.SetOnlineCredentials(_settings.QrzUsername, _settings.GetQrzPassword(), _settings.HamQthUsername, _settings.GetHamQthPassword());
+        _vm.Message = _vm.OnlineVerificationEnabled
+            ? "Verificare online activa: indicativele necunoscute local se verifica pe QRZ.com / HamQTH.com."
+            : "Verificare online oprita (niciun cont completat).";
+    }
 
     private void OnOpenSettingsFolder(object sender, RoutedEventArgs e) => OpenFolder(AppSettings.Folder);
 

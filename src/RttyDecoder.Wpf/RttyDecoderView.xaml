@@ -41,8 +41,7 @@
                       IsEnabled="{Binding IsRunning, Converter={x:Static local:Converters.Not}}" ToolTip="Canalul folosit dintr-o sursa stereo" />
             <Button DockPanel.Dock="Left" Margin="12,0,0,0" Width="90" Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"
                     Style="{StaticResource Rtty.PrimaryButton}" ToolTip="Porneste / opreste receptia de la placa de sunet" />
-            <Button DockPanel.Dock="Left" Margin="12,0,0,0" Content="Deschide WAV..." Click="OnOpenWav" ToolTip="Decodeaza o inregistrare .wav (orice rata, mono/stereo)" />
-            <CheckBox DockPanel.Dock="Left" Margin="8,0,0,0" VerticalAlignment="Center" Content="Timp real" IsChecked="{Binding RealTime}"
+            <CheckBox DockPanel.Dock="Left" Margin="12,0,0,0" VerticalAlignment="Center" Content="Timp real" IsChecked="{Binding RealTime}"
                       ToolTip="Bifat: fisierul se reda in ritmul real. Debifat: decodare cat de repede se poate." />
             <ToggleButton DockPanel.Dock="Left" Margin="12,2,2,2" Content="&#x1F50A; MONITOR" IsChecked="{Binding MonitorOn}"
                           ToolTip="Semnalul primit se aude in difuzoare (placa de iesire implicita). Atentie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), apare reactie." />
@@ -178,7 +177,7 @@
                     <Button DockPanel.Dock="Left" Content="CSV..." Click="OnSaveStations" ToolTip="Salveaza lista statiilor (CSV, ore UTC)" />
                     <Button DockPanel.Dock="Left" Content="Goleste" Command="{Binding ClearStationsCommand}" ToolTip="Goleste lista statiilor" />
                     <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" FontSize="11">
-                        <Run Text="&#x25A0;" Foreground="{StaticResource Call.Known}" /><Run Text=" cunoscut (MASTER.SCP / LoTW)  " />
+                        <Run Text="&#x25A0;" Foreground="{StaticResource Call.Known}" /><Run Text=" cunoscut / confirmat  " />
                         <Run Text="&#x25A0;" Foreground="{StaticResource Call.FormatOnly}" /><Run Text=" necunoscut" />
                     </TextBlock>
                 </DockPanel>
@@ -197,7 +196,7 @@
                                     <Setter Property="FontWeight" Value="Bold" />
                                     <Setter Property="Foreground" Value="{StaticResource Call.FormatOnly}" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                        <DataTrigger Binding="{Binding IsConfirmed}" Value="True">
                                             <Setter Property="Foreground" Value="{StaticResource Call.Known}" />
                                         </DataTrigger>
                                     </Style.Triggers>

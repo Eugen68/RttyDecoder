@@ -67,6 +67,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
         ClearStationsCommand = new RelayCommand(ClearStations);
         _callsigns = CreateTracker(new CallsignRecognizer());
+        CreateVerifier();
         HeardStationsView = CreateStationsView();
 
         RefreshDevices();

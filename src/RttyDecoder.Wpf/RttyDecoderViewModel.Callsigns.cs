@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using HamCallsign;
+using HamCallsign.Online;
 
 namespace RttyDecoder.Wpf;
 
@@ -30,6 +31,48 @@ public sealed partial class RttyDecoderViewModel
     public ICollectionView HeardStationsView { get; }
 
     public ICommand ClearStationsCommand { get; }
+
+    /// <summary>
+    /// Verificarea online (QRZ.com, apoi HamQTH.com) a indicativelor care nu sunt in listele locale.
+    /// Fara date de cont nu face nimic. Gazda seteaza contul cu <see cref="SetOnlineCredentials"/>.
+    /// </summary>
+    public CallsignVerifier Verifier { get; private set; } = null!;
+
+    /// <summary>Exista cel putin un cont (QRZ.com sau HamQTH.com) completat.</summary>
+    public bool OnlineVerificationEnabled => Verifier.HasQrz || Verifier.HasHamQth;
+
+    /// <summary>
+    /// Datele de cont pentru verificarea online (goale = fara). Indicativele deja auzite si
+    /// necunoscute local se verifica imediat.
+    /// </summary>
+    public void SetOnlineCredentials(string? qrzUsername, string? qrzPassword, string? hamQthUsername, string? hamQthPassword)
+    {
+        Verifier.QrzUsername = qrzUsername;
+        Verifier.QrzPassword = qrzPassword;
+        Verifier.HamQthUsername = hamQthUsername;
+        Verifier.HamQthPassword = hamQthPassword;
+        OnVerificationUpdated();
+        if (!OnlineVerificationEnabled) return;
+        foreach (var row in HeardStations)
+        {
+            if (!row.IsKnown) Verifier.RequestVerification(row.Callsign);
+        }
+    }
+
+    private void CreateVerifier()
+    {
+        var v = new CallsignVerifier(c => _callsigns.Recognizer.KnownIn(c) != KnownSources.None,
+            new QrzLookupClient(agent: "RttyDecoder"), new HamQthLookupClient(agent: "RttyDecoder"));
+        v.VerificationUpdated += () => _dispatcher.BeginInvoke(OnVerificationUpdated);
+        Verifier = v;
+    }
+
+    /// <summary>Un raspuns online a sosit: lista si terminalul se recoloreaza.</summary>
+    private void OnVerificationUpdated()
+    {
+        foreach (var row in HeardStations) row.SetOnline(Verifier.GetState(row.Callsign), Verifier.GetResult(row.Callsign));
+        CallsignSettingsChanged?.Invoke();
+    }
 
     private string _myCall = "";
     /// <summary>Indicativul propriu: evidentiat altfel si neinclus in lista statiilor.</summary>
@@ -73,6 +116,7 @@ public sealed partial class RttyDecoderViewModel
         var r = data.CreateRecognizer();
         r.MyCall = _myCall;
         _callsigns.Recognizer = r;
+        Verifier.InvalidateUnconfirmed();
         CallsignSettingsChanged?.Invoke();
     }
 
@@ -112,6 +156,10 @@ public sealed partial class RttyDecoderViewModel
         recognizer.MyCall = _myCall;
         var t = new CallsignTracker(recognizer);
         t.StationHeard += OnStationHeard;
+        t.CallsignRecognized += m =>
+        {
+            if (m.Status == CallsignStatus.FormatOnly && Verifier != null && OnlineVerificationEnabled) Verifier.RequestVerification(m.Callsign);
+        };
         return t;
     }
 
@@ -133,6 +181,7 @@ public sealed partial class RttyDecoderViewModel
             return;
         }
         row = new HeardStationRow(s);
+        row.SetOnline(Verifier.GetState(row.Callsign), Verifier.GetResult(row.Callsign));
         _rows[s.Callsign.Full] = row;
         HeardStations.Add(row);
         StationsText = HeardStations.Count == 1 ? "1 statie" : $"{HeardStations.Count} statii";
@@ -174,6 +223,26 @@ public sealed class HeardStationRow : ObservableObject
     /// <summary>Gasit in MASTER.SCP sau LoTW.</summary>
     public bool IsKnown => KnownIn != KnownSources.None;
 
+    /// <summary>Starea verificarii online (QRZ.com / HamQTH.com).</summary>
+    public CallsignVerificationState OnlineState { get; private set; } = CallsignVerificationState.Pending;
+
+    /// <summary>Datele gasite online (nume, oras), daca exista.</summary>
+    public CallsignLookupResult? OnlineResult { get; private set; }
+
+    /// <summary>Cunoscut local sau confirmat online: verde in lista.</summary>
+    public bool IsConfirmed => IsKnown || OnlineState == CallsignVerificationState.Confirmed;
+
+    internal void SetOnline(CallsignVerificationState state, CallsignLookupResult? result)
+    {
+        if (state == OnlineState && result == OnlineResult) return;
+        OnlineState = state;
+        OnlineResult = result;
+        OnPropertyChanged(nameof(OnlineState));
+        OnPropertyChanged(nameof(OnlineResult));
+        OnPropertyChanged(nameof(IsConfirmed));
+        OnPropertyChanged(nameof(ToolTip));
+    }
+
     public KnownSources KnownIn { get; }
 
     public DateTime FirstHeardUtc { get; }
@@ -194,7 +263,16 @@ public sealed class HeardStationRow : ObservableObject
 
     public string ToolTip =>
         Entity == null ? Call : $"{Call} - {Entity.Name} ({Entity.Continent}), CQ {Entity.CqZone}, ITU {Entity.ItuZone}" +
-                                "\n" + KnownText(KnownIn);
+                                "\n" + KnownText(KnownIn) + OnlineText(OnlineState, OnlineResult);
+
+    /// <summary>Randul din tooltip pentru verificarea online ("" daca nu s-a verificat).</summary>
+    internal static string OnlineText(CallsignVerificationState state, CallsignLookupResult? r) => state switch
+    {
+        CallsignVerificationState.Confirmed when r != null =>
+            $"\nconfirmat de {r.Source}: " + string.Join(", ", new[] { r.Name, r.City, r.Country, r.Grid }.Where(x => x.Length > 0)),
+        CallsignVerificationState.NotFound => "\nQRZ.com / HamQTH.com: negasit - probabil o eroare de decodare",
+        _ => "",
+    };
 
     /// <summary>"in MASTER.SCP", "in LoTW", "in MASTER.SCP si LoTW" sau avertismentul de necunoscut.</summary>
     internal static string KnownText(KnownSources k) => k switch

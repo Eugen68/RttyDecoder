@@ -45,6 +45,10 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
    (campul *Indicativul meu* din lista statiilor). Mouse-ul deasupra arata tara si zonele.
    **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com (la fel
    si in lista). Lista (butonul **Statii**) se poate sorta pe orice coloana si salva ca CSV.
+   Cu un cont QRZ.com si/sau HamQTH.com (meniul **Setari**), indicativele aurii se verifica si online
+   (QRZ.com intai, HamQTH.com ca rezerva gratuita): cele confirmate devin verzi, cu numele si orasul
+   in tooltip; cele negasite raman aurii ("probabil o eroare de decodare"). O singura cautare pe
+   indicativ si sesiune.
    cty.dat si MASTER.SCP sunt incluse; daca au peste 7 zile, aplicatia descarca in fundal versiunile
    noi in `%LOCALAPPDATA%\YO9VA\RttyDecoder`, plus zilnic lista utilizatorilor LoTW activi (~6 MB,
    doar daca s-a schimbat). Se folosesc de la pornirea urmatoare; fara internet nu se intampla nimic.
@@ -56,14 +60,16 @@ Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
 - **Indicative**: Deschide folderul cu date (`%LOCALAPPDATA%\YO9VA\RttyDecoder`), Actualizeaza datele
   acum (verifica imediat cty.dat, MASTER.SCP si LoTW si le foloseste pe cele noi, fara repornire si
   fara sa goleasca lista statiilor), Starea datelor (cate indicative si de cand e fiecare fisier)
-- **Setari**: Deschide folderul setarilor (`%APPDATA%\YO9VA\RttyDecoder`, `settings.json`)
+- **Setari**: Verificare online (QRZ.com / HamQTH.com) - conturile pentru confirmarea indicativelor
+  necunoscute local (parolele criptate cu Windows DPAPI in `settings.json`, ca in CwDecoder);
+  Deschide folderul setarilor (`%APPDATA%\YO9VA\RttyDecoder`, `settings.json`)
 - **Ajutor**: Despre
 
 Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
 apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,
 `SaveStationsDialog()`, `RttyDecoderViewModel.UseReferenceData(...)`).
 
-Pentru o inregistrare: **Deschide WAV...**. Cu *Timp real* debifat, un fisier de o ora se decodeaza in
+Pentru o inregistrare: meniul **Fisier > Deschide WAV...** (Ctrl+O). Cu *Timp real* debifat, un fisier de o ora se decodeaza in
 cateva zeci de secunde (DeepRTTY: cateva minute).
 
 ## Structura

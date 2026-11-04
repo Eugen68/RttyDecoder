@@ -31,6 +31,9 @@
                 <MenuItem Header="_Starea datelor..." Click="OnDataStatus" />
             </MenuItem>
             <MenuItem Header="_Setari">
+                <MenuItem Header="_Verificare online (QRZ.com / HamQTH.com)..." Click="OnLookupSettings"
+                          ToolTip="Conturile pentru confirmarea online a indicativelor necunoscute local" />
+                <Separator />
                 <MenuItem Header="Deschide folderul _setarilor" Click="OnOpenSettingsFolder"
                           ToolTip="settings.json (%APPDATA%\YO9VA\RttyDecoder)" />
             </MenuItem>

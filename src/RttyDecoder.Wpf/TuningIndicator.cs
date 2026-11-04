@@ -35,7 +35,6 @@ public sealed class TuningIndicator : Grid
         Children.Add(new Ellipse { Fill = new SolidColorBrush(Color.FromRgb(0x06, 0x12, 0x08)) });
         Children.Add(Graticule());
         Children.Add(new Image { Source = _bitmap, Stretch = Stretch.Fill });
-        Children.Add(new Ellipse { Stroke = new SolidColorBrush(Color.FromRgb(0x3C, 0x3C, 0x3C)), StrokeThickness = 2 });
         SizeChanged += (_, _) =>
         {
             double d = Math.Min(ActualWidth, ActualHeight);
@@ -61,7 +60,6 @@ public sealed class TuningIndicator : Grid
         var g = new GeometryGroup();
         g.Children.Add(new LineGeometry(new Point(0, 50), new Point(100, 50)));
         g.Children.Add(new LineGeometry(new Point(50, 0), new Point(50, 100)));
-        g.Children.Add(new EllipseGeometry(new Point(50, 50), 22.5, 22.5));
         return new Path { Data = g, Stroke = line, StrokeThickness = 0.6, Stretch = Stretch.Fill, Margin = new Thickness(0) };
     }
 

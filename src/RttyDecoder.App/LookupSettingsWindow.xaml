@@ -1,0 +1,76 @@
+<Window x:Class="RttyDecoder.App.LookupSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Verificare online a indicativelor" Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{StaticResource Rtty.Background}" Foreground="{StaticResource Rtty.Foreground}"
+        FontFamily="Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style TargetType="TextBox" BasedOn="{StaticResource Rtty.Input}">
+            <Setter Property="Height" Value="24" />
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="#101010" />
+            <Setter Property="Foreground" Value="{StaticResource Rtty.Foreground}" />
+            <Setter Property="CaretBrush" Value="{StaticResource Rtty.Foreground}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Rtty.Border}" />
+            <Setter Property="Padding" Value="2" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="16">
+        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Rtty.Muted}"
+                   Text="Indicativele care nu sunt in MASTER.SCP sau in lista LoTW se verifica online: intai QRZ.com, apoi HamQTH.com (gratuit) daca QRZ nu-l are sau nu e completat. Un indicativ confirmat devine verde, cu numele si orasul in tooltip. Fara niciun cont, raman aurii (doar forma)." />
+
+        <TextBlock Text="QRZ.com" FontWeight="Bold" Margin="0,16,0,6" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Utilizator:" VerticalAlignment="Center" />
+            <TextBox x:Name="QrzUserBox" Grid.Column="1" />
+            <TextBlock Grid.Row="2" Text="Parola:" VerticalAlignment="Center" />
+            <PasswordBox x:Name="QrzPasswordBox" Grid.Row="2" Grid.Column="1" />
+        </Grid>
+        <TextBlock Text="Datele complete cer abonament QRZ XML; fara el confirmarea merge, dar unele campuri vin goale."
+                   Foreground="{StaticResource Rtty.Muted}" FontSize="11" TextWrapping="Wrap" Margin="90,4,0,0" />
+
+        <TextBlock Text="HamQTH.com (gratuit, doar inregistrare)" FontWeight="Bold" Margin="0,16,0,6" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Utilizator:" VerticalAlignment="Center" />
+            <TextBox x:Name="HamQthUserBox" Grid.Column="1" />
+            <TextBlock Grid.Row="2" Text="Parola:" VerticalAlignment="Center" />
+            <PasswordBox x:Name="HamQthPasswordBox" Grid.Row="2" Grid.Column="1" />
+        </Grid>
+
+        <DockPanel Margin="0,16,0,0">
+            <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Testeaza conexiunea" Click="OnTest" />
+            <TextBlock x:Name="TestStatus" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" />
+        </DockPanel>
+
+        <TextBlock Text="Parolele se salveaza criptate (Windows DPAPI), doar pentru acest cont Windows."
+                   Foreground="{StaticResource Rtty.Muted}" FontSize="11" Margin="0,12,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Anuleaza" Width="90" IsCancel="True" />
+            <Button Content="Salveaza" Width="90" IsDefault="True" Style="{StaticResource Rtty.PrimaryButton}" Click="OnSave" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RttyDecoder.Audio;
@@ -36,6 +38,41 @@ public sealed class AppSettings
     public string? MyCall { get; set; }
 
     public bool ShowStations { get; set; } = true;
+
+    // Conturile QRZ.com / HamQTH.com pentru verificarea online a indicativelor (ca in CwDecoder).
+    // Utilizatorii in clar; parolele criptate cu Windows DPAPI (doar acest cont Windows, pe acest
+    // calculator le poate citi). Parolele se citesc/scriu doar prin Get/Set*Password.
+    public string? QrzUsername { get; set; }
+    public string? QrzPasswordProtected { get; set; }
+    public string? HamQthUsername { get; set; }
+    public string? HamQthPasswordProtected { get; set; }
+
+    public string GetQrzPassword() => Unprotect(QrzPasswordProtected);
+    public void SetQrzPassword(string password) => QrzPasswordProtected = Protect(password);
+    public string GetHamQthPassword() => Unprotect(HamQthPasswordProtected);
+    public void SetHamQthPassword(string password) => HamQthPasswordProtected = Protect(password);
+
+    private static string? Protect(string plaintext)
+    {
+        if (string.IsNullOrEmpty(plaintext)) return null;
+        byte[] encrypted = ProtectedData.Protect(Encoding.UTF8.GetBytes(plaintext), null, DataProtectionScope.CurrentUser);
+        return Convert.ToBase64String(encrypted);
+    }
+
+    private static string Unprotect(string? protectedBase64)
+    {
+        if (string.IsNullOrEmpty(protectedBase64)) return "";
+        try
+        {
+            byte[] decrypted = ProtectedData.Unprotect(Convert.FromBase64String(protectedBase64), null, DataProtectionScope.CurrentUser);
+            return Encoding.UTF8.GetString(decrypted);
+        }
+        catch
+        {
+            // criptat de alt utilizator / alt calculator (settings.json copiat): ca si cum n-ar fi setat
+            return "";
+        }
+    }
 
     public double Width { get; set; }
 
