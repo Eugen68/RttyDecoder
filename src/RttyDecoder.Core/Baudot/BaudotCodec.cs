@@ -92,6 +92,9 @@ public sealed class BaudotCodec
         return Shift == 'L' ? Ita2LtrsMap[code] : (UsTty ? UsTtyFigsMap : Ita2FigsMap)[code];
     }
 
+    /// <summary>Caracterul exista in tabel (literele mici trebuie facute mari inainte).</summary>
+    public bool CanEncode(char c) => c is '\n' or '\r' or ' ' || (c < 256 && CodeFor(c) != 0);
+
     /// <summary>
     /// Encodeaza un caracter (deja uppercase) in unul sau mai multe coduri Baudot.
     /// </summary>
