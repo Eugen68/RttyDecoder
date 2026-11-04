@@ -10,7 +10,7 @@ using RttyDecoder.Core.Dsp;
 namespace RttyDecoder.Wpf;
 
 /// <summary>
-/// Indicatorul de acord cu elipse incrucisate (ca pe ecranul unui osciloscop): Mark pe orizontala,
+/// Indicatorul de acord cu elipse incrucisate (ca pe un osciloscop X-Y), patrat: Mark pe orizontala,
 /// Space pe verticala. Acordat corect = o cruce din doua elipse subtiri; dezacordat = elipse
 /// inclinate/ingrosate; zgomot = o pata. Ecranul are "persistenta" (fosforul se stinge in ~0.2 s),
 /// deci se vad ambele elipse desi tonurile alterneaza bit cu bit. Citeste punctele din
@@ -32,14 +32,11 @@ public sealed class TuningIndicator : Grid
 
     public TuningIndicator()
     {
-        Children.Add(new Ellipse { Fill = new SolidColorBrush(Color.FromRgb(0x06, 0x12, 0x08)) });
+        // fond negru, ca la waterfall (rama o pune View-ul, aceeasi ca la waterfall)
+        Background = Brushes.Black;
+        ClipToBounds = true;
         Children.Add(Graticule());
         Children.Add(new Image { Source = _bitmap, Stretch = Stretch.Fill });
-        SizeChanged += (_, _) =>
-        {
-            double d = Math.Min(ActualWidth, ActualHeight);
-            Clip = new EllipseGeometry(new Point(ActualWidth / 2, ActualHeight / 2), d / 2, d / 2);
-        };
         ToolTip = "Indicator de acord: Mark pe orizontala, Space pe verticala.\n" +
                   "Acordat corect = cruce din doua elipse subtiri.\n" +
                   "Elipse inclinate sau groase = dezacordat; o singura elipsa = REV gresit sau doar purtatoare.";

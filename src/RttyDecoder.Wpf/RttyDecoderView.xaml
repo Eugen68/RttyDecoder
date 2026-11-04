@@ -74,7 +74,10 @@
                                         FrequencyCommand="{Binding SetFrequencyCommand}"
                                         ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz)." ToolTipService.InitialShowDelay="1500" />
             </Border>
-            <local:TuningIndicator x:Name="Tuning" Grid.Column="1" Width="170" Height="170" Margin="8,0,0,0" VerticalAlignment="Center" />
+            <!-- la ~2 mm de waterfall; aceeasi rama, fond si colturi ca waterfall-ul -->
+            <Border Grid.Column="1" Width="170" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+                <local:TuningIndicator x:Name="Tuning" />
+            </Border>
         </Grid>
 
         <!-- COMENZI -->
