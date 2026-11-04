@@ -18,11 +18,12 @@ public sealed class RttyTxSettings
     /// <summary>Limita unei emisii (secunde); peste ea emisia se opreste singura.</summary>
     public int MaxTxSeconds { get; set; } = 180;
 
-    /// <summary>Inverseaza pinul FSK (pin activ = Space in loc de Mark) - dupa polaritatea din meniul statiei.</summary>
+    /// <summary>
+    /// Inverseaza pinul FSK (pin activ = Space in loc de Mark). Implicit oprit: emisia nu urmeaza
+    /// NORM/REV-ul receptiei si nici modul statiei; polaritatea se schimba de obicei din meniul statiei
+    /// (TX polarity). Doar pentru interfete / statii care inverseaza linia.
+    /// </summary>
     public bool InvertFsk { get; set; }
-
-    /// <summary>Emisia urmeaza butonul NORM/REV al receptiei (ca in Android).</summary>
-    public bool FollowRxReverse { get; set; } = true;
 
     /// <summary>Tabelul FIGS US-TTY in loc de ITA2.</summary>
     public bool UsTty { get; set; }

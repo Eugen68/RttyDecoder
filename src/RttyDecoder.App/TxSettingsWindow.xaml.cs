@@ -22,7 +22,6 @@ public partial class TxSettingsWindow : Window
         MaxBox.Text = s.MaxTxSeconds.ToString(CultureInfo.InvariantCulture);
         CrLfBox.IsChecked = s.AutoCrLf;
         DiddleBox.IsChecked = s.Diddle;
-        FollowRevBox.IsChecked = s.FollowRxReverse;
         InvertBox.IsChecked = s.InvertFsk;
     }
 
@@ -43,7 +42,6 @@ public partial class TxSettingsWindow : Window
             MaxTxSeconds = max,
             AutoCrLf = CrLfBox.IsChecked == true,
             Diddle = DiddleBox.IsChecked == true,
-            FollowRxReverse = FollowRevBox.IsChecked == true,
             InvertFsk = InvertBox.IsChecked == true,
         };
         DialogResult = true;

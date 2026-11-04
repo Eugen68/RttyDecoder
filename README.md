@@ -80,8 +80,13 @@ Conexiune statie:
 - Mesajele trimise in timpul unei emisii se adauga la coada (un singur PTT). **STOP (Esc)** opreste
   imediat. Textul trimis apare in terminal cu galben; cat timp se emite, decodarea sta.
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
-  limita unei emisii (180 s), CR/LF automat, diddle, polaritate (urmeaza NORM/REV; inversare pin).
+  limita unei emisii (180 s), CR/LF automat, diddle, inversarea pinului FSK (implicit oprita).
   Valorile implicite sunt cele din aplicatia Android. AFSK urmeaza.
+- **Polaritatea emisiei**: pinul FSK pleaca mereu normal (activ = Mark) - **NORM/REV e doar pentru
+  receptie**, iar emisia nu depinde nici de modul statiei. Testul pe statii (FTDX10 <-> FTX-1 +
+  aplicatia Android, `tools/android-patch/README.md`): emisia iese la fel in RTTY-L si RTTY-U, doar
+  receptia in RTTY-U cere REV (comportament Yaesu). Emisie inversata, daca e nevoie: polaritatea TX
+  din meniul statiei; bifa "Inverseaza pinul FSK" doar pentru interfete care inverseaza linia.
 
 **Meniul** de sus:
 - **Fisier**: Deschide WAV (Ctrl+O), Salveaza textul (Ctrl+S), Salveaza lista statiilor (CSV), Iesire
@@ -124,9 +129,7 @@ raspunzi pe frecventa corespondentului trebuie mutata **statia**, nu doar decodo
   si langa VFO (`TX: 3.501.300`);
 - **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe 2125;
 - click pe waterfall ramane acordul decodorului, Shift+click = QSY ca inainte;
-- in modul RTTY al statiei pinul FSK nu urmeaza REV-ul receptiei; in **RTTY-U** statia inverseaza
-  tonurile (Mark pe frecventa RF mai mica), deci programul inverseaza pinul - semnalul iese in aer
-  cu polaritatea standard in ambele moduri, iar receptorul il decodeaza pe NORM.
+- REV-ul pus de A-TUNE (de exemplu in RTTY-U) e doar pentru receptie: emisia FSK ramane normala.
 
 Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L cu Mark-ul
 la ~1825 Hz; A-TUNE acordeaza decodorul pe 1825 si arata `TX: 3.501.300`; dublu click muta statia

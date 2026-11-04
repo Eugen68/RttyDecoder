@@ -280,13 +280,12 @@ public sealed partial class RttyDecoderViewModel
         return true;
     }
 
-    /// <summary>Emisia urmeaza REV-ul si tabelul US-TTY de la receptie.</summary>
+    /// <summary>
+    /// Emisia urmeaza tabelul US-TTY de la receptie. NORM/REV nu: e doar pentru receptie, pinul FSK
+    /// pleaca mereu normal (vezi RttyFskTransmitter).
+    /// </summary>
     private void PrepareTx()
     {
-        // in modul RTTY al statiei pinul nu urmeaza REV-ul receptiei; in RTTY-U statia inverseaza
-        // tonurile, deci pinul se inverseaza ca semnalul sa iasa in aer corect, ca in RTTY-L
-        _tx.RxReverse = RigInRtty ? false : Reverse;
-        _tx.RigInvertsTones = RigInRtty && _rigState.Mode == HamRig.RigMode.RttyU;
         if (_tx.Settings.UsTty != UsTty)
         {
             var s = _tx.Settings.Clone();
