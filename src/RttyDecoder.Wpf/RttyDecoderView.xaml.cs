@@ -205,6 +205,13 @@ public partial class RttyDecoderView : UserControl
         }
     }
 
+    /// <summary>Dublu click pe A-TUNE: statia pe frecventa calculata pentru emisie.</summary>
+    private void OnAtuneDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        _vm?.QsyToPending();
+        e.Handled = true;
+    }
+
     private void OnTxKeyDown(object sender, KeyEventArgs e)
     {
         if (_vm == null || e.Key != Key.Enter) return;

@@ -136,6 +136,19 @@ public sealed class RttyReceiver : IDisposable
     });
 
     /// <summary>Acord pe semnalul cel mai puternic (pereche de tonuri la 170 Hz). Intoarce Mark-ul gasit, sau null.</summary>
+    /// <summary>
+    /// Tonul de jos al celei mai puternice perechi RTTY (170 Hz) din spectrul mediat, fara sa schimbe
+    /// acordul (Hz), sau null daca nu e semnal destul de puternic.
+    /// </summary>
+    public double? FindLowerTone()
+    {
+        lock (_lock)
+        {
+            var avg = _spectrum.AverageSpectrum();
+            return avg == null ? null : Dsp.AutoTune.FindLowerTone(avg, SpectrumAnalyzer.BinHz);
+        }
+    }
+
     public double? AutoTune()
     {
         double? mark;

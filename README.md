@@ -108,17 +108,21 @@ Langa nivel apar frecventa VFO si modul statiei, iar in USB/LSB/DATA si frecvent
 waterfall** = QSY: statia se muta astfel incat semnalul de sub mouse sa ajunga pe Mark-ul
 decodorului.
 
-**Statia in RTTY-L / RTTY-U (FSK).** La FSK statia emite exact unde e acordata, deci ca sa raspunzi
-pe frecventa corespondentului se muta **statia**, nu decodorul:
-- decodorul sta pe **Mark 2125 Hz, shift 170**; NORM/REV se pune dupa modul statiei (RTTY-L =
-  NORM, RTTY-U = REV);
-- **click pe waterfall** si **A-TUNE** fac **QSY**: statia se muta astfel incat semnalul sa ajunga
-  pe 2125 (in RTTY-L ca in LSB, in RTTY-U ca in USB);
-- pinul FSK nu mai urmeaza REV-ul (polaritatea o da statia).
+**A-TUNE si frecventa pentru emisie (FSK).** La FSK statia emite exact unde e acordata, deci ca sa
+raspunzi pe frecventa corespondentului trebuie mutata **statia**, nu doar decodorul:
+- **un click pe A-TUNE**: gaseste perechea de tonuri (170 Hz) si stabileste **care e Mark** dupa
+  incadrarea caracterelor pe ultimele ~5 s (cu polaritatea corecta fiecare caracter incepe cu un
+  bit de start Space si se termina cu stopul Mark; cu cea gresita nu) - decodorul se acordeaza pe
+  Mark-ul real, cu NORM/REV pus dupa semnal. In subsidiar calculeaza frecventa statiei pentru
+  emisie (Mark-ul semnalului pe 2125; in RTTY-L ca in LSB, in RTTY-U ca in USB), afisata in mesaj
+  si langa VFO (`TX: 3.501.300`);
+- **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe 2125;
+- click pe waterfall ramane acordul decodorului, Shift+click = QSY ca inainte;
+- in modul RTTY al statiei pinul FSK nu urmeaza REV-ul (polaritatea o da statia).
 
-Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L la ~1825 Hz;
-click pe el (sau A-TUNE) muta statia pe 3.501.300 si semnalul vine pe 2125. In USB/DATA ramane ca
-inainte: click = acordul decodorului, Shift+click = QSY.
+Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L cu Mark-ul
+la ~1825 Hz; A-TUNE acordeaza decodorul pe 1825 si arata `TX: 3.501.300`; dublu click muta statia
+acolo, iar semnalul vine pe 2125.
 
 Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
 apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,

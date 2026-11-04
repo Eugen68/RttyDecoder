@@ -64,13 +64,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         });
         ClearCommand = new RelayCommand(Clear);
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
-        // click / rotita pe waterfall: acordul decodorului; in modul RTTY al statiei (FSK) - QSY pe 2125
-        SetFrequencyCommand = new RelayCommand(p =>
-        {
-            if (p is not double hz) return;
-            if (RigInRtty) Qsy(hz);
-            else MarkFrequencyHz = hz;
-        });
+        SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) MarkFrequencyHz = hz; });
 
         ClearStationsCommand = new RelayCommand(ClearStations);
         _callsigns = CreateTracker(new CallsignRecognizer());
@@ -515,6 +509,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         // in timpul emisiei statia nu receptioneaza: decodarea sta (monitorizarea merge mai departe)
         if (!_tx.IsTransmitting)
         {
+            KeepAudio(buffer.AsSpan(0, count), sampleRate);
             Receiver.Process(buffer.AsSpan(0, count), sampleRate);
             Scope.Process(buffer.AsSpan(0, count), sampleRate);
         }
@@ -541,19 +536,35 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         });
     }
 
+    /// <summary>
+    /// A-TUNE: perechea de tonuri din spectru, apoi care dintre ele e Mark (incadrarea caracterelor pe
+    /// ultimele secunde, <see cref="RttyPolarity"/>) - decodorul se acordeaza pe Mark-ul real, cu
+    /// NORM/REV pus dupa el. In subsidiar se calculeaza frecventa statiei pentru emisie (Mark-ul
+    /// semnalului pe 2125); dublu click pe A-TUNE duce statia acolo (<see cref="QsyToPending"/>).
+    /// </summary>
     private void AutoTune()
     {
-        var mark = Receiver.AutoTune();
-        if (mark != null) TuningChanged?.Invoke();
-        // modul RTTY al statiei (FSK): nu muta doar decodorul - muta statia, semnalul ajunge pe 2125
-        if (mark is { } found && RigInRtty)
+        if (DateTime.UtcNow < _ignoreAutoTuneUntil) return;   // al doilea click al unui dublu click, dupa QSY
+        if (Receiver.FindLowerTone() is not { } lower)
         {
-            Qsy(found);
+            _pendingQsyDial = null;
+            Message = "A-TUNE: semnal prea slab - acordeaza manual (click pe waterfall).";
             return;
         }
-        Message = mark is { } m
-            ? $"A-TUNE: {m.ToString("0", CultureInfo.InvariantCulture)} Hz"
-            : "A-TUNE: semnal prea slab - acordeaza manual (click pe waterfall).";
+        var pol = DetectPolarity(lower);
+        // polaritate nesigura (semnal scurt / slab): ca inainte, dupa NORM/REV-ul curent
+        bool rev = pol.MarkIsLow is bool low ? !low : Reverse;
+        double mark = Math.Round(rev ? lower + RttySettings.ShiftHz : lower, 1);
+        Receiver.Update(s =>
+        {
+            s.MarkFrequencyHz = mark;
+            s.Reverse = rev;
+        });
+        SyncFromSettings(Receiver.Settings);
+        TuningChanged?.Invoke();
+        Message = $"A-TUNE: Mark {mark.ToString("0", CultureInfo.InvariantCulture)} Hz, {(rev ? "REV" : "NORM")}"
+                  + (pol.MarkIsLow == null ? " (polaritate nesigura - semnal prea scurt sau slab)" : "")
+                  + PrepareQsy(mark);
     }
 
     private void Clear()
