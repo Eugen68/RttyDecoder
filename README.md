@@ -9,7 +9,8 @@ aplicatie mai mare.
 - audio **live** de la placa de sunet / interfata radio / cablu virtual (WASAPI), orice rata
 - decodare din **fisiere WAV** (PCM 8/16/24/32 bit sau float, mono/stereo, orice rata), in timp
   real sau cat de repede se poate
-- **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**
+- **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**; sub el: podea
+  (Auto sau manuala), interval, gama si nivelul semnalului, cu paleta din CwDecoder
 - **indicator de acord** cu elipse incrucisate (ca pe osciloscop), in dreapta waterfall-ului
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
 - **emisie RTTY prin FSK**: 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
@@ -59,7 +60,8 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
 
 **Emisia (FSK)** - statia in modul RTTY (de obicei RTTY-L), PTT-ul si pinul FSK din Setari >
 Conexiune statie:
-- **Macro-urile F1..F8** sub terminal (click sau tasta F1..F8). Click dreapta pe un buton =
+- **Macro-urile F1..F8** sub terminal (click sau tasta F1..F8). Mouse-ul deasupra arata textul
+  exact care pleaca, cu indicativele inlocuite (si ce lipseste). Click dreapta pe un buton =
   editare (nume si text). Variabile: `{MYCALL}` (campul "Indicativul meu"), `{CALL}` (ultimul
   indicativ pe care ai dat click in terminal sau in lista), `{RST}` (599).
 - **Campul de emisie**: Enter = trimite. **LIVE**: emisia sta pornita si fiecare caracter pleaca

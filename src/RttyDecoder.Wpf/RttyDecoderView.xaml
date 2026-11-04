@@ -22,7 +22,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />   <!-- sursa -->
             <RowDefinition Height="Auto" />   <!-- stare -->
-            <RowDefinition Height="170" />    <!-- waterfall -->
+            <RowDefinition Height="Auto" />   <!-- waterfall + reglajele lui -->
             <RowDefinition Height="Auto" />   <!-- comenzi -->
             <RowDefinition Height="Auto" />   <!-- reglaje -->
             <RowDefinition Height="*" />      <!-- terminal -->
@@ -85,6 +85,10 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="170" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Border Grid.Column="0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <local:WaterfallControl x:Name="Waterfall"
                                         MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}"
@@ -97,6 +101,30 @@
             <Border Grid.Column="1" Width="170" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <local:TuningIndicator x:Name="Tuning" />
             </Border>
+
+            <!-- reglajele waterfall-ului: podea (auto/manuala), interval, gama, nivelul semnalului -->
+            <WrapPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,4,0,0" Orientation="Horizontal">
+                <TextBlock Text="Podea:" Style="{StaticResource Rtty.Label}" />
+                <CheckBox Content="Auto" VerticalAlignment="Center" Margin="0,0,6,0"
+                          IsChecked="{Binding AutoFloor, ElementName=Waterfall}" Checked="OnAutoFloorChanged" Unchecked="OnAutoFloorChanged"
+                          ToolTip="Podeaua urmareste singura zgomotul. Debifat: o alegi tu cu cursorul." />
+                <Slider x:Name="FloorSlider" Width="110" Minimum="-160" Maximum="0" SmallChange="1" LargeChange="5"
+                        Value="{Binding FloorDb, ElementName=Waterfall}"
+                        IsEnabled="{Binding AutoFloor, ElementName=Waterfall, Converter={x:Static local:Converters.Not}}"
+                        ToolTip="De la ce nivel incepe culoarea (zgomotul de sub el e negru-albastru)" />
+                <TextBlock x:Name="FloorText" Style="{StaticResource Rtty.Value}" Width="58" />
+                <TextBlock Text="Interval:" Style="{StaticResource Rtty.Label}" Margin="12,0,8,0" />
+                <Slider Width="110" Minimum="10" Maximum="120" SmallChange="1" LargeChange="5" Value="{Binding RangeDb, ElementName=Waterfall}"
+                        ToolTip="Cat de larga e scala de culoare peste podea (mic = contrast mare)" />
+                <TextBlock Text="{Binding RangeDb, ElementName=Waterfall, StringFormat={}{0:0} dB}" Style="{StaticResource Rtty.Value}" Width="50" />
+                <TextBlock Text="Gama:" Style="{StaticResource Rtty.Label}" Margin="12,0,8,0" />
+                <Slider Width="90" Minimum="0.2" Maximum="3" SmallChange="0.05" LargeChange="0.2" Value="{Binding Gamma, ElementName=Waterfall}"
+                        ToolTip="Peste 1: zgomotul ramane mai rece (albastru), culorile calde doar pe semnal puternic. Sub 1: invers." />
+                <TextBlock Text="{Binding Gamma, ElementName=Waterfall, StringFormat={}{0:0.0}x}" Style="{StaticResource Rtty.Value}" Width="36" />
+                <TextBlock Text="Semnal:" Style="{StaticResource Rtty.Label}" Margin="12,0,8,0" />
+                <TextBlock x:Name="SignalText" Style="{StaticResource Rtty.Value}" FontFamily="Consolas"
+                           ToolTip="Nivelul minim..maxim din ultimul rand al waterfall-ului - ajuta la alegerea podelei si a intervalului" />
+            </WrapPanel>
         </Grid>
 
         <!-- COMENZI -->
@@ -155,9 +183,6 @@
             <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding SnrGatingK}" />
             <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding SnrGatingK, StringFormat=x{0:0.0}}" Style="{StaticResource Rtty.Value}" />
 
-            <TextBlock Grid.Row="2" Grid.Column="4" Text="Contrast waterfall" Style="{StaticResource Rtty.Label}" />
-            <Slider Grid.Row="2" Grid.Column="5" Minimum="20" Maximum="70" Value="{Binding RangeDb, ElementName=Waterfall}" IsDirectionReversed="True" />
-            <TextBlock Grid.Row="2" Grid.Column="6" Text="{Binding RangeDb, ElementName=Waterfall, StringFormat={}{0:0} dB}" Style="{StaticResource Rtty.Value}" />
         </Grid>
 
         <!-- TERMINAL + STATII AUZITE -->

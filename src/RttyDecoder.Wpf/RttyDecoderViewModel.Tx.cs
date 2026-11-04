@@ -43,7 +43,15 @@ public sealed class MacroItem : ObservableObject
 
     public string Header => $"{Key}  {Name}";
 
-    public string ToolTip => Text + "\n\nClick sau " + Key + ": trimite.  Click dreapta: editeaza.";
+    private string _preview = "";
+    /// <summary>Textul care pleaca, cu variabilele inlocuite (si ce lipseste).</summary>
+    public string Preview
+    {
+        get => _preview;
+        internal set { if (Set(ref _preview, value)) OnPropertyChanged(nameof(ToolTip)); }
+    }
+
+    public string ToolTip => (Preview.Length > 0 ? Preview : Text) + "\n\nClick sau " + Key + ": trimite.  Click dreapta: editeaza.";
 }
 
 /// <summary>
@@ -137,7 +145,27 @@ public sealed partial class RttyDecoderViewModel
     public string LastCallsign
     {
         get => _lastCallsign;
-        set => Set(ref _lastCallsign, (value ?? "").Trim().ToUpperInvariant());
+        set { if (Set(ref _lastCallsign, (value ?? "").Trim().ToUpperInvariant())) RefreshMacroPreviews(); }
+    }
+
+    /// <summary>Tooltip-urile macro-urilor: textul exact care pleaca acum.</summary>
+    internal void RefreshMacroPreviews()
+    {
+        if (Macros.Count == 0) return;
+        foreach (var m in Macros) m.Preview = Preview(m.Text);
+    }
+
+    private string Preview(string text)
+    {
+        var lipsa = new List<string>();
+        if (text.Contains("{MYCALL}", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(MyCall))
+            lipsa.Add("{MYCALL}: completeaza \"Indicativul meu\" (in lista statiilor)");
+        if (text.Contains("{CALL}", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(LastCallsign))
+            lipsa.Add("{CALL}: da click pe indicativul corespondentului");
+        string t = text.Replace("{RST}", "599", StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(MyCall)) t = t.Replace("{MYCALL}", MyCall, StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(LastCallsign)) t = t.Replace("{CALL}", LastCallsign, StringComparison.OrdinalIgnoreCase);
+        return lipsa.Count == 0 ? t : t + "\n\nLipseste:\n" + string.Join("\n", lipsa);
     }
 
     private void InitTx()
@@ -155,7 +183,13 @@ public sealed partial class RttyDecoderViewModel
             }
             if (reason != null) Message = "Emisie oprita: " + reason;
         });
-        for (int i = 0; i < MacroCount; i++) Macros.Add(new MacroItem(i, DefaultMacros[i].Name, DefaultMacros[i].Text));
+        for (int i = 0; i < MacroCount; i++)
+        {
+            var m = new MacroItem(i, DefaultMacros[i].Name, DefaultMacros[i].Text);
+            m.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MacroItem.Text)) RefreshMacroPreviews(); };
+            Macros.Add(m);
+        }
+        RefreshMacroPreviews();
         MacroCommand = new RelayCommand(p => { if (p is MacroItem m) SendMacro(m.Index); else if (p is int i) SendMacro(i); });
         SendTextCommand = new RelayCommand(SendText);
         StopTxCommand = new RelayCommand(StopTx);
@@ -170,6 +204,7 @@ public sealed partial class RttyDecoderViewModel
             Macros[i].Name = m.Name ?? "";
             Macros[i].Text = m.Text ?? "";
         }
+        RefreshMacroPreviews();
     }
 
     public List<MacroSettings> ExportMacros() =>

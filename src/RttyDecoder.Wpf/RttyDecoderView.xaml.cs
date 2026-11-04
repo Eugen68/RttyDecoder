@@ -35,9 +35,15 @@ public partial class RttyDecoderView : UserControl
     private Run? _pendingRun;   // cuvantul neterminat, mereu ultimul
     private GridLength _stationsWidth = new(380);
 
+    private readonly System.Windows.Threading.DispatcherTimer _levelTimer;
+
     public RttyDecoderView()
     {
         InitializeComponent();
+        _levelTimer = new System.Windows.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(250),
+            System.Windows.Threading.DispatcherPriority.Background, (_, _) => UpdateLevels(), Dispatcher);
+        Loaded += (_, _) => _levelTimer.Start();
+        Unloaded += (_, _) => _levelTimer.Stop();
         // F1..F8 si Esc oriunde in fereastra, nu doar cand modulul are focusul
         Loaded += (_, _) =>
         {
@@ -85,6 +91,42 @@ public partial class RttyDecoderView : UserControl
     // ------------------------------------------------------------------
     // Terminal: text decodat cu indicativele evidentiate
     // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // Reglajele waterfall-ului
+    // ------------------------------------------------------------------
+
+    /// <summary>Reglajele waterfall-ului (gazda le salveaza).</summary>
+    public WaterfallSettings WaterfallSettings
+    {
+        get => new()
+        {
+            AutoFloor = Waterfall.AutoFloor,
+            FloorDb = Waterfall.FloorDb,
+            RangeDb = Waterfall.RangeDb,
+            Gamma = Waterfall.Gamma,
+        };
+        set
+        {
+            Waterfall.FloorDb = Math.Clamp(value.FloorDb, -160, 0);
+            Waterfall.RangeDb = Math.Clamp(value.RangeDb, 10, 120);
+            Waterfall.Gamma = Math.Clamp(value.Gamma, 0.2, 3);
+            Waterfall.AutoFloor = value.AutoFloor;
+            UpdateLevels();
+        }
+    }
+
+    private void UpdateLevels()
+    {
+        SignalText.Text = Waterfall.CurrentLevelRangeDb is { } r ? $"{r.MinDb:0}..{r.MaxDb:0} dB" : "-";
+        double floor = Waterfall.AutoFloor ? Waterfall.CurrentAutoFloorDb - 3 : Waterfall.FloorDb;
+        FloorText.Text = double.IsNaN(floor) ? "auto" : $"{floor:0} dB";
+        // cu Auto, cursorul arata unde e podeaua automata (ca la debifare sa nu sara)
+        if (Waterfall.AutoFloor && !double.IsNaN(Waterfall.CurrentAutoFloorDb))
+            FloorSlider.Value = Math.Clamp(Math.Round(Waterfall.CurrentAutoFloorDb - 3), FloorSlider.Minimum, FloorSlider.Maximum);
+    }
+
+    private void OnAutoFloorChanged(object sender, RoutedEventArgs e) => UpdateLevels();
 
     /// <summary>Textul trimis: galben, fara evidentierea indicativelor.</summary>
     private void OnTxEcho(string text)

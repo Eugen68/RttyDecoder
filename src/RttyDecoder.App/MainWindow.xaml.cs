@@ -57,6 +57,7 @@ public partial class MainWindow : Window
         _vm.MyCall = _settings.MyCall ?? "";
         _vm.ShowStations = _settings.ShowStations;
         _vm.TxSettings = _settings.Tx;
+        Decoder.WaterfallSettings = _settings.Waterfall;
         _vm.ImportMacros(_settings.Macros);
         Decoder.MacrosChanged += () =>
         {
@@ -305,6 +306,7 @@ public partial class MainWindow : Window
         _settings.MyCall = _vm.MyCall;
         _settings.Tx = _vm.TxSettings;
         _settings.Macros = _vm.ExportMacros();
+        _settings.Waterfall = Decoder.WaterfallSettings;
         _settings.ShowStations = _vm.ShowStations;
         _settings.Maximized = WindowState == WindowState.Maximized;
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;

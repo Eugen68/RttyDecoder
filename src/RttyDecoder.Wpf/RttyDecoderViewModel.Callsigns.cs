@@ -85,6 +85,7 @@ public sealed partial class RttyDecoderViewModel
             if (!Set(ref _myCall, v)) return;
             _callsigns.Recognizer.MyCall = v;
             CallsignSettingsChanged?.Invoke();
+            RefreshMacroPreviews();
         }
     }
 

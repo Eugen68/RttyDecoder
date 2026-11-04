@@ -39,6 +39,9 @@ public sealed class AppSettings
 
     public bool ShowStations { get; set; } = true;
 
+    /// <summary>Reglajele waterfall-ului (podea auto/manuala, interval, gama).</summary>
+    public RttyDecoder.Wpf.WaterfallSettings Waterfall { get; set; } = new();
+
     /// <summary>Emisia RTTY (FSK).</summary>
     public RttyDecoder.Core.Tx.RttyTxSettings Tx { get; set; } = new();
 

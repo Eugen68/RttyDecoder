@@ -46,9 +46,30 @@ public sealed class WaterfallControl : FrameworkElement
         nameof(BinHz), typeof(double), typeof(WaterfallControl),
         new FrameworkPropertyMetadata(8000.0 / 512, (d, _) => ((WaterfallControl)d).ResetBitmap()));
 
-    /// <summary>Gama dinamica afisata (dB) peste podeaua de zgomot.</summary>
+    /// <summary>Intervalul (dB): cat de larga e scala de culoare peste podea.</summary>
     public static readonly DependencyProperty RangeDbProperty = DependencyProperty.Register(
-        nameof(RangeDb), typeof(double), typeof(WaterfallControl), new PropertyMetadata(40.0));
+        nameof(RangeDb), typeof(double), typeof(WaterfallControl), new PropertyMetadata(40.0, Recolor));
+
+    /// <summary>Podeaua manuala (dB): de aici incepe culoarea (cand <see cref="AutoFloor"/> e oprit).</summary>
+    public static readonly DependencyProperty FloorDbProperty = DependencyProperty.Register(
+        nameof(FloorDb), typeof(double), typeof(WaterfallControl), new PropertyMetadata(-100.0, Recolor));
+
+    /// <summary>Podeaua urmareste singura zgomotul (percentila 30 a fiecarui rand, netezita).</summary>
+    public static readonly DependencyProperty AutoFloorProperty = DependencyProperty.Register(
+        nameof(AutoFloor), typeof(bool), typeof(WaterfallControl), new PropertyMetadata(true, Recolor));
+
+    /// <summary>Gama: inmulteste exponentul fix (1.6) al curbei de nuanta a paletei (ca in CwDecoder).</summary>
+    public static readonly DependencyProperty GammaProperty = DependencyProperty.Register(
+        nameof(Gamma), typeof(double), typeof(WaterfallControl), new PropertyMetadata(1.0, Regamma));
+
+    private static void Recolor(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((WaterfallControl)d)._dirty = true;
+
+    private static void Regamma(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var w = (WaterfallControl)d;
+        w._palette = BuildPalette((double)e.NewValue);
+        w._dirty = true;
+    }
 
     public static readonly DependencyProperty FrequencyCommandProperty = DependencyProperty.Register(
         nameof(FrequencyCommand), typeof(ICommand), typeof(WaterfallControl));
@@ -57,7 +78,7 @@ public sealed class WaterfallControl : FrameworkElement
     public static readonly DependencyProperty QsyCommandProperty = DependencyProperty.Register(
         nameof(QsyCommand), typeof(ICommand), typeof(WaterfallControl));
 
-    private static readonly int[] Palette = BuildPalette();
+    private int[] _palette = BuildPalette(1.0);
     private static readonly Pen MarkPen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xFF, 0x3D, 0x3D)), 1.5));
     private static readonly Pen SpacePen = Freeze(new Pen(new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0x3D)), 1.5));
     private static readonly Pen HoverPen = Freeze(new Pen(new SolidColorBrush(Color.FromArgb(0x90, 0xFF, 0xFF, 0xFF)), 1) { DashStyle = DashStyles.Dash });
@@ -71,7 +92,12 @@ public sealed class WaterfallControl : FrameworkElement
     private int[] _pixels = Array.Empty<int>();
     private int _width;
     private int _firstBin;
-    private double _floorDb = double.NaN;
+    private double _floorDb = double.NaN;      // podeaua automata
+    // istoricul in dB (nu pixeli colorati): orice reglaj se aplica pe loc pe tot ce e afisat
+    private float[] _db = Array.Empty<float>(); // [rand * _width + x], randul _top e cel mai nou
+    private int _top;
+    private int _filled;
+    private bool _dirty;
     private double? _hoverX;
     private bool _renderingHooked;
 
@@ -91,6 +117,18 @@ public sealed class WaterfallControl : FrameworkElement
     public double MaxFrequencyHz { get => (double)GetValue(MaxFrequencyHzProperty); set => SetValue(MaxFrequencyHzProperty, value); }
     public double BinHz { get => (double)GetValue(BinHzProperty); set => SetValue(BinHzProperty, value); }
     public double RangeDb { get => (double)GetValue(RangeDbProperty); set => SetValue(RangeDbProperty, value); }
+    public double FloorDb { get => (double)GetValue(FloorDbProperty); set => SetValue(FloorDbProperty, value); }
+    public bool AutoFloor { get => (bool)GetValue(AutoFloorProperty); set => SetValue(AutoFloorProperty, value); }
+    public double Gamma { get => (double)GetValue(GammaProperty); set => SetValue(GammaProperty, value); }
+
+    /// <summary>Podeaua automata curenta (dB), sau NaN pana la primul rand.</summary>
+    public double CurrentAutoFloorDb => _floorDb;
+
+    /// <summary>Nivelul semnalului din ultimul rand: (minim, maxim) in dB; null pana la primul rand.</summary>
+    public (double MinDb, double MaxDb)? CurrentLevelRangeDb { get; private set; }
+
+    /// <summary>Podeaua folosita acum (automata sau manuala).</summary>
+    private double EffectiveFloor => AutoFloor ? (double.IsNaN(_floorDb) ? -100 : _floorDb - 3) : FloorDb;
 
     /// <summary>Comanda primeste frecventa (double, Hz) la click sau rotita.</summary>
     public ICommand? FrequencyCommand { get => (ICommand?)GetValue(FrequencyCommandProperty); set => SetValue(FrequencyCommandProperty, value); }
@@ -111,6 +149,9 @@ public sealed class WaterfallControl : FrameworkElement
     public void Clear()
     {
         while (_queue.TryDequeue(out _)) { }
+        _filled = 0;
+        _floorDb = double.NaN;
+        CurrentLevelRangeDb = null;
         Array.Clear(_pixels);
         _bitmap?.WritePixels(new Int32Rect(0, 0, _width, Rows), _pixels, _width * 4, 0);
         InvalidateVisual();
@@ -136,48 +177,67 @@ public sealed class WaterfallControl : FrameworkElement
         int lastBin = Math.Max(_firstBin + 1, (int)Math.Ceiling(MaxFrequencyHz / BinHz));
         _width = lastBin - _firstBin;
         _pixels = new int[_width * Rows];
+        _db = new float[_width * Rows];
+        _filled = 0;
+        _top = 0;
         _bitmap = new WriteableBitmap(_width, Rows, 96, 96, PixelFormats.Bgr32, null);
     }
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        if (_queue.IsEmpty) return;
+        if (_queue.IsEmpty && !_dirty) return;
         EnsureBitmap();
-        int added = 0;
-        while (_queue.TryDequeue(out var row))
-        {
-            AddRow(row);
-            added++;
-        }
-        if (added == 0) return;
+        while (_queue.TryDequeue(out var row)) AddRow(row);
+        _dirty = false;
+        Paint();
         _bitmap!.WritePixels(new Int32Rect(0, 0, _width, Rows), _pixels, _width * 4, 0);
         InvalidateVisual();
     }
 
+    /// <summary>Recoloreaza tot istoricul cu podeaua, intervalul si gama curente.</summary>
+    private void Paint()
+    {
+        double floor = EffectiveFloor, scale = 255.0 / Math.Max(10, RangeDb);
+        var pal = _palette;
+        for (int r = 0; r < Rows; r++)
+        {
+            int dst = r * _width;
+            if (r >= _filled)
+            {
+                Array.Clear(_pixels, dst, _width);
+                continue;
+            }
+            int src = ((_top + r) % Rows) * _width;
+            for (int x = 0; x < _width; x++)
+            {
+                double v = (_db[src + x] - floor) * scale;
+                _pixels[dst + x] = pal[v <= 0 ? 0 : v >= 255 ? 255 : (int)v];
+            }
+        }
+    }
+
     private void AddRow(float[] mag)
     {
-        // derulare in jos cu un rand, randul nou sus
-        Array.Copy(_pixels, 0, _pixels, _width, _width * (Rows - 1));
-
-        var db = new double[_width];
+        // randul nou sus: in inel, inaintea celui mai nou
+        _top = (_top - 1 + Rows) % Rows;
+        if (_filled < Rows) _filled++;
+        int o = _top * _width;
+        double min = double.MaxValue, max = double.MinValue;
+        var sortat = new double[_width];
         for (int x = 0; x < _width; x++)
         {
             int bin = _firstBin + x;
-            db[x] = bin < mag.Length ? 20 * Math.Log10(mag[bin] + 1e-9) : -180;
+            double db = bin < mag.Length ? 20 * Math.Log10(mag[bin] + 1e-9) : -180;
+            _db[o + x] = (float)db;
+            sortat[x] = db;
+            if (db < min) min = db;
+            if (db > max) max = db;
         }
-        // podeaua: percentila 30 a randului, netezita intre randuri
-        var sortat = (double[])db.Clone();
+        CurrentLevelRangeDb = (min, max);
+        // podeaua automata: percentila 30 a randului, netezita intre randuri
         Array.Sort(sortat);
         double p30 = sortat[(int)(0.3 * (sortat.Length - 1))];
         _floorDb = double.IsNaN(_floorDb) ? p30 : _floorDb + 0.05 * (p30 - _floorDb);
-
-        double range = Math.Max(10, RangeDb);
-        for (int x = 0; x < _width; x++)
-        {
-            double v = (db[x] - _floorDb + 3) / range;
-            int idx = (int)Math.Round(Math.Clamp(v, 0, 1) * 255);
-            _pixels[x] = Palette[idx];
-        }
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -280,19 +340,40 @@ public sealed class WaterfallControl : FrameworkElement
         InvalidateVisual();
     }
 
-    /// <summary>Paleta aplicatiei Android: negru -&gt; albastru -&gt; cyan/verde -&gt; galben/alb.</summary>
-    private static int[] BuildPalette()
+    /// <summary>
+    /// Paleta "rainbow" din CwDecoder (portata de acolo din aplicatia de referinta DeepCW): saturatie
+    /// 100%, nuanta de la albastru (220 de grade) spre rosu dupa t^(1.6*gama), luminozitate liniara
+    /// 15%..90%. Interpolare in HSL, nu in RGB (fara culori "murdare" intre ele).
+    /// </summary>
+    private static int[] BuildPalette(double gamma)
     {
         var p = new int[256];
+        double exp = 1.6 * Math.Clamp(gamma, 0.1, 5.0);
         for (int i = 0; i < 256; i++)
         {
-            double n = Math.Sqrt(i / 255.0);
-            int blue = (int)(255 * Math.Min(1.0, n * 3));
-            int green = (int)(255 * Math.Clamp((n - 0.33) * 3, 0, 1));
-            int red = (int)(255 * Math.Clamp((n - 0.66) * 3, 0, 1));
-            p[i] = (red << 16) | (green << 8) | blue;
+            double t = i / 255.0;
+            double hue = 220.0 * (1.0 - Math.Pow(t, exp)) / 360.0;
+            var (r, g, b) = HslToRgb(hue, 1.0, 0.15 + 0.75 * t);
+            p[i] = (r << 16) | (g << 8) | b;
         }
         return p;
+    }
+
+    private static (int R, int G, int B) HslToRgb(double h, double s, double l)
+    {
+        double q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        double pp = 2 * l - q;
+        static double Hue(double p, double q, double t)
+        {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1.0 / 6) return p + (q - p) * 6 * t;
+            if (t < 0.5) return q;
+            if (t < 2.0 / 3) return p + (q - p) * (2.0 / 3 - t) * 6;
+            return p;
+        }
+        int C(double v) => (int)Math.Round(Math.Clamp(v, 0, 1) * 255);
+        return (C(Hue(pp, q, h + 1.0 / 3)), C(Hue(pp, q, h)), C(Hue(pp, q, h - 1.0 / 3)));
     }
 
     private static T Freeze<T>(T f) where T : Freezable
