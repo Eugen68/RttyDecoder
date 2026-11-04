@@ -118,7 +118,9 @@ raspunzi pe frecventa corespondentului trebuie mutata **statia**, nu doar decodo
   si langa VFO (`TX: 3.501.300`);
 - **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe 2125;
 - click pe waterfall ramane acordul decodorului, Shift+click = QSY ca inainte;
-- in modul RTTY al statiei pinul FSK nu urmeaza REV-ul (polaritatea o da statia).
+- in modul RTTY al statiei pinul FSK nu urmeaza REV-ul receptiei; in **RTTY-U** statia inverseaza
+  tonurile (Mark pe frecventa RF mai mica), deci programul inverseaza pinul - semnalul iese in aer
+  cu polaritatea standard in ambele moduri, iar receptorul il decodeaza pe NORM.
 
 Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L cu Mark-ul
 la ~1825 Hz; A-TUNE acordeaza decodorul pe 1825 si arata `TX: 3.501.300`; dublu click muta statia

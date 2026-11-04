@@ -48,6 +48,13 @@ public sealed class RttyFskTransmitter : IDisposable
     /// <summary>Starea NORM/REV a receptiei (urmata daca <see cref="RttyTxSettings.FollowRxReverse"/>).</summary>
     public bool RxReverse { get; set; }
 
+    /// <summary>
+    /// Statia inverseaza tonurile (RTTY-U: Mark pe frecventa RF mai mica): pinul se inverseaza ca
+    /// semnalul sa iasa in aer cu polaritatea standard, ca in RTTY-L. Se citeste la inceputul fiecarei
+    /// emisii, independent de <see cref="RttyTxSettings.FollowRxReverse"/>.
+    /// </summary>
+    public bool RigInvertsTones { get; set; }
+
     public bool IsTransmitting => _transmitting;
 
     public bool IsLive => _liveOn;
@@ -156,7 +163,7 @@ public sealed class RttyFskTransmitter : IDisposable
     {
         var s = Settings.Clone();
         var codec = new BaudotCodec { UsTty = s.UsTty };
-        bool reverse = s.InvertFsk ^ (s.FollowRxReverse && RxReverse);
+        bool reverse = s.InvertFsk ^ RigInvertsTones ^ (s.FollowRxReverse && RxReverse);
         double bit = 1.0 / RttyTxSettings.Baud;
         string? reason = null;
         double t = 0, start = 0;

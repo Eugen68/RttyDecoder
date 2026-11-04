@@ -236,6 +236,26 @@ public class RttyTxTests
     }
 
     [Fact]
+    public void RttyUInverseazaPinul()
+    {
+        // RTTY-U: statia inverseaza tonurile; pinul inversat => in aer polaritatea standard
+        var (tx, rec, _, done, _) = Create();
+        tx.Settings = new RttyTxSettings { FollowRxReverse = false };   // corectia nu depinde de bifa asta
+        tx.RigInvertsTones = true;
+        tx.Send("YO9VA");
+        Assert.True(done.Wait(5000));
+        Assert.False(rec.Line[0].Line);
+        Assert.Equal("YO9VA", Collapse(DecodeLine(rec.Line, markIsActive: false)));
+
+        // RTTY-L: nimic inversat
+        var (tx2, rec2, _, done2, _) = Create();
+        tx2.Send("YO9VA");
+        Assert.True(done2.Wait(5000));
+        Assert.True(rec2.Line[0].Line);
+        Assert.Equal("YO9VA", Collapse(DecodeLine(rec2.Line)));
+    }
+
+    [Fact]
     public void ReverseInverseazaPinul()
     {
         var (tx, rec, _, done, _) = Create();
