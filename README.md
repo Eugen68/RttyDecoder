@@ -69,12 +69,16 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
 **Statia** (biblioteca [HamRig](https://github.com/Eugen68/HamRig), submodul `external/HamRig`),
 din **Setari > Conexiune statie**:
 - **Direct pe portul serial** (CAT Yaesu: FTX-1, FTDX10, FT-710, FT-991A...): portul CAT (la FTX-1
-  primul port USB, "Enhanced"), viteza (ca in meniul statiei, implicit 38400), PTT prin CAT, RTS sau
-  DTR (pe al doilea port, "Standard"). Statia anunta singura schimbarile (AI1).
+  primul port USB, "Enhanced"), viteza (ca in meniul statiei, implicit 38400) si PTT pe un pin al
+  portului CAT (Fara / RTS / DTR). Statia anunta singura schimbarile (AI1).
 - **Prin OmniRig**: Rig 1 / Rig 2; statia poate fi folosita in acelasi timp si de alte programe.
-- **Manipulare** (FSK pentru RTTY, keying CW): portul, viteza si pinul (RTS/DTR). La FTX-1 de
-  obicei acelasi port ca PTT-ul, pe celalalt pin (ex. PTT pe RTS, FSK pe DTR); portul se deschide o
-  singura data. PTT si manipularea pe acelasi pin al aceluiasi port nu se pot salva.
+  OmniRig doar citeste si schimba frecventa si modul, fara PTT.
+- **Port manipulare si PTT**: port, viteza, PTT (Fara / RTS / DTR) si manipulare (Fara / RTS / DTR,
+  FSK pentru RTTY, keying CW). La FTX-1 de obicei al doilea port ("Standard"): ex. PTT pe RTS, FSK
+  pe DTR; portul se deschide o singura data.
+- PTT-ul se alege **intr-un singur loc** (la portul CAT sau la portul de manipulare): cand alegi un
+  pin intr-o parte, cealalta trece pe Fara. Fara niciun pin, la conexiunea directa emisia se
+  comanda prin CAT (`TX1;`); la OmniRig nu exista PTT.
 - **Testeaza** citeste frecventa si modul; **Test PTT 0.5 s** comuta emisia o jumatate de secunda;
   **Test manipulare 0.5 s** activeaza pinul de manipulare.
 

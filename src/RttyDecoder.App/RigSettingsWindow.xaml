@@ -15,6 +15,14 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+        <!-- buton de reincarcare a porturilor: iconita Windows (Segoe MDL2 Assets) -->
+        <Style TargetType="Button" x:Key="Refresh" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="Content" Value="&#xE72C;" />
+            <Setter Property="ToolTip" Value="Reciteste porturile COM" />
+        </Style>
     </Window.Resources>
 
     <StackPanel Margin="16">
@@ -31,27 +39,23 @@
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="140" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                        <RowDefinition /><RowDefinition /><RowDefinition />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="Port CAT:" VerticalAlignment="Center" />
                     <ComboBox x:Name="CatPortBox" Grid.Row="0" Grid.Column="1" IsEditable="True" />
-                    <Button Grid.Row="0" Grid.Column="2" Content="&#x21BB;" Width="28" Click="OnRefreshPorts" ToolTip="Reciteste porturile COM" />
+                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource Refresh}" Click="OnRefreshPorts" />
 
                     <TextBlock Grid.Row="1" Text="Viteza (baud):" VerticalAlignment="Center" />
                     <ComboBox x:Name="BaudBox" Grid.Row="1" Grid.Column="1" />
 
                     <TextBlock Grid.Row="2" Text="PTT:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="PttBox" Grid.Row="2" Grid.Column="1" SelectionChanged="OnPttChanged" />
-
-                    <TextBlock Grid.Row="3" Text="Port PTT:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="PttPortBox" Grid.Row="3" Grid.Column="1" IsEditable="True"
-                              ToolTip="Pentru PTT pe RTS/DTR. Gol = acelasi port ca CAT." />
+                    <ComboBox x:Name="CatPttBox" Grid.Row="2" Grid.Column="1" SelectionChanged="OnPinChanged"
+                              ToolTip="PTT pe un pin al portului CAT. Fara = PTT prin comanda CAT (TX1;)." />
                 </Grid>
                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                           Text="FTX-1 (cablu USB) apare ca doua porturi COM: primul (Enhanced) e CAT, al doilea (Standard) e pentru PTT/FSK pe RTS/DTR. Viteza trebuie sa fie aceeasi ca in meniul statiei (CAT RATE); implicit 38400. Portul COM poate fi folosit de un singur program." />
+                           Text="FTX-1 (cablu USB) apare ca doua porturi COM: primul (Enhanced) e CAT, al doilea (Standard) e pentru PTT/FSK pe RTS/DTR. Viteza trebuie sa fie aceeasi ca in meniul statiei (CAT RATE); implicit 38400. Fara pin de PTT ales, emisia se comanda prin CAT (TX1;)." />
             </StackPanel>
         </Border>
 
@@ -63,21 +67,16 @@
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="140" />
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition /><RowDefinition />
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="Statia OmniRig:" VerticalAlignment="Center" />
+                    <TextBlock Text="OmniRig:" VerticalAlignment="Center" />
                     <ComboBox x:Name="OmniRigBox" Grid.Column="1" />
-                    <TextBlock Grid.Row="1" Text="PTT:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="OmniPttBox" Grid.Row="1" Grid.Column="1" />
                 </Grid>
                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                           Text="OmniRig trebuie instalat si configurat pentru statie (tipul statiei, portul, viteza). OmniRig stie doar frecventa, modul si PTT-ul." />
+                           Text="OmniRig trebuie instalat si configurat pentru statie (tipul statiei, portul, viteza). Prin OmniRig se citesc si se schimba frecventa si modul; PTT-ul si manipularea se fac doar pe portul de mai jos." />
             </StackPanel>
         </Border>
 
-        <!-- MANIPULARE -->
-        <TextBlock Text="Manipulare (FSK pentru RTTY, keying CW)" FontWeight="Bold" Margin="0,14,0,4" />
+        <!-- PORT MANIPULARE SI PTT -->
+        <TextBlock Text="Port manipulare si PTT" FontWeight="Bold" Margin="0,14,0,4" />
         <Border x:Name="KeyPanel" Padding="10" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
             <StackPanel>
                 <Grid>
@@ -87,18 +86,21 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition /><RowDefinition /><RowDefinition />
+                        <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="Port:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="KeyPortBox" Grid.Row="0" Grid.Column="1" IsEditable="True" ToolTip="Gol = fara manipulare" />
-                    <Button Grid.Row="0" Grid.Column="2" Content="&#x21BB;" Width="28" Click="OnRefreshPorts" ToolTip="Reciteste porturile COM" />
+                    <ComboBox x:Name="KeyPortBox" Grid.Row="0" Grid.Column="1" IsEditable="True" ToolTip="Gol = fara" />
+                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource Refresh}" Click="OnRefreshPorts" />
                     <TextBlock Grid.Row="1" Text="Viteza (baud):" VerticalAlignment="Center" />
                     <ComboBox x:Name="KeyBaudBox" Grid.Row="1" Grid.Column="1" />
-                    <TextBlock Grid.Row="2" Text="Pin:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="KeyPinBox" Grid.Row="2" Grid.Column="1" SelectionChanged="OnPttChanged" />
+                    <TextBlock Grid.Row="2" Text="PTT:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="KeyPttBox" Grid.Row="2" Grid.Column="1" SelectionChanged="OnPinChanged" />
+                    <TextBlock Grid.Row="3" Text="Manipulare:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="KeyPinBox" Grid.Row="3" Grid.Column="1" SelectionChanged="OnPinChanged"
+                              ToolTip="FSK pentru RTTY, keying pentru CW" />
                 </Grid>
                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                           Text="La FTX-1 de obicei acelasi port ca PTT-ul (al doilea, &quot;Standard&quot;), pe celalalt pin: de ex. PTT pe RTS si FSK pe DTR, ca in aplicatia Android. Portul se deschide o singura data. Cu OmniRig, portul de manipulare nu poate fi cel folosit de OmniRig pentru CAT." />
+                           Text="La FTX-1 de obicei al doilea port (Standard): PTT pe un pin, manipularea pe celalalt (ex. PTT pe RTS, FSK pe DTR, ca in aplicatia Android). PTT-ul se alege intr-un singur loc: aici sau la portul CAT." />
             </StackPanel>
         </Border>
 

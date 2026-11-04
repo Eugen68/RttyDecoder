@@ -6,20 +6,14 @@ using HamRig;
 namespace RttyDecoder.App;
 
 /// <summary>
-/// Setari > Conexiune statie: direct (CAT Yaesu) sau OmniRig. Cat timp fereastra e deschisa,
-/// MainWindow tine statia deconectata, ca butonul "Testeaza" sa poata deschide portul.
+/// Setari > Conexiune statie: direct (CAT Yaesu) sau OmniRig, plus portul de manipulare si PTT.
+/// PTT-ul se alege intr-un singur loc (pinul portului CAT sau al portului de manipulare); fara pin,
+/// la conexiunea directa emisia se comanda prin CAT, la OmniRig nu exista PTT. Cat timp fereastra
+/// e deschisa, MainWindow tine statia deconectata, ca "Testeaza" sa poata deschide porturile.
 /// </summary>
 public partial class RigSettingsWindow : Window
 {
     private static readonly int[] Bauds = { 4800, 9600, 19200, 38400, 115200 };
-
-    private static readonly (PttMethod Method, string Text)[] PttChoices =
-    {
-        (PttMethod.None, "Fara"),
-        (PttMethod.Cat, "CAT (TX1;)"),
-        (PttMethod.Rts, "RTS"),
-        (PttMethod.Dtr, "DTR"),
-    };
 
     private static readonly (SerialPin Pin, string Text)[] Pins =
     {
@@ -29,94 +23,121 @@ public partial class RigSettingsWindow : Window
     };
 
     private bool _busy;
+    private bool _updating;
 
     public RigSettingsWindow(RigSettings settings)
     {
         InitializeComponent();
-        foreach (int b in Bauds) BaudBox.Items.Add(b);
-        foreach (var (_, text) in PttChoices) PttBox.Items.Add(text);
+        _updating = true;
+        foreach (int b in Bauds)
+        {
+            BaudBox.Items.Add(b);
+            KeyBaudBox.Items.Add(b);
+        }
+        foreach (var (_, text) in Pins)
+        {
+            CatPttBox.Items.Add(text);
+            KeyPttBox.Items.Add(text);
+            KeyPinBox.Items.Add(text);
+        }
         OmniRigBox.Items.Add("Rig 1");
         OmniRigBox.Items.Add("Rig 2");
-        OmniPttBox.Items.Add("Fara");
-        OmniPttBox.Items.Add("Prin OmniRig");
-        foreach (int b in Bauds) KeyBaudBox.Items.Add(b);
-        foreach (var pin in Pins) KeyPinBox.Items.Add(pin.Text);
         FillPorts();
 
         CatPortBox.Text = settings.CatPort ?? (CatPortBox.Items.Count > 0 ? (string)CatPortBox.Items[0]! : "");
         BaudBox.SelectedItem = Bauds.Contains(settings.CatBaud) ? settings.CatBaud : 38400;
-        PttBox.SelectedIndex = Array.FindIndex(PttChoices, c => c.Method == settings.Ptt);
-        PttPortBox.Text = settings.PttPort ?? "";
+        CatPttBox.SelectedIndex = Index(settings.CatPttPin);
         OmniRigBox.SelectedIndex = settings.OmniRigNumber == 2 ? 1 : 0;
-        OmniPttBox.SelectedIndex = settings.Kind == RigKind.OmniRig && settings.Ptt != PttMethod.None ? 1 : 0;
         KeyPortBox.Text = settings.KeyPort ?? "";
         KeyBaudBox.SelectedItem = Bauds.Contains(settings.KeyBaud) ? settings.KeyBaud : 4800;
-        KeyPinBox.SelectedIndex = Array.FindIndex(Pins, p => p.Pin == settings.KeyPin);
+        KeyPttBox.SelectedIndex = Index(settings.KeyPortPttPin);
+        KeyPinBox.SelectedIndex = Index(settings.KeyPin);
         (settings.Kind switch { RigKind.YaesuCat => KindDirect, RigKind.OmniRig => KindOmni, _ => KindNone }).IsChecked = true;
+        _updating = false;
         UpdatePanels();
     }
 
     /// <summary>Setarile alese (dupa ShowDialog() == true).</summary>
     public RigSettings Result => Read();
 
+    private static int Index(SerialPin pin) => Math.Max(0, Array.FindIndex(Pins, p => p.Pin == pin));
+
+    private static SerialPin Pin(ComboBox box) => box.SelectedIndex >= 0 ? Pins[box.SelectedIndex].Pin : SerialPin.None;
+
+    private static string? Port(ComboBox box) =>
+        string.IsNullOrWhiteSpace(box.Text) ? null : box.Text.Trim().ToUpperInvariant();
+
     private void FillPorts()
     {
-        string cat = CatPortBox.Text, ptt = PttPortBox.Text, key = KeyPortBox.Text;
+        string cat = CatPortBox.Text, key = KeyPortBox.Text;
         CatPortBox.Items.Clear();
-        PttPortBox.Items.Clear();
         KeyPortBox.Items.Clear();
-        PttPortBox.Items.Add("");
         KeyPortBox.Items.Add("");
         foreach (string p in RigSettings.GetPortNames())
         {
             CatPortBox.Items.Add(p);
-            PttPortBox.Items.Add(p);
             KeyPortBox.Items.Add(p);
         }
         CatPortBox.Text = cat;
-        PttPortBox.Text = ptt;
         KeyPortBox.Text = key;
     }
 
-    private RigSettings Read()
+    private RigKind Kind => KindDirect.IsChecked == true ? RigKind.YaesuCat : KindOmni.IsChecked == true ? RigKind.OmniRig : RigKind.None;
+
+    private RigSettings Read() => new()
     {
-        var kind = KindDirect.IsChecked == true ? RigKind.YaesuCat : KindOmni.IsChecked == true ? RigKind.OmniRig : RigKind.None;
-        var s = new RigSettings
-        {
-            Kind = kind,
-            CatPort = string.IsNullOrWhiteSpace(CatPortBox.Text) ? null : CatPortBox.Text.Trim().ToUpperInvariant(),
-            CatBaud = BaudBox.SelectedItem is int b ? b : 38400,
-            PttPort = string.IsNullOrWhiteSpace(PttPortBox.Text) ? null : PttPortBox.Text.Trim().ToUpperInvariant(),
-            OmniRigNumber = OmniRigBox.SelectedIndex == 1 ? 2 : 1,
-            KeyPort = string.IsNullOrWhiteSpace(KeyPortBox.Text) ? null : KeyPortBox.Text.Trim().ToUpperInvariant(),
-            KeyBaud = KeyBaudBox.SelectedItem is int kb ? kb : 4800,
-            KeyPin = KeyPinBox.SelectedIndex >= 0 ? Pins[KeyPinBox.SelectedIndex].Pin : SerialPin.None,
-        };
-        s.Ptt = kind == RigKind.OmniRig
-            ? (OmniPttBox.SelectedIndex == 1 ? PttMethod.Cat : PttMethod.None)
-            : PttBox.SelectedIndex >= 0 ? PttChoices[PttBox.SelectedIndex].Method : PttMethod.None;
-        return s;
-    }
+        Kind = Kind,
+        CatPort = Port(CatPortBox),
+        CatBaud = BaudBox.SelectedItem is int b ? b : 38400,
+        // la OmniRig portul CAT e al lui OmniRig: pinul lui nu se foloseste
+        CatPttPin = Kind == RigKind.YaesuCat ? Pin(CatPttBox) : SerialPin.None,
+        OmniRigNumber = OmniRigBox.SelectedIndex == 1 ? 2 : 1,
+        KeyPort = Port(KeyPortBox),
+        KeyBaud = KeyBaudBox.SelectedItem is int kb ? kb : 4800,
+        KeyPortPttPin = Pin(KeyPttBox),
+        KeyPin = Pin(KeyPinBox),
+    };
 
     private void UpdatePanels()
     {
-        if (DirectPanel == null) return;
-        DirectPanel.IsEnabled = KindDirect.IsChecked == true;
-        OmniPanel.IsEnabled = KindOmni.IsChecked == true;
-        DirectPanel.Opacity = DirectPanel.IsEnabled ? 1 : 0.45;
-        OmniPanel.Opacity = OmniPanel.IsEnabled ? 1 : 0.45;
-        bool any = KindNone.IsChecked != true;
-        KeyPanel.IsEnabled = any;
-        KeyPanel.Opacity = any ? 1 : 0.45;
-        TestButton.IsEnabled = any && !_busy;
-        PttTestButton.IsEnabled = any && !_busy && Read().Ptt != PttMethod.None;
-        KeyTestButton.IsEnabled = any && !_busy && Read().HasKeying;
-        PttPortBox.IsEnabled = PttBox.SelectedIndex >= 0 && PttChoices[PttBox.SelectedIndex].Method is PttMethod.Rts or PttMethod.Dtr;
+        if (_updating || DirectPanel == null) return;
+        _updating = true;
+        try
+        {
+            bool direct = Kind == RigKind.YaesuCat, omni = Kind == RigKind.OmniRig, any = Kind != RigKind.None;
+            SetEnabled(DirectPanel, direct);
+            SetEnabled(OmniPanel, omni);
+            SetEnabled(KeyPanel, any);
+
+            // PTT intr-un singur loc: daca e ales un pin intr-o parte, cealalta trece pe Fara si nu se mai poate alege
+            bool catPtt = direct && Pin(CatPttBox) != SerialPin.None;
+            bool keyPtt = Pin(KeyPttBox) != SerialPin.None;
+            if (catPtt && keyPtt) KeyPttBox.SelectedIndex = 0;
+            keyPtt = Pin(KeyPttBox) != SerialPin.None;
+            CatPttBox.IsEnabled = direct && !keyPtt;
+            KeyPttBox.IsEnabled = any && !catPtt;
+
+            var s = Read();
+            TestButton.IsEnabled = any && !_busy;
+            // fara pin: la conexiunea directa PTT prin CAT; la OmniRig nu exista PTT
+            PttTestButton.IsEnabled = any && !_busy && (direct || s.PttLine.Pin != SerialPin.None);
+            KeyTestButton.IsEnabled = any && !_busy && s.HasKeying;
+        }
+        finally
+        {
+            _updating = false;
+        }
+    }
+
+    private static void SetEnabled(UIElement panel, bool on)
+    {
+        panel.IsEnabled = on;
+        panel.Opacity = on ? 1 : 0.45;
     }
 
     private void OnKindChanged(object sender, RoutedEventArgs e) => UpdatePanels();
 
-    private void OnPttChanged(object sender, SelectionChangedEventArgs e) => UpdatePanels();
+    private void OnPinChanged(object sender, SelectionChangedEventArgs e) => UpdatePanels();
 
     private void OnRefreshPorts(object sender, RoutedEventArgs e) => FillPorts();
 
@@ -164,14 +185,17 @@ public partial class RigSettingsWindow : Window
                 rig.SetPtt(true);
                 await Task.Delay(500);
                 rig.SetPtt(false);
-                read += "  |  PTT: comutat 0.5 s (statia a trecut pe TX?)";
+                var (port, pin) = s.PttLine;
+                read += pin == SerialPin.None
+                    ? "  |  PTT prin CAT (TX1;) 0.5 s"
+                    : $"  |  PTT: {pin} pe {port} 0.5 s";
             }
             if (test == Test.Key && st.Connected)
             {
                 rig.SetKey(true);
                 await Task.Delay(500);
                 rig.SetKey(false);
-                read += $"  |  manipulare: {s.KeyPin} pe {s.KeyPort} activ 0.5 s";
+                read += $"  |  manipulare: {s.KeyPin} pe {s.KeyPort} 0.5 s";
             }
             Status(read, st.Connected);
         }
