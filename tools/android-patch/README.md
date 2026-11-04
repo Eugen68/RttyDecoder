@@ -7,6 +7,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `RttyDemodulator.patch` | `RttyDemodulator.java` de la versiunea initiala pana la `65fd101` (AFC, Matched Filter, volant) | aplicat deja in Android (`refactorizare_claude_2`); pastrat ca referinta |
 | `DeepRtty.patch` | DeepRTTY: textul gri fara gol si resetarea ca marcaj in coada | aplicat in Android (`9910082` pe `refactorizare_claude_2`) |
 | `fsk-rtty-u.patch` | emisia FSK inversata in RTTY-U | **respins** - testul pe statii arata ca emisia era deja corecta (vezi mai jos) |
+| `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | propus - se aplica pe `refactorizare_claude_2` (`49f80a3`) si pe `master` (`ea922b9`) |
 
 ## DeepRtty.patch
 
@@ -86,7 +87,7 @@ aici doar ca referinta; **nu se aplica**.
 
 Yaesu trateaza deci polaritatea de RX si de TX separat; aplicatia le leaga de acelasi buton.
 
-**Propunere (inca neaplicata in Android, de discutat):** emisia FSK sa nu mai urmeze butonul
+**Propunere (aplicata in Android: `49f80a3` pe `refactorizare_claude_2`; in RttyDecoder: `886ac3e`):** emisia FSK sa nu mai urmeze butonul
 NORM/REV - pinul pleaca mereu cu polaritatea normala (Mark = pin activ); REV ramane doar pentru
 receptie. Emisia inversata, cand chiar e nevoie, se face din setarea
 de TX din meniul statiei (exista la ambele); o optiune „TX REV” si in aplicatie nu e necesara si ar
@@ -102,4 +103,47 @@ putea da o dubla inversare.
   emisia FTDX10 prin pinul FSK al programului de PC, doar emisia directa a statiei; dar daca statia se
   comporta la fel cand e comandata prin pin (cum se vede la FTX-1), si `a870049` inverseaza gresit in
   RTTY-U. **De reverificat pe statie** inainte de a-l pastra (inainte de el, in modul RTTY al statiei
-  pinul deja nu urma REV-ul receptiei - adica exact propunerea de mai sus).
+  pinul deja nu urma REV-ul receptiei - adica exact propunerea de mai sus). *Rezolvat:* `886ac3e`
+  anuleaza `a870049` - pinul FSK pleaca mereu normal, NORM/REV e doar pentru receptie; inversarea
+  emisiei din meniul statiei sau din bifa „Inverseaza pinul FSK" (implicit oprita).
+
+## atune-polaritate.patch
+
+Util mai ales cu **FTX-1**: nu are decodor RTTY si nici setare NORM/REV pentru receptie, deci
+polaritatea de RX o stie doar aplicatia - iar in RTTY-U (sau cand corespondentul emite inversat)
+trebuia pus REV de mana. Acum A-TUNE il pune singur, ca in RttyDecoder (programul de PC).
+
+**Cum se stie care ton e Mark.** In spectru cele doua tonuri arata la fel, dar in timp nu: cu
+polaritatea corecta fiecare caracter incepe cu bitul de start pe Space si se termina cu stopul de
+1.5 biti pe Mark, deci caracterele „se incadreaza"; cu polaritatea gresita incadrarea esueaza. Pe
+ultimele 5 s de audio se incearca ambele ipoteze si castiga cea clar mai buna (minim 6 caractere
+incadrate, diferenta de scor de minim 0.15, scorul castigator de minim 0.5). Pe zgomot sau semnal
+prea scurt rezultatul e nesigur si NORM/REV ramane cum era (A-TUNE se poarta ca inainte).
+
+Ce schimba:
+1. **`RttyPolarity.java`** (nou) - portul din C# (`src/RttyDecoder.Core/Dsp/RttyPolarity.cs`),
+   acelasi algoritm si praguri: doua rezonatoare complexe de 35 Hz pe cele doua tonuri, decizie de 8
+   ori pe bit, apoi incadrarea UART cu ambele ipoteze. Oscilatoarele sunt fazori rotiti (fara
+   cos/sin pe esantion): 5 s la 48 kHz se calculeaza in cateva milisecunde, pe firul A-TUNE.
+   Contine si `Istoric`, inelul sincronizat cu ultimele 6 s de audio.
+2. **`EcranRttyDroid.java`**:
+   - firul de receptie scrie fiecare bloc audio si in `istoricAudioRtty` (golit la START);
+   - `executaAutoTuneMecanic`: dupa perechea de tonuri din FFT (neschimbata), detectia pe ultimele 5 s
+     intre tonul de jos si tonul de jos + 170 Hz; pe firul UI se pun `regimReverseSoftware` si
+     `frecventaTunedBaza` (Mark-ul real: tonul de jos pe NORM, cel de sus pe REV), apoi
+     `sincronizeazaSetariReceptie()` (butonul NORM/REV si waterfall-ul se actualizeaza ca la click);
+   - toast-ul spune si polaritatea: `Auto-Tune: 2125 Hz, REV`, cu „(polarity uncertain ...)" cand
+     detectia nu e sigura.
+3. **`RttyPolarityTest.java`** (nou, JVM) - pe generatorul din `RttyDemodulatorTest`: NORM si REV
+   curat; la 6 dB SNR cu acordul A-TUNE abatut cu -8/0/+8 Hz (binurile FFT au 15.6 Hz), 3 seed-uri;
+   tastare manuala cu pauze; zgomot fara semnal si semnal sub 1 s -> nesigur; inelul `Istoric`.
+
+Emisia nu e atinsa: dupa `49f80a3` pinul FSK nu mai urmeaza NORM/REV, deci REV-ul pus de A-TUNE
+schimba doar receptia.
+
+Verificat: `RttyPolarityTest` 7/7 cu JUnit 4.13.2 (javac fara SDK Android, cu `RttyDemodulator`,
+`BaudotCodec` si `RttyDemodulatorTest`); `EcranRttyDroid.java` doar verificat sintactic (fara SDK
+Android aici) - de compilat in Android Studio. `git apply --check` trece pe `49f80a3` si pe `ea922b9`.
+
+Nu face (de discutat separat): QSY-ul de la dublu click pe A-TUNE din RttyDecoder (statia mutata ca
+Mark-ul corespondentului sa cada pe 2125 Hz, emisia pe frecventa lui).

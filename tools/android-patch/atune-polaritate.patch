@@ -1,0 +1,354 @@
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java b/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
+index af29e3d..49ce003 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
++++ b/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
+@@ -135,6 +135,10 @@ public class EcranRttyDroid {
+ 
+     private final short[] vectorIstoricPeak = new short[512];
+ 
++    // Ultimele secunde de audio (48 kHz), pentru detectia polaritatii la A-TUNE (RttyPolarity).
++    private static final int RATA_AUDIO_RTTY = 48000;
++    private final RttyPolarity.Istoric istoricAudioRtty = new RttyPolarity.Istoric(RATA_AUDIO_RTTY, 6);
++
+     // Chei SharedPreferences pentru RTTY
+     private static final String PREF_RTTY_DNR_ON = "rtty_dnr_on";
+     private static final String PREF_RTTY_DNR_BW = "rtty_dnr_bw";
+@@ -1212,7 +1216,7 @@ public class EcranRttyDroid {
+ 
+         threadDecodareRtty = new Thread(() -> {
+             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
+-            int sampleRate = 48000;
++            int sampleRate = RATA_AUDIO_RTTY;
+             int bufferSize = AudioRecord.getMinBufferSize(sampleRate,
+                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+             if (bufferSize <= 0) bufferSize = 4096;
+@@ -1251,6 +1255,7 @@ public class EcranRttyDroid {
+                 }
+             });
+             demod.porneste(sampleRate);
++            istoricAudioRtty.goleste();
+             activity.runOnUiThread(this::actualizeazaUiReceptie);
+             if (deepRtty != null && deepRtty.isAvailable()) deepRtty.porneste();
+ 
+@@ -1276,6 +1281,7 @@ public class EcranRttyDroid {
+                 }
+ 
+                 demod.proceseazaBloc(audioBuffer, read);
++                istoricAudioRtty.adauga(audioBuffer, read);
+ 
+                 com.example.yaesucatcontroladv.deeprtty.DeepRttyReceiver dr = deepRtty;
+                 if (modDecoder == DECODER_DEEP && dr != null && dr.isAvailable()) {
+@@ -1355,13 +1361,25 @@ public class EcranRttyDroid {
+             if (lowerBin != -1 && maxPairScore > 0.002) {
+                 double freqBinDeJos = lowerBin * (8000.0 / 512.0);
+                 double freqBinDeSus = (lowerBin + shiftBins) * (8000.0 / 512.0);
+-                demod.frecventaTunedBaza = demod.regimReverseSoftware ? freqBinDeSus : freqBinDeJos;
++
++                // Care ton e Mark: incadrarea caracterelor (start Space, stop Mark) pe ultimele 5 s,
++                // cu ambele ipoteze. Asa A-TUNE pune singur NORM/REV dupa semnal - de exemplu in
++                // RTTY-U, unde receptia cere REV (FTX-1 nu are decodor intern, citesti doar aici).
++                // Nesigur (semnal scurt/slab): ramane NORM/REV-ul curent, ca inainte.
++                short[] ultimele = istoricAudioRtty.ultimele(5 * RATA_AUDIO_RTTY);
++                RttyPolarity.Rezultat pol = RttyPolarity.detecteaza(ultimele, ultimele.length,
++                        RATA_AUDIO_RTTY, freqBinDeJos, freqBinDeJos + RttyDemodulator.SHIFT_HZ);
+ 
+                 if (activity.isFinishing() || activity.isDestroyed()) return;
+                 activity.runOnUiThread(() -> {
+                     if (activity.isFinishing() || activity.isDestroyed()) return;
++                    boolean rev = pol.markJos != null ? !pol.markJos : demod.regimReverseSoftware;
++                    demod.regimReverseSoftware = rev;
++                    demod.frecventaTunedBaza = rev ? freqBinDeSus : freqBinDeJos;
+                     sincronizeazaSetariReceptie();
+-                    Toast.makeText(context, "Auto-Tune: " + (int) demod.frecventaTunedBaza + " Hz",
++                    Toast.makeText(context, "Auto-Tune: " + (int) demod.frecventaTunedBaza + " Hz, "
++                                    + (rev ? "REV" : "NORM")
++                                    + (pol.markJos == null ? " (polarity uncertain - signal too short or weak)" : ""),
+                             Toast.LENGTH_SHORT).show();
+                 });
+             } else {
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/RttyPolarity.java b/app/src/main/java/com/example/yaesucatcontroladv/RttyPolarity.java
+new file mode 100644
+index 0000000..3c9012c
+--- /dev/null
++++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyPolarity.java
+@@ -0,0 +1,169 @@
++package com.example.yaesucatcontroladv;
++
++/**
++ * Care dintre cele doua tonuri ale unui semnal RTTY e Mark (NORM sau REV), fara sa stii modul
++ * statiei (RTTY-L / RTTY-U) sau setarile corespondentului.
++ *
++ * In spectru tonurile arata la fel, dar in timp nu: cu polaritatea corecta fiecare caracter incepe
++ * cu un bit de start Space si se termina cu bitul de stop Mark (1.5 biti), deci caracterele "se
++ * incadreaza"; cu polaritatea gresita incadrarea esueaza mereu. Se incearca ambele ipoteze pe
++ * ultimele secunde de audio si castiga cea cu incadrarea clar mai buna. Pe zgomot sau semnal prea
++ * scurt rezultatul e nesigur (markJos == null) si A-TUNE pastreaza NORM/REV-ul curent.
++ *
++ * Port din RttyDecoder (C#, RttyDecoder.Core/Dsp/RttyPolarity.cs) - acelasi algoritm si praguri.
++ */
++public final class RttyPolarity {
++
++    public static final double BAUD = 45.45;
++
++    /** Esantioane de decizie pe bit. */
++    private static final int PE_BIT = 8;
++
++    /** Latimea de banda a filtrelor de ton (Hz) - cat sa urmareasca bitii de 22 ms. */
++    private static final double FILTRU_HZ = 35;
++
++    /** Minimul de caractere incadrate ca sa decida. */
++    public static final int MIN_CADRE = 6;
++
++    /** Diferenta minima intre scoruri ca sa decida. */
++    public static final double MARJA_MIN = 0.15;
++
++    private RttyPolarity() { }
++
++    /** Rezultatul detectiei. */
++    public static final class Rezultat {
++        /** true = Mark e tonul de jos (NORM), false = tonul de sus (REV), null = nu se poate spune. */
++        public final Boolean markJos;
++        /** Proportia de caractere bine incadrate cu ipoteza "Mark = tonul de jos" (0..1). */
++        public final double scorJos;
++        /** La fel, cu ipoteza "Mark = tonul de sus". */
++        public final double scorSus;
++        /** Cate caractere s-au incadrat (cu ipoteza castigatoare). */
++        public final int cadre;
++
++        Rezultat(Boolean markJos, double scorJos, double scorSus, int cadre) {
++            this.markJos = markJos;
++            this.scorJos = scorJos;
++            this.scorSus = scorSus;
++            this.cadre = cadre;
++        }
++    }
++
++    /**
++     * @param audio      ultimele secunde de semnal (PCM 16 bit mono), ideal 3-6 s
++     * @param n          cate esantioane din audio se folosesc
++     * @param sampleRate rata (Hz)
++     * @param josHz      tonul de jos al perechii (Hz)
++     * @param susHz      tonul de sus (Hz), de obicei josHz + 170
++     */
++    public static Rezultat detecteaza(short[] audio, int n, int sampleRate, double josHz, double susHz) {
++        n = Math.min(n, audio.length);
++        if (sampleRate <= 0 || n < sampleRate) return new Rezultat(null, 0, 0, 0);
++
++        // 1. care ton e mai puternic, de PE_BIT ori pe bit: doua filtre complexe de ordinul 1
++        //    (rezonatoare); oscilatoarele locale sunt fazori rotiti (fara cos/sin pe esantion)
++        int pas = Math.max(1, (int) Math.round(sampleRate / (BAUD * PE_BIT)));
++        double spb = sampleRate / BAUD / pas;   // esantioane de decizie pe bit (~8)
++        double a = 1 - Math.exp(-2 * Math.PI * FILTRU_HZ / sampleRate);
++        double wj = 2 * Math.PI * josHz / sampleRate, ws = 2 * Math.PI * susHz / sampleRate;
++        double cj = Math.cos(wj), sj = Math.sin(wj), cs = Math.cos(ws), ss = Math.sin(ws);
++        double oj = 1, qj = 0, os = 1, qs = 0;  // e^{-i w k}: (o, q) = (cos, -sin)
++        double jr = 0, ji = 0, sr = 0, si = 0;
++        int sari = (int) (0.05 * sampleRate);   // filtrele se stabilizeaza
++        boolean[] josPornit = new boolean[n / pas + 1];
++        int m = 0;
++        for (int i = 0; i < n; i++) {
++            double x = audio[i] / 32768.0;
++            jr += a * (x * oj - jr);
++            ji += a * (x * qj - ji);
++            sr += a * (x * os - sr);
++            si += a * (x * qs - si);
++            if (i >= sari && i % pas == 0) josPornit[m++] = jr * jr + ji * ji > sr * sr + si * si;
++
++            // fazorii avanseaza cu -w
++            double t = oj * cj + qj * sj;
++            qj = qj * cj - oj * sj;
++            oj = t;
++            t = os * cs + qs * ss;
++            qs = qs * cs - os * ss;
++            os = t;
++            if ((i & 1023) == 1023) {           // renormalizare (erorile de rotunjire)
++                double gj = 1 / Math.sqrt(oj * oj + qj * qj), gs = 1 / Math.sqrt(os * os + qs * qs);
++                oj *= gj; qj *= gj; os *= gs; qs *= gs;
++            }
++        }
++
++        // 2. incadrarea caracterelor cu fiecare ipoteza
++        double[] jos = scor(josPornit, m, spb, true);
++        double[] sus = scor(josPornit, m, spb, false);
++        boolean markJos = jos[0] >= sus[0];
++        int cadre = (int) (markJos ? jos[1] : sus[1]);
++        boolean sigur = cadre >= MIN_CADRE && Math.abs(jos[0] - sus[0]) >= MARJA_MIN
++                && Math.max(jos[0], sus[0]) >= 0.5;
++        return new Rezultat(sigur ? Boolean.valueOf(markJos) : null, jos[0], sus[0], cadre);
++    }
++
++    /**
++     * UART asincron: la fiecare trecere Mark -> Space (start), bitul de start trebuie sa fie Space
++     * la mijloc, iar stopul Mark la 6.5 si 7.2 biti. Un caracter bun sare peste el; unul rau avanseaza
++     * un esantion. Scorul = caractere bune / caractere incercate.
++     *
++     * @return {scor, caractere bune}
++     */
++    private static double[] scor(boolean[] josPornit, int m, double spb, boolean markJos) {
++        int bune = 0, rele = 0;
++        int nevoie = (int) Math.ceil(7.3 * spb);
++        int i = 1;
++        while (i + nevoie < m) {
++            if (josPornit[i - 1] == markJos && josPornit[i] != markJos) {
++                boolean ok = josPornit[i + (int) (0.5 * spb)] != markJos
++                        && josPornit[i + (int) (6.5 * spb)] == markJos
++                        && josPornit[i + (int) (7.2 * spb)] == markJos;
++                if (ok) {
++                    bune++;
++                    i += (int) (7.0 * spb);   // in bitul de stop; urmatorul start vine dupa
++                    continue;
++                }
++                rele++;
++            }
++            i++;
++        }
++        int total = bune + rele;
++        return new double[]{total == 0 ? 0 : (double) bune / total, bune};
++    }
++
++    /**
++     * Ultimele secunde de audio, scrise de firul de receptie si citite de A-TUNE. Sincronizat.
++     */
++    public static final class Istoric {
++        private final short[] inel;
++        private int poz;
++        private int count;
++
++        public Istoric(int sampleRate, double secunde) {
++            inel = new short[Math.max(1, (int) (sampleRate * secunde))];
++        }
++
++        public synchronized void adauga(short[] x, int n) {
++            for (int i = 0; i < n; i++) {
++                inel[poz] = x[i];
++                poz = poz + 1 == inel.length ? 0 : poz + 1;
++            }
++            count = Math.min(inel.length, count + n);
++        }
++
++        /** Ultimele maxim n esantioane, in ordine. */
++        public synchronized short[] ultimele(int n) {
++            n = Math.min(n, count);
++            short[] r = new short[n];
++            int start = (poz - n + inel.length) % inel.length;
++            for (int i = 0; i < n; i++) r[i] = inel[(start + i) % inel.length];
++            return r;
++        }
++
++        public synchronized void goleste() {
++            poz = 0;
++            count = 0;
++        }
++    }
++}
+diff --git a/app/src/test/java/com/example/yaesucatcontroladv/RttyPolarityTest.java b/app/src/test/java/com/example/yaesucatcontroladv/RttyPolarityTest.java
+new file mode 100644
+index 0000000..c156a40
+--- /dev/null
++++ b/app/src/test/java/com/example/yaesucatcontroladv/RttyPolarityTest.java
+@@ -0,0 +1,105 @@
++package com.example.yaesucatcontroladv;
++
++import static org.junit.Assert.assertArrayEquals;
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertNull;
++
++import org.junit.After;
++import org.junit.Test;
++
++import java.util.Random;
++
++/**
++ * Detectia polaritatii de la A-TUNE (RttyPolarity), pe semnalul sintetic din RttyDemodulatorTest:
++ * NORM (Space deasupra Mark-ului) si REV (Space sub Mark, cum se aude RTTY-U fara REV), curat si
++ * cu zgomot, cu acordul de la A-TUNE (binuri FFT de 15.6 Hz, deci pana la ~8 Hz abatere), cu
++ * tastare manuala; pe zgomot fara semnal - nesigur.
++ */
++public class RttyPolarityTest {
++
++    private static final int FS = 48000;
++    private static final String TEXT = "CQ CQ CQ DE YO9VA YO9VA YO9VA PSE K\n"
++            + "UR RST 599 599 NAME EUGEN QTH PLOIESTI 73\n";
++
++    @After
++    public void reseteaza() {
++        RttyDemodulatorTest.spaceSub = false;
++        RttyDemodulatorTest.pauzeTastare = false;
++    }
++
++    /** Ultimele 5 s, ca la A-TUNE. */
++    private static RttyPolarity.Rezultat detecteaza(short[] pcm, double josHz) {
++        RttyPolarity.Istoric ist = new RttyPolarity.Istoric(FS, 6);
++        ist.adauga(pcm, pcm.length);
++        short[] a = ist.ultimele(5 * FS);
++        return RttyPolarity.detecteaza(a, a.length, FS, josHz, josHz + 170);
++    }
++
++    private static short[] semnal(boolean rev, double snrDb, long seed, double offsetHz) {
++        RttyDemodulatorTest.spaceSub = rev;
++        return RttyDemodulatorTest.genereaza(TEXT, snrDb, seed, offsetHz, RttyPolarity.BAUD);
++    }
++
++    @Test
++    public void normCurat() {
++        RttyPolarity.Rezultat r = detecteaza(semnal(false, Double.POSITIVE_INFINITY, 1, 0), 2125);
++        assertEquals(Boolean.TRUE, r.markJos);
++    }
++
++    @Test
++    public void revCurat() {
++        // Mark 2125, Space 1955: tonul de jos e Space
++        RttyPolarity.Rezultat r = detecteaza(semnal(true, Double.POSITIVE_INFINITY, 1, 0), 1955);
++        assertEquals(Boolean.FALSE, r.markJos);
++    }
++
++    @Test
++    public void cuZgomotSiAcordulDeLaATune() {
++        for (boolean rev : new boolean[]{false, true}) {
++            for (double acord : new double[]{-8, 0, 8}) {
++                for (long seed = 1; seed <= 3; seed++) {
++                    double jos = rev ? 1955 : 2125;
++                    RttyPolarity.Rezultat r = detecteaza(semnal(rev, 6.0, seed, 0), jos + acord);
++                    assertEquals((rev ? "REV" : "NORM") + " acord " + acord + " seed " + seed
++                                    + " scoruri " + r.scorJos + "/" + r.scorSus,
++                            Boolean.valueOf(!rev), r.markJos);
++                }
++            }
++        }
++    }
++
++    @Test
++    public void tastareManuala() {
++        RttyDemodulatorTest.pauzeTastare = true;
++        for (boolean rev : new boolean[]{false, true}) {
++            RttyPolarity.Rezultat r = detecteaza(semnal(rev, 10.0, 2, 0), rev ? 1955 : 2125);
++            assertEquals(Boolean.valueOf(!rev), r.markJos);
++        }
++    }
++
++    @Test
++    public void zgomotFaraSemnalNesigur() {
++        Random rnd = new Random(7);
++        short[] pcm = new short[6 * FS];
++        for (int i = 0; i < pcm.length; i++) pcm[i] = (short) (rnd.nextGaussian() * 3000);
++        assertNull(detecteaza(pcm, 2125).markJos);
++    }
++
++    @Test
++    public void semnalPreaScurtNesigur() {
++        short[] pcm = new short[FS / 2];
++        assertNull(RttyPolarity.detecteaza(pcm, pcm.length, FS, 2125, 2295).markJos);
++    }
++
++    @Test
++    public void istoricPastreazaUltimele() {
++        RttyPolarity.Istoric ist = new RttyPolarity.Istoric(10, 0.5);   // 5 esantioane
++        ist.adauga(new short[]{1, 2, 3}, 3);
++        assertArrayEquals(new short[]{1, 2, 3}, ist.ultimele(10));
++        ist.adauga(new short[]{4, 5, 6, 7}, 4);
++        assertArrayEquals(new short[]{3, 4, 5, 6, 7}, ist.ultimele(10));
++        assertArrayEquals(new short[]{6, 7}, ist.ultimele(2));
++        ist.goleste();
++        assertEquals(0, ist.ultimele(10).length);
++    }
++}
