@@ -22,7 +22,8 @@ Din [Actions](../../actions) (artefactul `RttyDecoder-win-x64`) sau din [Release
 dezarhiveaza si porneste `RttyDecoder.exe`. Nu trebuie instalat .NET. Arhiva contine si
 `rtty_sample_11025hz.wav` pentru o proba rapida (Mark 1275 Hz - apasa A-TUNE sau click pe semnal).
 
-Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`.
+Setarile se salveaza in `%APPDATA%\YO9VA\RttyDecoder\settings.json`, inclusiv pozitia si
+marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare centrata).
 
 ## Utilizare
 
@@ -71,7 +72,11 @@ din **Setari > Conexiune statie**:
   primul port USB, "Enhanced"), viteza (ca in meniul statiei, implicit 38400), PTT prin CAT, RTS sau
   DTR (pe al doilea port, "Standard"). Statia anunta singura schimbarile (AI1).
 - **Prin OmniRig**: Rig 1 / Rig 2; statia poate fi folosita in acelasi timp si de alte programe.
-- **Testeaza** citeste frecventa si modul; **Test PTT 0.5 s** comuta emisia o jumatate de secunda.
+- **Manipulare** (FSK pentru RTTY, keying CW): portul, viteza si pinul (RTS/DTR). La FTX-1 de
+  obicei acelasi port ca PTT-ul, pe celalalt pin (ex. PTT pe RTS, FSK pe DTR); portul se deschide o
+  singura data. PTT si manipularea pe acelasi pin al aceluiasi port nu se pot salva.
+- **Testeaza** citeste frecventa si modul; **Test PTT 0.5 s** comuta emisia o jumatate de secunda;
+  **Test manipulare 0.5 s** activeaza pinul de manipulare.
 
 Langa nivel apar frecventa VFO si modul statiei, iar in USB/LSB/DATA si frecventa RF a Mark-ului
 (ex. `14.083.500 DATA-U   Mark 14.085.625`); **TX** rosu cand statia emite. **Shift+click pe

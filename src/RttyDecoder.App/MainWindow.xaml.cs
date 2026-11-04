@@ -63,8 +63,18 @@ public partial class MainWindow : Window
 
         if (_settings.Width > 0 && _settings.Height > 0)
         {
-            Width = _settings.Width;
-            Height = _settings.Height;
+            Width = Math.Max(MinWidth, _settings.Width);
+            Height = Math.Max(MinHeight, _settings.Height);
+        }
+        if (_settings.Left is { } left && _settings.Top is { } top && IsOnScreen(left, top, Width, Height))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = left;
+            Top = top;
+        }
+        else
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
         if (_settings.Maximized) WindowState = WindowState.Maximized;
         if (_smoke != null) Loaded += async (_, _) => await RunSmokeTest(_smoke);
@@ -96,6 +106,19 @@ public partial class MainWindow : Window
             cod = 1;
         }
         Application.Current.Shutdown(cod);
+    }
+
+    /// <summary>
+    /// Fereastra salvata se vede macar in parte pe ecranele de acum (monitorul pe care era poate fi
+    /// deconectat): cel putin 120 x 60 de pixeli din ea, cu bara de titlu in ecran.
+    /// </summary>
+    private static bool IsOnScreen(double left, double top, double width, double height)
+    {
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+            SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var visible = Rect.Intersect(screen, new Rect(left, top, width, height));
+        return !visible.IsEmpty && visible.Width >= 120 && visible.Height >= 60
+               && top >= screen.Top && top < screen.Bottom - 30;
     }
 
     // ------------------------------------------------------------------
@@ -267,6 +290,11 @@ public partial class MainWindow : Window
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         _settings.Width = b.Width;
         _settings.Height = b.Height;
+        if (!double.IsNaN(b.Left) && !double.IsInfinity(b.Left))
+        {
+            _settings.Left = b.Left;
+            _settings.Top = b.Top;
+        }
         _settings.Save();
         DisconnectRig();
         _vm.Dispose();
