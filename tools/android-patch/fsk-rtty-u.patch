@@ -1,0 +1,42 @@
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java b/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
+index fbcffeb..59dafee 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
++++ b/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
+@@ -1575,7 +1575,7 @@ public class EcranRttyDroid {
+                         if (!folosesteDiddle) {
+                             // Dacă Diddle e oprit, stăm în Mark (Idle) fără bit-banging activ
+                             setHardwarePtt(true);
+-                            setHardwareFsk(!demod.regimReverseSoftware); // Mark tone (Idle)
++                            setHardwareFsk(!polaritateFskInversata()); // Mark tone (Idle)
+                             Thread.sleep(50); // Mică pauză de relaxare CPU
+                             anchorTimeNanos = System.nanoTime(); // Resetăm ancora după pauză
+                             continue;
+@@ -1644,12 +1644,27 @@ public class EcranRttyDroid {
+         });
+     }
+ 
++    /**
++     * Polaritatea pinului FSK: dupa butonul NORM/REV (ca pana acum), inversata in plus cand statia
++     * e in RTTY-U. Tonurile le genereaza statia: in RTTY-L Mark iese pe frecventa RF mai mare
++     * (polaritatea standard), in RTTY-U invers - fara corectie, in RTTY-U semnalul iesea in aer
++     * inversat si receptorul trebuia sa dea REV. Modul e ultimul raspuns CAT "MD0x" (x = 9: RTTY-U).
++     */
++    private boolean polaritateFskInversata() {
++        return demod.regimReverseSoftware ^ statiaInRttyU();
++    }
++
++    private static boolean statiaInRttyU() {
++        String mod = StareRadio.getModText();
++        return mod != null && mod.length() >= 2 && mod.charAt(1) == '9';
++    }
++
+     /**
+      * Trimite un cod Baudot de 5 biți cu timing precis 1-5-1.5 (Start-Data-Stop).
+      * @return Momentul de timp (nanos) la care s-a încheiat bitul de stop.
+      */
+     private long trimiteCodBaudotMetronom(int codBaudot, long startAnchorNanos) {
+-        boolean reverse = demod.regimReverseSoftware;
++        boolean reverse = polaritateFskInversata();
+         long timeNext = startAnchorNanos;
+ 
+         // 1. START BIT (Space)

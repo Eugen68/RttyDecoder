@@ -33,3 +33,26 @@ Context/Log/SystemClock/InferenceWrapper):
   tot audio-ul imediat, in ritm, si reset la mijloc - pe codul vechi textul confirmat + gri pierdea
   "JUMPS OVER THE LAZY DOG" in 7 din 7 rulari, cu patch-ul 7 din 7 complete. Cursa de la pornire nu
   s-a putut provoca pe Linux (in C# aparea doar pe Windows); reparatia ei e prin constructie.
+
+## fsk-rtty-u.patch - emisia FSK in RTTY-U
+
+Simptom (verificat pe FTDX10): emisia FSK din aplicatie e buna in RTTY-L, dar in RTTY-U receptorul
+trebuie sa dea REV ca sa decodeze.
+
+Cauza: tonurile le genereaza statia, programul doar comuta pinul FSK. In RTTY-L statia pune Mark pe
+frecventa RF mai mare (polaritatea standard), in RTTY-U invers - acelasi pin da un semnal inversat in
+aer. `trimiteCodBaudotMetronom` (si idle-ul pe Mark fara diddle) foloseau doar butonul NORM/REV
+(`demod.regimReverseSoftware`), fara sa tina cont de modul statiei.
+
+Patch-ul (`EcranRttyDroid.java`): polaritatea pinului = NORM/REV (ca pana acum - emisia urmeaza in
+continuare REV-ul de la receptie), inversata in plus cand statia e in RTTY-U. Modul e ultimul
+raspuns CAT `MD0x` (`StareRadio.getModText()`, x = `9` = RTTY-U), care vine si singur la schimbare
+(AI1).
+
+```bash
+git apply fsk-rtty-u.patch
+```
+
+De verificat pe statie: in RTTY-U, cu NORM pe aplicatie, receptorul trebuie sa decodeze pe NORM (ca
+in RTTY-L). Daca in RTTY-U ai nevoie de REV si la receptie ca sa citesti statiile, emisia urmeaza
+acel REV (comportamentul pastrat) - atunci verifica si combinatia RTTY-U + REV.
