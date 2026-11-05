@@ -76,6 +76,21 @@ public class SpectrumTests
     }
 
     [Fact]
+    public void CursorulCitesteIstoriculSiNuAfiseazaNivelInGoluri()
+    {
+        var history = new SpectralHistory();
+        var first = new SpectrumFrame(1, 1, .064, 10, new float[] { 0, .1f, 0 });
+        var last = new SpectrumFrame(1, 10, .352, 10, new float[] { 0, .5f, 0 });
+        history.Add(first); history.Add(last);
+        var snapshot = history.Snapshot();
+        Assert.Same(last, SpectralHistory.FrameAtAge(snapshot, 0));
+        Assert.Same(first, SpectralHistory.FrameAtAge(snapshot, .288));
+        Assert.Null(SpectralHistory.FrameAtAge(snapshot, .15));
+        Assert.Null(SpectralHistory.FrameAtAge(snapshot, 1));
+        Assert.Null(SpectralHistory.FrameAtAge(snapshot, double.NaN));
+    }
+
+    [Fact]
     public void IstoriculPastreazaGolurileSiDatelePentruZoom()
     {
         var history = new SpectralHistory();

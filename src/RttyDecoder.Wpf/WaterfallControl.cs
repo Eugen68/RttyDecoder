@@ -327,6 +327,7 @@ public sealed class WaterfallControl : FrameworkElement
         if (_bitmap != null)
             dc.DrawImage(_bitmap, new Rect(HzToX(_firstHz - _step / 2), plot.Top,
                 (_width * _step) / SpanHz * plot.Width, plot.Height));
+        var labels = new List<(double Y, string Text, Brush Color)>();
         foreach (var row in snapshot.Rows.Where(r => r.GapStart != null))
         {
             double y = plot.Top + (snapshot.EndTime - row.Time) / Seconds * plot.Height;
@@ -335,13 +336,23 @@ public sealed class WaterfallControl : FrameworkElement
             double gapTop = Math.Max(plot.Top, y + plot.Height / Math.Max(1, _height));
             dc.DrawRectangle(Brushes.Black, null, new Rect(plot.Left, gapTop, plot.Width, Math.Max(0, Math.Min(end, plot.Bottom) - gapTop)));
             dc.DrawLine(BoundaryPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            DrawText(dc, $"gol {row.Time - row.GapStart.Value:0.00} s", plot.Left + 4, y + 1, Brushes.Orange);
+            labels.Add((y, $"gol {row.Time - row.GapStart.Value:0.00} s", Brushes.Orange));
         }
         foreach (var boundary in snapshot.Boundaries)
         {
             double y = plot.Top + (snapshot.EndTime - boundary.Time) / Seconds * plot.Height;
             dc.DrawLine(GreyPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            DrawText(dc, boundary.Label, plot.Left + 4, y + 1, Brushes.LightGray);
+            if (y >= plot.Top && y < plot.Bottom) labels.Add((y, boundary.Label, Brushes.LightGray));
+        }
+        // Etichetele de eveniment apropiate se combina, in loc sa se suprapuna.
+        var orderedLabels = labels.OrderBy(label => label.Y).ToArray();
+        for (int i = 0; i < orderedLabels.Length; i++)
+        {
+            var label = orderedLabels[i];
+            string text = label.Text;
+            while (i + 1 < orderedLabels.Length && orderedLabels[i + 1].Y - label.Y < 13)
+                text += " | " + orderedLabels[++i].Text;
+            DrawText(dc, text, plot.Left + 4, label.Y + 1, label.Color);
         }
         dc.Pop();
         DrawSpectrum(dc, snapshot, plot);
@@ -359,10 +370,11 @@ public sealed class WaterfallControl : FrameworkElement
         {
             double hz = XToHz(point.X);
             dc.DrawLine(GreyPen, new Point(point.X, plot.Top), new Point(point.X, plot.Bottom));
-            var frame = snapshot.Rows.LastOrDefault()?.Frame;
-            string text = $"{hz:0.0} Hz" + (frame != null ? $"  {SpectralHistory.SampleDb(frame, hz):0.0} dBFS" : "");
-            double x = Math.Clamp(point.X + 6, plot.Left, Math.Max(plot.Left, plot.Right - 190));
-            dc.DrawRectangle(LabelBack, null, new Rect(x, plot.Bottom - 20, 190, 19));
+            double age = (point.Y - plot.Top) / plot.Height * Seconds;
+            var frame = SpectralHistory.FrameAtAge(snapshot, age);
+            string text = $"{hz:0.0} Hz  -{age:0.00}s" + (frame != null ? $"  {SpectralHistory.SampleDb(frame, hz):0.0} dBFS" : "  fara date");
+            double x = Math.Clamp(point.X + 6, plot.Left, Math.Max(plot.Left, plot.Right - 260));
+            dc.DrawRectangle(LabelBack, null, new Rect(x, plot.Bottom - 20, 260, 19));
             DrawText(dc, text, x + 2, plot.Bottom - 19, Brushes.White);
         }
     }
@@ -450,7 +462,7 @@ public sealed class WaterfallControl : FrameworkElement
                 if (candidate is { } pair)
                 {
                     hz = pair.LowerToneHz + (Reverse ? ShiftHz : 0);
-                    Info?.Invoke($"Pereche RTTY: ton slab +{pair.WeakToneSnrDb:0} dB peste zgomot; incredere spectrala {pair.Confidence:P0}. NORM/REV ramane ales manual.");
+                    Info?.Invoke($"Pereche RTTY: ton slab +{pair.WeakToneSnrDb:0} dB peste zgomot; scor spectral {pair.Confidence:0.00}/1. NORM/REV ramane ales manual.");
                 }
                 else { Info?.Invoke("Pereche RTTY neconfirmata langa cursor; acord manual."); }
             }

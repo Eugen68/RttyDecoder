@@ -119,7 +119,8 @@
                 <Button Content="PNG..." Click="OnWaterfallCapture" ToolTip="Salveaza imaginea afisata, cu axe si markeri" />
                 <TextBlock x:Name="WaterfallStatus" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{StaticResource Rtty.Muted}" />
             </WrapPanel>
-            <Expander Grid.Row="2" Grid.ColumnSpan="2" Header="Afisare waterfall: niveluri, paleta si inaltime" Margin="0,2,0,0">
+            <Expander x:Name="WaterfallDisplayOptions" Grid.Row="2" Grid.ColumnSpan="2" Header="Afisare waterfall: niveluri, paleta si inaltime" Margin="0,2,0,0"
+                      Foreground="{StaticResource Rtty.Foreground}">
                 <WrapPanel Margin="0,4,0,4">
                     <TextBlock Text="Podea:" Style="{StaticResource Rtty.Label}" />
                     <CheckBox Content="Auto" VerticalAlignment="Center" Margin="0,0,6,0"

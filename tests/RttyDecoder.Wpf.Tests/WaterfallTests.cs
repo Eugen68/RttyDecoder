@@ -203,6 +203,11 @@ public class WaterfallTests
                 var image = new RenderTargetBitmap(1280, 950, 96, 96, PixelFormats.Pbgra32);
                 window.UpdateLayout(); image.Render(view);
                 Artifact(image, "decoder-window.png");
+                ((Expander)view.FindName("WaterfallDisplayOptions")).IsExpanded = true;
+                window.UpdateLayout();
+                var expanded = new RenderTargetBitmap(1280, 950, 96, 96, PixelFormats.Pbgra32);
+                expanded.Render(view);
+                Artifact(expanded, "decoder-display-options.png");
             }
             finally { window.Close(); }
         });

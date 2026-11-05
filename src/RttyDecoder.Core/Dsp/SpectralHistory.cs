@@ -53,6 +53,21 @@ public sealed class SpectralHistory
     public SpectralSnapshot Snapshot() => _snapshot ??= new(_rows.ToArray(), _boundaries.ToArray(), EndTime);
     public void Clear() { _rows.Clear(); _boundaries.Clear(); _last = null; _offset = 0; _snapshot = null; }
 
+    /// <summary>Cadrul de la timpul indicat de cursor; nu inventeaza niveluri in goluri.</summary>
+    public static SpectrumFrame? FrameAtAge(SpectralSnapshot snapshot, double age)
+    {
+        if (!double.IsFinite(age) || age < 0 || snapshot.Rows.Length == 0) return null;
+        double time = snapshot.EndTime - age;
+        if (time < snapshot.Rows[0].Time - SpectrumAnalyzer.RowSeconds) return null;
+        foreach (var row in snapshot.Rows)
+        {
+            if (row.Time < time) continue;
+            if (row.GapStart is { } start && time > start && time < row.Time - SpectrumAnalyzer.RowSeconds) return null;
+            return row.Frame;
+        }
+        return null;
+    }
+
     /// <summary>Interpolare a puterii la frecventa exacta; centrul bin-ului nu este deplasat cu jumatate de pixel.</summary>
     public static double SampleDb(SpectrumFrame frame, double frequency)
     {
