@@ -5,6 +5,12 @@ namespace RttyDecoder.Core.Tests;
 
 public class ReceiverBackpressureTests : IClassFixture<DeepRttyModelFixture>
 {
+    private static Task<T> OnThread<T>(Func<T> action) =>
+        Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    private static Task OnThread(Action action) =>
+        Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
     private readonly DeepRttyModelFixture _fixture;
     public ReceiverBackpressureTests(DeepRttyModelFixture fixture) => _fixture = fixture;
 
@@ -26,14 +32,14 @@ public class ReceiverBackpressureTests : IClassFixture<DeepRttyModelFixture>
         try
         {
             rx.Process48k(new short[49920], 49920, waitForDecoder: true);
-            flush = Task.Run(() => rx.TryFlush(TimeSpan.FromSeconds(20)));
-            Assert.True(await Task.Run(() => entered.Wait(TimeSpan.FromSeconds(10))));
+            flush = OnThread(() => rx.TryFlush(TimeSpan.FromSeconds(20)));
+            Assert.True(await OnThread(() => entered.Wait(TimeSpan.FromSeconds(10))));
             rx.Process48k(new short[24 * 48000], 24 * 48000);
             Assert.Equal(24, rx.DeepRttyQueueStatus.PendingAudioSeconds, 6);
-            producer = Task.Run(() => rx.Process48k(new short[3840], 3840, waitForDecoder: true));
+            producer = OnThread(() => rx.Process48k(new short[3840], 3840, waitForDecoder: true));
             // Flush trebuie sa respecte timeout-ul chiar daca bufferul este plin.
             Assert.False(rx.TryFlush(TimeSpan.FromMilliseconds(50)));
-            await Task.Run(rx.Stop).WaitAsync(TimeSpan.FromSeconds(2));
+            await OnThread(rx.Stop).WaitAsync(TimeSpan.FromSeconds(2));
             await producer.WaitAsync(TimeSpan.FromSeconds(2));
             Assert.False(await flush.WaitAsync(TimeSpan.FromSeconds(2)));
             Assert.False(rx.IsRunning);

@@ -133,8 +133,8 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
             Sanitize(next);
             ApplyToDemod(next, current);
             _settings = next;
+            UpdateDeepRtty();
         }
-        UpdateDeepRtty();
     }
 
     /// <summary>NORM &lt;-&gt; REV pastrand tonurile pe loc (Mark trece pe celalalt ton), ca pe Android.</summary>
@@ -191,8 +191,8 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
             _blockPeak = 0;
             _inputLevelDb = -120;
             lock (_codecLock) _rx.ResetShift();
+            UpdateDeepRtty();
         }
-        UpdateDeepRtty();
     }
 
     public void Stop()

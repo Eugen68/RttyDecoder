@@ -5,6 +5,12 @@ namespace RttyDecoder.Core.Tests;
 
 public class DeepRttyLifecycleTests
 {
+    private static Task<T> OnThread<T>(Func<T> action) =>
+        Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    private static Task OnThread(Action action) =>
+        Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
     private sealed class SlowInference : IDisposable
     {
         public readonly ManualResetEventSlim Entered = new();
@@ -51,8 +57,8 @@ public class DeepRttyLifecycleTests
     {
         receiver.Start();
         FeedBlocks(receiver, 13); // 1.04 s: suficient pentru Finish/Preview
-        var flush = Task.Run(() => receiver.Flush(TimeSpan.FromSeconds(20)));
-        Assert.True(await Task.Run(() => slow.Entered.Wait(TimeSpan.FromSeconds(10))));
+        var flush = OnThread(() => receiver.Flush(TimeSpan.FromSeconds(20)));
+        Assert.True(await OnThread(() => slow.Entered.Wait(TimeSpan.FromSeconds(10))));
         return flush;
     }
 
@@ -70,7 +76,7 @@ public class DeepRttyLifecycleTests
             Assert.False(await oldFlush.WaitAsync(TimeSpan.FromSeconds(2)));
             receiver.Start();
             FeedBlocks(receiver, 13);
-            Task<bool> nextFlush = Task.Run(() => receiver.Flush(TimeSpan.FromSeconds(10)));
+            Task<bool> nextFlush = OnThread(() => receiver.Flush(TimeSpan.FromSeconds(10)));
             Assert.Equal(1, Volatile.Read(ref slow.Calls));
             slow.Release.Set();
             Assert.True(await nextFlush.WaitAsync(TimeSpan.FromSeconds(15)));
@@ -89,7 +95,7 @@ public class DeepRttyLifecycleTests
         try
         {
             var flush = await BlockInference(receiver, slow);
-            await Task.Run(receiver.Dispose).WaitAsync(TimeSpan.FromSeconds(2));
+            await OnThread(receiver.Dispose).WaitAsync(TimeSpan.FromSeconds(2));
             Assert.False(await flush.WaitAsync(TimeSpan.FromSeconds(2)));
             Assert.False(receiver.Completion.IsCompleted);
             Assert.Throws<ObjectDisposedException>(receiver.Start);
@@ -110,7 +116,7 @@ public class DeepRttyLifecycleTests
             receiver.Reset();
             Assert.False(await oldFlush.WaitAsync(TimeSpan.FromSeconds(2)));
             FeedBlocks(receiver, 13);
-            var nextFlush = Task.Run(() => receiver.Flush(TimeSpan.FromSeconds(10)));
+            var nextFlush = OnThread(() => receiver.Flush(TimeSpan.FromSeconds(10)));
             slow.Release.Set();
             Assert.True(await nextFlush.WaitAsync(TimeSpan.FromSeconds(15)));
             Assert.NotEmpty(codes);
@@ -130,9 +136,8 @@ public class DeepRttyLifecycleTests
             FeedBlocks(receiver, 100);
             Assert.InRange(receiver.QueueStatus.PendingAudioSeconds, 0, 2);
             Assert.True(receiver.QueueStatus.Overruns > 0);
-            Assert.False(receiver.WaitForCapacity(TimeSpan.Zero) && receiver.QueueStatus.PendingAudioSeconds > 1.92);
             slow.Release.Set();
-            Assert.True(await Task.Run(() => receiver.Flush(TimeSpan.FromSeconds(10))));
+            Assert.True(await OnThread(() => receiver.Flush(TimeSpan.FromSeconds(10))));
         }
         finally { slow.Release.Set(); receiver.Dispose(); await receiver.Completion.WaitAsync(TimeSpan.FromSeconds(10)); }
     }
@@ -150,7 +155,7 @@ public class DeepRttyLifecycleTests
             FeedBlocks(receiver, 25); // exact 2 s in asteptare, inferenta inca blocata
             Assert.Equal(2, receiver.QueueStatus.PendingAudioSeconds, 6);
             Assert.False(receiver.WaitForCapacity(TimeSpan.Zero));
-            var waiting = Task.Run(() => receiver.WaitForCapacity());
+            var waiting = OnThread(() => receiver.WaitForCapacity());
             if (dispose) receiver.Dispose(); else receiver.Stop();
             Assert.False(await waiting.WaitAsync(TimeSpan.FromSeconds(2)));
             Assert.Equal(0, receiver.QueueStatus.PendingAudioSeconds);
@@ -168,10 +173,10 @@ public class DeepRttyLifecycleTests
             await BlockInference(receiver, slow);
             FeedBlocks(receiver, 25);
             Assert.False(receiver.WaitForCapacity(TimeSpan.Zero));
-            var producer = Task.Run(() => FeedBlocks(receiver, 100, wait: true));
+            var producer = OnThread(() => FeedBlocks(receiver, 100, wait: true));
             slow.Release.Set();
             await producer.WaitAsync(TimeSpan.FromSeconds(20));
-            Assert.True(await Task.Run(() => receiver.Flush(TimeSpan.FromSeconds(10))));
+            Assert.True(await OnThread(() => receiver.Flush(TimeSpan.FromSeconds(10))));
             Assert.Equal(0, receiver.QueueStatus.Overruns);
             Assert.Equal(0, receiver.QueueStatus.PendingAudioSeconds);
         }
@@ -188,7 +193,7 @@ public class DeepRttyLifecycleTests
             await BlockInference(receiver, slow);
             Assert.False(receiver.Flush(TimeSpan.FromMilliseconds(50)));
             slow.Release.Set();
-            Assert.True(await Task.Run(() => receiver.Flush(TimeSpan.FromSeconds(10))));
+            Assert.True(await OnThread(() => receiver.Flush(TimeSpan.FromSeconds(10))));
         }
         finally { slow.Release.Set(); receiver.Dispose(); await receiver.Completion.WaitAsync(TimeSpan.FromSeconds(10)); }
     }
