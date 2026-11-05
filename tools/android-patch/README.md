@@ -11,7 +11,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b`, impreuna cu cel de sus) |
 | `atune-corectii.patch` | corectiile peste cele doua patch-uri A-TUNE: polaritatea dupa durate (RYRY), tonul QSY cu discriminator de faza, try/catch, `FA;` recitit | aplicat in Android (`7ff7b6b`); se aplica **dupa** `atune-qsy.patch` |
 | `atune-poarta-durate.patch` | duratele decid polaritatea doar daca exista si un minim de incadrare (0.30) - fara semnal decodabil rularile sunt intamplatoare | aplicat in Android (`d139a48` pe `refactorizare_claude_2`) |
-| `atune-qsy-pereche.patch` | QSY-ul aliniaza perechea de tonuri (tonul de jos pe 2125), nu Mark-ul: in RTTY-U QSY-ul iesea cu 170 Hz alaturi; dupa QSY decodorul pe Mark 2295 la REV | propus - se aplica pe `d139a48` |
+| `atune-qsy-pereche.patch` | QSY-ul aliniaza perechea de tonuri (tonul de jos pe 2125), nu Mark-ul: in RTTY-U QSY-ul iesea cu 170 Hz alaturi; dupa QSY decodorul pe Mark 2295 la REV | aplicat in Android (`31e1202` pe `refactorizare_claude_2`) |
 
 ## DeepRtty.patch
 
