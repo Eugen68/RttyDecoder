@@ -47,6 +47,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             Scope.SetTones(s.MarkFrequencyHz, s.MarkFrequencyHz + (s.Reverse ? -RttySettings.ShiftHz : RttySettings.ShiftHz));
         };
         Receiver.SpectrumAvailable += row => SpectrumRow?.Invoke(row);
+        Receiver.SpectrumFrameAvailable += frame => SpectrumFrame?.Invoke(frame);
         Receiver.SettingsChanged += s => _dispatcher.BeginInvoke(() => SyncFromSettings(s));
         Receiver.Message += m => _dispatcher.BeginInvoke(() => Message = m);
 
@@ -112,6 +113,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     /// <summary>Rand de spectru pentru waterfall - pe firul audio (WaterfallControl.PushRow e thread-safe).</summary>
     public event Action<float[]>? SpectrumRow;
+    public event Action<SpectrumFrame>? SpectrumFrame;
 
     // ------------------------------------------------------------------
     // Comenzi

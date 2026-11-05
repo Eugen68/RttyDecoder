@@ -85,52 +85,72 @@
             <TextBlock Text="{Binding SourceName}" HorizontalAlignment="Right" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" />
         </DockPanel>
 
-        <!-- WATERFALL + INDICATOR DE ACORD -->
+        <!-- WATERFALL: timpul este timpul audio, nu numarul cadrelor desenate -->
         <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="170" /></Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="170" />
+                <RowDefinition Height="{Binding Value, ElementName=WaterfallHeight}" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Border Grid.Column="0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <local:WaterfallControl x:Name="Waterfall"
-                                        MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}"
-                                        Reverse="{Binding Reverse, Mode=OneWay}"
-                                        FrequencyCommand="{Binding SetFrequencyCommand}"
-                                        QsyCommand="{Binding QsyCommand}"
-                                        ToolTip="Click: acord pe Mark. Rotita: +-1 Hz (Ctrl: +-10 Hz). Shift+click: QSY - statia se muta ca semnalul sa ajunga pe Mark. Cu statia in RTTY-L/U (FSK), click-ul si A-TUNE fac QSY pe Mark 2125." ToolTipService.InitialShowDelay="1500" />
+                    MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}" Reverse="{Binding Reverse, Mode=OneWay}"
+                    FrequencyCommand="{Binding SetFrequencyCommand}" QsyCommand="{Binding QsyCommand}" />
             </Border>
-            <!-- la ~2 mm de waterfall; aceeasi rama, fond si colturi ca waterfall-ul -->
-            <Border Grid.Column="1" Width="170" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+            <Border Grid.Column="1" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <local:TuningIndicator x:Name="Tuning" />
             </Border>
-
-            <!-- reglajele waterfall-ului: podea (auto/manuala), interval, gama, nivelul semnalului -->
-            <WrapPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,4,0,0" Orientation="Horizontal">
-                <TextBlock Text="Podea:" Style="{StaticResource Rtty.Label}" />
-                <CheckBox Content="Auto" VerticalAlignment="Center" Margin="0,0,6,0"
-                          IsChecked="{Binding AutoFloor, ElementName=Waterfall}" Checked="OnAutoFloorChanged" Unchecked="OnAutoFloorChanged"
-                          ToolTip="Podeaua urmareste singura zgomotul. Debifat: o alegi tu cu cursorul." />
-                <Slider x:Name="FloorSlider" Width="110" Minimum="-160" Maximum="0" SmallChange="1" LargeChange="5"
-                        Value="{Binding FloorDb, ElementName=Waterfall}"
-                        IsEnabled="{Binding AutoFloor, ElementName=Waterfall, Converter={x:Static local:Converters.Not}}"
-                        ToolTip="De la ce nivel incepe culoarea (zgomotul de sub el e negru-albastru)" />
-                <TextBlock x:Name="FloorText" Style="{StaticResource Rtty.Value}" Width="58" />
-                <TextBlock Text="Interval:" Style="{StaticResource Rtty.Label}" Margin="12,0,8,0" />
-                <Slider Width="110" Minimum="10" Maximum="120" SmallChange="1" LargeChange="5" Value="{Binding RangeDb, ElementName=Waterfall}"
-                        ToolTip="Cat de larga e scala de culoare peste podea (mic = contrast mare)" />
-                <TextBlock Text="{Binding RangeDb, ElementName=Waterfall, StringFormat={}{0:0} dB}" Style="{StaticResource Rtty.Value}" Width="50" />
-                <TextBlock Text="Gama:" Style="{StaticResource Rtty.Label}" Margin="12,0,8,0" />
-                <Slider Width="90" Minimum="0.2" Maximum="3" SmallChange="0.05" LargeChange="0.2" Value="{Binding Gamma, ElementName=Waterfall}"
-                        ToolTip="Peste 1: zgomotul ramane mai rece (albastru), culorile calde doar pe semnal puternic. Sub 1: invers." />
-                <TextBlock Text="{Binding Gamma, ElementName=Waterfall, StringFormat={}{0:0.0}x}" Style="{StaticResource Rtty.Value}" Width="36" />
-                <TextBlock Text="Semnal:" Style="{StaticResource Rtty.Label}" Margin="12,0,8,0" />
-                <TextBlock x:Name="SignalText" Style="{StaticResource Rtty.Value}" FontFamily="Consolas"
-                           ToolTip="Nivelul minim..maxim din ultimul rand al waterfall-ului - ajuta la alegerea podelei si a intervalului" />
-            </WrapPanel>
+            <Expander x:Name="WaterfallDisplayOptions" Grid.Row="1" Grid.ColumnSpan="2" Header="Afisare waterfall: zoom, istoric, FFT, niveluri, paleta si inaltime" Margin="0,2,0,0"
+                      Foreground="{StaticResource Rtty.Foreground}">
+                <StackPanel>
+                    <WrapPanel Margin="0,4,0,0">
+                        <Button Content="0–4 kHz" Click="OnWaterfallFull" ToolTip="Vedere generala, fara stergerea istoricului" />
+                        <Button Content="Semnal" Click="OnWaterfallCenter" ToolTip="Zoom pe perechea Mark/Space" />
+                        <Button Content="+" Width="28" Click="OnWaterfallZoomIn" />
+                        <Button Content="−" Width="28" Click="OnWaterfallZoomOut" />
+                        <TextBlock Text="Istoric:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                        <ComboBox x:Name="WaterfallHistory" Width="64" ItemsSource="{x:Static local:WaterfallOptions.Durations}"
+                                  DisplayMemberPath="Label" SelectedValuePath="Seconds" SelectedValue="{Binding HistorySeconds, ElementName=Waterfall}" />
+                        <TextBlock Text="FFT:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                        <ComboBox x:Name="WaterfallResolution" Width="115" ItemsSource="{x:Static local:WaterfallOptions.Resolutions}"
+                                  DisplayMemberPath="Label" SelectedValuePath="Size" SelectedValue="{Binding SpectrumSize, ElementName=Waterfall}" />
+                        <CheckBox Content="Urmeaza" IsChecked="{Binding FollowSignal, ElementName=Waterfall}" VerticalAlignment="Center" Margin="8,0,4,0"
+                                  ToolTip="In zoom, centrul urmareste acordul. Deplasarea manuala dezactiveaza urmarirea." />
+                        <ToggleButton Content="Pauza imagine" IsChecked="{Binding IsPaused, ElementName=Waterfall}" ToolTip="Ingheata imaginea; receptia si istoricul live continua" />
+                        <Button Content="PNG..." Click="OnWaterfallCapture" ToolTip="Salveaza imaginea afisata, cu axe si markeri" />
+                        <TextBlock x:Name="WaterfallStatus" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{StaticResource Rtty.Muted}" />
+                    </WrapPanel>
+                    <WrapPanel Margin="0,4,0,4">
+                        <TextBlock Text="Podea:" Style="{StaticResource Rtty.Label}" />
+                        <CheckBox Content="Auto" VerticalAlignment="Center" Margin="0,0,6,0"
+                            IsChecked="{Binding AutoFloor, ElementName=Waterfall}" Checked="OnAutoFloorChanged" Unchecked="OnAutoFloorChanged" />
+                        <Slider x:Name="FloorSlider" Width="100" Minimum="-160" Maximum="0" Value="{Binding FloorDb, ElementName=Waterfall}"
+                            IsEnabled="{Binding AutoFloor, ElementName=Waterfall, Converter={x:Static local:Converters.Not}}" />
+                        <TextBlock x:Name="FloorText" Style="{StaticResource Rtty.Value}" Width="70" />
+                        <CheckBox Content="Fixeaza nivel" IsChecked="{Binding LockLevels, ElementName=Waterfall}" VerticalAlignment="Center" Margin="6,0,6,0"
+                            ToolTip="Opreste urmarirea automata a zgomotului; util pentru compararea semnalelor" />
+                        <TextBlock Text="Interval:" Style="{StaticResource Rtty.Label}" Margin="8,0,4,0" />
+                        <Slider Width="85" Minimum="10" Maximum="120" Value="{Binding RangeDb, ElementName=Waterfall}" />
+                        <TextBlock Text="{Binding RangeDb, ElementName=Waterfall, StringFormat={}{0:0} dB}" Style="{StaticResource Rtty.Value}" Width="45" />
+                        <TextBlock Text="Gama:" Style="{StaticResource Rtty.Label}" Margin="8,0,4,0" />
+                        <Slider Width="70" Minimum="0.2" Maximum="3" Value="{Binding Gamma, ElementName=Waterfall}"
+                            ToolTip="Peste 1: intuneca nivelurile slabe. Sub 1: le evidentiaza. Curba afecteaza intensitatea, nu numai nuanta." />
+                        <TextBlock Text="{Binding Gamma, ElementName=Waterfall, StringFormat={}{0:0.0}x}" Style="{StaticResource Rtty.Value}" Width="32" />
+                        <TextBlock Text="Paleta:" Style="{StaticResource Rtty.Label}" Margin="8,0,4,0" />
+                        <ComboBox Width="90" SelectedValuePath="Tag" SelectedValue="{Binding Palette, ElementName=Waterfall}">
+                            <ComboBoxItem Content="Contrast" Tag="{x:Static local:WaterfallPalette.Contrast}" />
+                            <ComboBoxItem Content="Clasica" Tag="{x:Static local:WaterfallPalette.Classic}" />
+                        </ComboBox>
+                        <CheckBox Content="Spectru" IsChecked="{Binding ShowSpectrum, ElementName=Waterfall}" VerticalAlignment="Center" Margin="8,0,6,0" />
+                        <CheckBox Content="Atragere pe semnal" IsChecked="{Binding SnapToSignal, ElementName=Waterfall}" VerticalAlignment="Center" Margin="8,0,6,0"
+                            ToolTip="La click cauta o pereche RTTY apropiata. Foloseste NORM/REV curent; nu comanda QSY." />
+                        <TextBlock Text="Inaltime:" Style="{StaticResource Rtty.Label}" Margin="8,0,4,0" />
+                        <Slider x:Name="WaterfallHeight" Width="90" Minimum="160" Maximum="400" Value="230" />
+                        <TextBlock x:Name="SignalText" Style="{StaticResource Rtty.Value}" FontFamily="Consolas" Margin="8,0,0,0"
+                            ToolTip="Minim/maxim in intervalul vizibil; amplitudine spectrala dBFS, nu nivelul RMS al intregului audio" />
+                    </WrapPanel>
+                </StackPanel>
+            </Expander>
         </Grid>
 
         <!-- COMENZI -->

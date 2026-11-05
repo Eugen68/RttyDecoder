@@ -34,6 +34,9 @@ public sealed class SimpleFft
 
     public int Size => _n;
 
+    /// <summary>Castig coerent: suma ferestrei, pentru normalizarea amplitudinii sinusoidale.</summary>
+    public double WindowSum => _window.Sum();
+
     /// <summary>Magnitudinea primelor n/2 bin-uri pentru esantioanele (deja normalizate la +-1) date.</summary>
     public void Magnitude(ReadOnlySpan<double> input, Span<double> magnitudeOut)
     {
@@ -91,7 +94,7 @@ public sealed class SimpleFft
             }
         }
 
-        int bins = Math.Min(_n / 2, magnitudeOut.Length);
+        int bins = Math.Min(_n / 2 + 1, magnitudeOut.Length);
         for (int m = 0; m < bins; m++) magnitudeOut[m] = Math.Sqrt(_x[m] * _x[m] + _y[m] * _y[m]);
     }
 }

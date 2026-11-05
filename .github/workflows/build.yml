@@ -25,8 +25,17 @@ jobs:
       - name: Teste
         run: dotnet test tests/RttyDecoder.Core.Tests -c Release --logger "console;verbosity=normal"
 
-      - name: Teste WPF (schimbarea sursei in timpul incarcarii)
+      - name: Teste WPF (surse, profiluri si waterfall)
+        env:
+          RTTY_UI_ARTIFACTS: ${{ github.workspace }}/ui-artifacts
         run: dotnet test tests/RttyDecoder.Wpf.Tests -c Release --logger "console;verbosity=normal"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RttyDecoder-UI-previews
+          path: ui-artifacts
+          if-no-files-found: ignore
 
       - name: Publicare (win-x64, un singur exe, fara .NET instalat)
         run: >

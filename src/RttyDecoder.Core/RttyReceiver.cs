@@ -59,6 +59,16 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
     /// <summary>Un rand de spectru pentru waterfall: magnitudini liniare, <see cref="SpectrumBinHz"/> Hz/bin, de la 0 Hz.</summary>
     public event Action<float[]>? SpectrumAvailable;
 
+    /// <summary>Spectru normalizat cu rezolutie si timp audio explicite. Array-ul nu se modifica de abonati.</summary>
+    public event Action<SpectrumFrame>? SpectrumFrameAvailable;
+
+    public void SetSpectrumSize(int size)
+    {
+        lock (_lock) { ObjectDisposedException.ThrowIf(_disposed, this); _spectrum.SetSize(size); }
+    }
+
+    public int SpectrumSize { get { lock (_lock) return _spectrum.Size; } }
+
     /// <summary>Setarile s-au schimbat din interior (A-TUNE, revenire din DeepRTTY indisponibil).</summary>
     public event Action<RttySettings>? SettingsChanged;
 
@@ -79,7 +89,22 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
         _squelch = new TextSquelch(code => EmitCodes(new[] { code }));
         _demod.FrameCompleted = OnClassicFrame;
         _demod.StatusUpdated = OnDemodStatus;
-        _spectrum.RowAvailable += row => SpectrumAvailable?.Invoke(row);
+        _spectrum.FrameAvailable += frame =>
+        {
+            SpectrumFrameAvailable?.Invoke(frame);
+            // API-ul vechi pastreaza grila 512/256; gazdele noi folosesc cadrul cu metadate.
+            if (SpectrumAvailable is { } handler)
+            {
+                var row = new float[SpectrumBins];
+                for (int i = 0; i < row.Length; i++)
+                {
+                    double index = i * SpectrumBinHz / frame.BinHz;
+                    int k = Math.Min((int)index, frame.Magnitudes.Length - 2);
+                    row[i] = (float)(frame.Magnitudes[k] + (index - k) * (frame.Magnitudes[k + 1] - frame.Magnitudes[k]));
+                }
+                handler(row);
+            }
+        };
         ApplyToDemod(_settings, null);
     }
 
@@ -154,7 +179,7 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
         lock (_lock)
         {
             var avg = _spectrum.AverageSpectrum();
-            return avg == null ? null : Dsp.AutoTune.FindLowerTone(avg, SpectrumAnalyzer.BinHz);
+            return avg == null ? null : Dsp.AutoTune.FindLowerTone(avg, _spectrum.BinWidthHz);
         }
     }
 
@@ -165,7 +190,7 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
         {
             var avg = _spectrum.AverageSpectrum();
             if (avg == null) return null;
-            var lower = Dsp.AutoTune.FindLowerTone(avg, SpectrumAnalyzer.BinHz);
+            var lower = Dsp.AutoTune.FindLowerTone(avg, _spectrum.BinWidthHz);
             if (lower == null) return null;
             mark = _settings.Reverse ? lower.Value + RttySettings.ShiftHz : lower.Value;
         }

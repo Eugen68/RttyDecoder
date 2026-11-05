@@ -9,8 +9,8 @@ aplicatie mai mare.
 - audio **live** de la placa de sunet / interfata radio / cablu virtual (WASAPI), orice rata
 - decodare din **fisiere WAV** (PCM 8/16/24/32 bit sau float, mono/stereo, orice rata), in timp
   real sau cat de repede se poate
-- **waterfall** cu acord prin click, rotita pentru reglaj fin si **A-TUNE**; sub el: podea
-  (Auto sau manuala), interval, gama si nivelul semnalului, cu paleta din CwDecoder
+- **waterfall** calibrat in dBFS, FFT 512/1024, istoric 8/15/30 s, zoom si deplasare fara
+  pierderea istoricului, palete, pauza imagine si captura PNG; acord prin click si **A-TUNE**
 - **indicator de acord** cu elipse incrucisate (ca pe osciloscop), in dreapta waterfall-ului
 - NORM/REV, AFC/PLL, NB, DNR, SNR-G, ATC, volant de caracter, ITA2 / US-TTY, salvarea textului
 - **SQL** (squelch, pornit implicit): pe zgomot nu mai apar caractere aleatoare. Criteriul e ritmul
@@ -63,6 +63,52 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
    doar daca s-a schimbat). Se folosesc de la pornirea urmatoare; fara internet nu se intampla nimic.
    Indicativele cu prefix litera+cifra (`S50A`, `A61BK`, `E73A`) sunt recunoscute daca cty.dat
    confirma prefixul.
+
+### Waterfall: navigare si niveluri
+
+| Comanda | Efect |
+| --- | --- |
+| Click | Acordul decodorului pe frecventa indicata; cu **Atragere pe semnal**, cauta o pereche apropiata, folosind NORM/REV curent |
+| Rotita / Ctrl+rotita | Acord fin: 1 Hz / 10 Hz |
+| Alt+rotita | Zoom in jurul cursorului |
+| Alt+tragere / tragere cu butonul mijlociu | Deplasare in frecventa; dezactiveaza urmarirea automata a acordului |
+| **0–4 kHz**, **Semnal**, **+ / −** | Vedere generala, centrare pe Mark/Space sau zoom; istoricul ramane disponibil |
+| **Urmeaza** | Centrul imaginii urmareste acordul, cand vederea este marita |
+| Shift+click | QSY explicit, numai daca statia este conectata si comanda este disponibila |
+| **Pauza imagine**, **PNG...** | Ingheata afisajul in timp ce receptia continua; salveaza imaginea vizibila cu axe si markeri |
+
+**FFT Rapid · 512** are pasul 15,625 Hz si fereastra de 64 ms; **Detaliat · 1024**,
+7,8125 Hz si 128 ms. Cadrele vin la fiecare 32 ms in ambele moduri. Schimbarea FFT pastreaza
+istoricul, iar zoom-ul reda din nou spectrele complete. Curba de deasupra arata ultimul spectru
+vizibil. Sub cursor apar frecventa, vechimea audio si nivelul cadrului din acel moment; golurile
+nu primesc un nivel inventat.
+
+Scara este **amplitudine spectrala dBFS**, normalizata dupa fereastra Hamming: o sinusoida de
+amplitudine 0,5, centrata pe un bin, indica aproximativ −6,02 dBFS. Nu este puterea RMS a
+intregului audio si nici o densitate de zgomot in dB/Hz. Nivelurile depind de pozitia intre bin-uri,
+de rezolutia FFT si de filtrul anti-aliasing (atenuare spre 4 kHz). Indicatorul audio de langa SNR
+ramane separat. Setarile vechi de podea sunt convertite o singura data la noua scara.
+
+In **Afisare waterfall: niveluri, paleta si inaltime**, **Auto** estimeaza zgomotul din banda
+250–3000 Hz si il urmareste lent, independent de zoom. **Fixeaza nivel** tine podeaua fixa;
+dezactivarea Auto permite reglajul manual. **Interval** stabileste domeniul deasupra podelei,
+iar **Gama** modifica intensitatea: peste 1 intuneca semnalele slabe, sub 1 le evidentiaza.
+Sunt disponibile paleta clasica si cea de contrast, spectrul si inaltimea de 160–400 px.
+Preferintele se salveaza intre sesiuni; pauza imaginii este temporara.
+
+Istoricul reprezinta **timp audio**, inclusiv la redarea WAV accelerata. START/STOP, schimbarea
+sursei, acordul/QSY si TX/RX sunt marcate prin separatoare. Cadrele omise sunt afisate ca goluri,
+cu durata lor; numarul cadrelor eliminate apare in stare. Cand mai multe cadre ajung pe acelasi
+rand de pixeli se pastreaza maximul, pentru vizibilitatea semnalelor scurte. Pauzele de timp real
+cu sursa oprita nu extind axa audio. Bufferul live pastreaza cel mult 30 s, independent de
+imaginea inghetata.
+
+**A-TUNE** cauta ambele tonuri, verifica distanta dintre ele si nivelul fata de zgomot, apoi
+rafineaza frecventa sub pasul FFT. O purtatoare unica nu este suficienta. Scorul spectral afisat
+de Snap este euristic, nu o probabilitate de decodare; NORM/REV la Snap ramane cel ales manual.
+QSY-ul automat inainte de TX ramane o optiune separata, descrisa mai jos.
+
+### Emisie
 
 **Emisia (FSK)** - statia in modul RTTY (de obicei RTTY-L), PTT-ul si pinul FSK din Setari >
 Conexiune statie:
@@ -283,7 +329,8 @@ compileaza `RttyDemodulator.java`, `BaudotCodec.java`, `RttyDemodulatorTest.java
 
 - **Waterfall-ul** foloseste un filtru anti-aliasing inainte de decimarea 48 kHz -> 8 kHz (pe Android
   se lua un esantion din 6, deci zgomotul de peste 4 kHz se plia in imagine) si toate esantioanele,
-  nu doar inceputul fiecarui bloc. Afisaj in dB, cu podea automata si contrast reglabil.
+  nu doar inceputul fiecarui bloc. Afisaj calibrat in dBFS, cu FFT selectabil, istoric complet
+  pentru zoom si podea automata stabilizata.
 - **A-TUNE** rafineaza pozitia sub-bin (eroare de cativa Hz in loc de +-8 Hz).
 - Audio la orice rata (reesantionare interna la 48 kHz, pe care sunt reglate filtrele).
 - Setarile trec printr-un lacat comun cu procesarea (pe Android erau campuri scrise din UI si citite
