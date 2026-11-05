@@ -25,6 +25,13 @@ public sealed class RttyTxSettings
     /// </summary>
     public bool InvertFsk { get; set; }
 
+    /// <summary>
+    /// QSY automat inainte de emisie: la un macro sau text care nu incepe cu CQ, dupa un A-TUNE care a
+    /// calculat alta frecventa decat a statiei (statia in RTTY-L / RTTY-U), statia se muta intai pe
+    /// frecventa corespondentului - ca dublu click pe A-TUNE. CQ-ul si LIVE nu muta statia. Implicit oprit.
+    /// </summary>
+    public bool AutoQsy { get; set; }
+
     /// <summary>Tabelul FIGS US-TTY in loc de ITA2.</summary>
     public bool UsTty { get; set; }
 

@@ -82,6 +82,11 @@ Conexiune statie:
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
   limita unei emisii (180 s), CR/LF automat, diddle, inversarea pinului FSK (implicit oprita).
   Valorile implicite sunt cele din aplicatia Android. AFSK urmeaza.
+- **QSY automat inainte de raspuns** (Setari transmisie, implicit oprit): la un macro sau text (Enter)
+  care **nu incepe cu CQ**, dupa un **A-TUNE** care a calculat alta frecventa decat a statiei, statia se
+  muta intai acolo (ca dublu click pe A-TUNE), apoi pleaca emisia (~250 ms mai tarziu). Doar in RTTY-L /
+  RTTY-U. Nu muta: CQ-ul (chemi pe frecventa ta - si uita QSY-ul pregatit), LIVE, dupa un click pe alt
+  semnal in waterfall sau daca statia s-a mutat de la A-TUNE.
 - **Polaritatea emisiei**: pinul FSK pleaca mereu normal (activ = Mark) - **NORM/REV e doar pentru
   receptie**, iar emisia nu depinde nici de modul statiei. Testul pe statii (FTDX10 <-> FTX-1 +
   aplicatia Android, `tools/android-patch/README.md`): emisia iese la fel in RTTY-L si RTTY-U, doar
@@ -121,19 +126,26 @@ decodorului.
 
 **A-TUNE si frecventa pentru emisie (FSK).** La FSK statia emite exact unde e acordata, deci ca sa
 raspunzi pe frecventa corespondentului trebuie mutata **statia**, nu doar decodorul:
-- **un click pe A-TUNE**: gaseste perechea de tonuri (170 Hz) si stabileste **care e Mark** dupa
-  incadrarea caracterelor pe ultimele ~5 s (cu polaritatea corecta fiecare caracter incepe cu un
-  bit de start Space si se termina cu stopul Mark; cu cea gresita nu) - decodorul se acordeaza pe
-  Mark-ul real, cu NORM/REV pus dupa semnal. In subsidiar calculeaza frecventa statiei pentru
-  emisie (Mark-ul semnalului pe 2125; in RTTY-L ca in LSB, in RTTY-U ca in USB), afisata in mesaj
+- **un click pe A-TUNE**: gaseste perechea de tonuri (170 Hz) si stabileste **care e Mark** pe
+  ultimele ~5 s: intai dupa durate (stopul de 1.5 biti e pe Mark, deci doar Mark-ul are rulari de
+  x.5 biti), apoi, daca duratele nu decid, dupa incadrarea caracterelor (start pe Space, stop pe
+  Mark) - decodorul se acordeaza pe Mark-ul real, cu NORM/REV pus dupa semnal. Pe RYRY incadrarea
+  singura se insela; duratele nu. In subsidiar calculeaza frecventa statiei pentru
+  emisie (perechea semnalului pe 2125 / 2295; in RTTY-L ca in LSB, in RTTY-U ca in USB), afisata in mesaj
   si langa VFO (`TX: 3.501.300`);
-- **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe 2125;
+- **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe perechea 2125 / 2295
+  (Mark 2125 pe NORM, 2295 pe REV);
 - click pe waterfall ramane acordul decodorului, Shift+click = QSY ca inainte;
 - REV-ul pus de A-TUNE (de exemplu in RTTY-U) e doar pentru receptie: emisia FSK ramane normala.
 
 Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L cu Mark-ul
 la ~1825 Hz; A-TUNE acordeaza decodorul pe 1825 si arata `TX: 3.501.300`; dublu click muta statia
 acolo, iar semnalul vine pe 2125.
+
+Se aliniaza **perechea** de tonuri, nu Mark-ul: o statie de pe aceeasi frecventa se aude pe 2125 / 2295
+in ambele moduri, dar in RTTY-U Mark-ul e tonul de sus (2295 - de aceea receptia cere REV). Testul pe
+statii (FTDX10 pe 3.505.000, FTX-1 emite pe 3.505.200): RTTY-L QSY la 3.505.201; in RTTY-U, cand se
+alinia Mark-ul, QSY-ul iesea 3.505.370 (+170 Hz) - corectat.
 
 Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
 apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,

@@ -69,7 +69,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         });
         ClearCommand = new RelayCommand(Clear);
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
-        SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) MarkFrequencyHz = hz; });
+        // click pe waterfall = alt semnal: QSY-ul pregatit de A-TUNE nu mai e pentru el
+        SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) { ForgetPendingQsy(); MarkFrequencyHz = hz; } });
 
         ClearStationsCommand = new RelayCommand(ClearStations);
         _callsigns = CreateTracker(new CallsignRecognizer());
@@ -576,8 +577,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     /// <summary>
     /// A-TUNE: perechea de tonuri din spectru, apoi care dintre ele e Mark (incadrarea caracterelor pe
     /// ultimele secunde, <see cref="RttyPolarity"/>) - decodorul se acordeaza pe Mark-ul real, cu
-    /// NORM/REV pus dupa el. In subsidiar se calculeaza frecventa statiei pentru emisie (Mark-ul
-    /// semnalului pe 2125); dublu click pe A-TUNE duce statia acolo (<see cref="QsyToPending"/>).
+    /// NORM/REV pus dupa el. In subsidiar se calculeaza frecventa statiei pentru emisie (perechea
+    /// semnalului pe 2125 / 2295); dublu click pe A-TUNE duce statia acolo (<see cref="QsyToPending"/>).
     /// </summary>
     private void AutoTune()
     {
@@ -601,7 +602,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         TuningChanged?.Invoke();
         Message = $"A-TUNE: Mark {mark.ToString("0", CultureInfo.InvariantCulture)} Hz, {(rev ? "REV" : "NORM")}"
                   + (pol.MarkIsLow == null ? " (polaritate nesigura - semnal prea scurt sau slab)" : "")
-                  + PrepareQsy(mark);
+                  + PrepareQsy(Math.Round(lower, 1));
     }
 
     private void Clear()

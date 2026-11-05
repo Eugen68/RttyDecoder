@@ -7,8 +7,11 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `RttyDemodulator.patch` | `RttyDemodulator.java` de la versiunea initiala pana la `65fd101` (AFC, Matched Filter, volant) | aplicat deja in Android (`refactorizare_claude_2`); pastrat ca referinta |
 | `DeepRtty.patch` | DeepRTTY: textul gri fara gol si resetarea ca marcaj in coada | aplicat in Android (`9910082` pe `refactorizare_claude_2`) |
 | `fsk-rtty-u.patch` | emisia FSK inversata in RTTY-U | **respins** - testul pe statii arata ca emisia era deja corecta (vezi mai jos) |
-| `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | propus - se aplica pe `refactorizare_claude_2` (`49f80a3`) si pe `master` (`ea922b9`) |
-| `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | propus - se aplica **dupa** `atune-polaritate.patch` |
+| `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b` pe `refactorizare_claude_2`) - vezi „Aplicat in Android cu corectii" |
+| `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b`, impreuna cu cel de sus) |
+| `atune-corectii.patch` | corectiile peste cele doua patch-uri A-TUNE: polaritatea dupa durate (RYRY), tonul QSY cu discriminator de faza, try/catch, `FA;` recitit | aplicat in Android (`7ff7b6b`); se aplica **dupa** `atune-qsy.patch` |
+| `atune-poarta-durate.patch` | duratele decid polaritatea doar daca exista si un minim de incadrare (0.30) - fara semnal decodabil rularile sunt intamplatoare | aplicat in Android (`d139a48` pe `refactorizare_claude_2`) |
+| `atune-qsy-pereche.patch` | QSY-ul aliniaza perechea de tonuri (tonul de jos pe 2125), nu Mark-ul: in RTTY-U QSY-ul iesea cu 170 Hz alaturi; dupa QSY decodorul pe Mark 2295 la REV | aplicat in Android (`31e1202` pe `refactorizare_claude_2`) |
 
 ## DeepRtty.patch
 
@@ -196,3 +199,145 @@ aplica in ordine pe `49f80a3` si pe `ea922b9`.
 
 De verificat pe statie: RTTY-U (pe PC directia ca USB a mers - 2 Hz); mutarea VFO-ului cu
 `FA` cand statia e pe VFO-B / split (patch-ul muta mereu VFO-A, ca restul aplicatiei).
+
+## Aplicat in Android cu corectii (`7ff7b6b`, 2026-11-05)
+
+Cele doua patch-uri A-TUNE s-au aplicat pe `refactorizare_claude_2`, dar testate pe inregistrarile
+reale (W6IWI 14089 cu RYRY, 14086, QRN 7086 - WAV-uri la 48 kHz, ferestre de 5 s ca la A-TUNE; REV
+sintetizat prin oglindirea spectrului in jurul centrului perechii) au aratat doua probleme. Codul din
+Android difera deci de patch-uri in urmatoarele puncte:
+
+Diferenta exacta e in **`atune-corectii.patch`** (de citit la portarea in C#):
+
+```
+git apply atune-polaritate.patch
+git apply atune-qsy.patch
+git apply atune-corectii.patch
+```
+
+Rezultatul e identic cu `7ff7b6b`; verificat ca se aplica si pe `ea922b9` (`master`).
+
+### 1. Polaritatea: duratele inaintea incadrarii (`RttyPolarity.java`)
+
+Incadrarea UART singura se insela pe **RYRY**: bitii alternanti se incadreaza aproape la fel de bine
+si cu polaritatea inversata. Acum decide intai **duratele**: bitul de stop are 1.5 biti, deci doar
+Mark-ul are rulari de lungime fractionara (1.5, 2.5... biti); rularile de Space sunt mereu numere
+intregi de biti. Pentru fiecare ton se numara ce fractie din rularile de 1.2-8 biti (fara prima si
+ultima, taiate de fereastra) au partea fractionara intre 0.3 si 0.7; decide daca sunt minim 16 rulari
+si diferenta e de minim 0.20. Altfel (de ex. stop de 1 sau 2 biti) ramane incadrarea, cu praguri mai
+stricte: 12 caractere, diferenta 0.30, scor minim 0.6.
+
+| Inregistrare (ferestre de 5 s, NORM + REV) | Patch-ul original | Cu corectia |
+|---|---|---|
+| 14089 (RYRY) | 10 gresite din 180 decise | 0 gresite din 402 |
+| 14086 | 4 gresite | 0 gresite |
+| QRN 7086 | 0 gresite | 1 din 430 (pe varianta oglindita) |
+| zgomot fara semnal (1000 ferestre) | - | 0 decizii |
+
+Am incercat si verificarea „stop inainte de start" pe incadrare - a iesit mai rau, deci respinsa.
+
+**Acelasi defect e si in C#** (`RttyPolarity.cs`) - de portat corectia si pe PC. *Portat* in
+RttyDecoder (duratele, pragurile noi, test RYRY si zgomot pe 50 de seed-uri), cu o poarta in plus -
+vezi `atune-poarta-durate.patch` mai jos.
+
+### 2. Tonul pentru QSY: discriminator de faza in loc de maximul puterii (`RttyQsy.java`)
+
+Maximul puterii Goertzel (+-12 Hz, pas 0.5) depinde de continut (RYRY fata de text): pe semnal real
+tonul sarea cu 5-10 Hz intre ferestre, deci QSY-ul ar fi dus statia alaturi. Acum
+`rafineazaTonJos` foloseste un discriminator de faza pe fiecare ton, ca AFC-ul demodulatorului:
+mixare in banda de baza pe cele doua tonuri, doi poli de 50 Hz in cascada, decizie de 8 ori pe bit;
+cat timp un ton domina clar (4x in putere, doua decizii la rand) rotatia fazei lui da abaterea de
+frecventa; cele doua tonuri se mediaza ponderat; doua treceri, maxim +-15 Hz pe trecere.
+
+| Abaterea tonului intre ferestre (p90) | Goertzel (patch) | Discriminator |
+|---|---|---|
+| 14089 | 10.8 Hz | 1.0 Hz |
+| 14086 | 6.8 Hz | 0.4 Hz |
+| QRN 7086 | 6.0 Hz | 0.8 Hz |
+
+Cap-coada (bin FFT -> rafinare -> polaritate) pe 14089: 0 decizii gresite din 1220, tonul la p90
+sub 1.9 Hz de cel real. **Posibil acelasi defect si in C#** la rafinarea tonului pentru QSY - de
+verificat.
+
+### 3. `EcranRttyDroid.java`
+
+- firul A-TUNE e in `try/catch`: la exceptie butonul nu mai ramane blocat (`atuneInCurs`), toast
+  „Auto-Tune error - try again.";
+- la dublu tap se recere `FA;` si dupa 400 ms se muta statia doar daca frecventa e aceeasi ca la
+  calcul (in RTTY receptia merge cu `AI0`, deci `StareRadio` nu afla singur ca statia s-a mutat);
+  altfel „The radio moved since A-TUNE - tap A-TUNE again.".
+
+### Teste
+
+`RttyPolarityTest` 8/8 (nou: RYRY pe NORM si REV, curat / 10 dB / 6 dB, 3 seed-uri; zgomot pe 50 de
+seed-uri), `RttyQsyTest` 8/8 neschimbat; toate testele unitare ale aplicatiei 60/60; APK-ul se
+compileaza.
+
+De verificat pe statie: A-TUNE pune singur REV in RTTY-U; dublu tap muta statia si FTDX10 decodeaza
+pe frecventa lui; comportamentul pe VFO-B / split.
+
+## atune-poarta-durate.patch
+
+La portarea corectiei de polaritate in C# am masurat pe aceleasi inregistrari (WAV-uri de 8 kHz din
+`recordings`), dar pe **toate** ferestrele de 5 s cu pas de 1 s, fara filtrul de semnal al A-TUNE
+(`maxPairScore`), perechea de tonuri gasita cu FFT pe fiecare fereastra; REV = spectrul oglindit in
+jurul centrului perechii. Gresite din decise, NORM + REV:
+
+| Inregistrare | Incadrarea (veche) | Duratele (`7ff7b6b`) | Duratele + poarta 0.30 |
+|---|---|---|---|
+| 14089 (RYRY) | 22 din 327 | 1 din 941 | 1 din 889 |
+| 14086 | 8 din 2729 | 39 din 4475 | 0 din 4426 |
+| QRN 7086 | 16 din 884 | 91 din 2147 | 1 din 1843 |
+
+Toate deciziile gresite ale duratelor aveau scorul de incadrare foarte mic la ambele ipoteze
+(0.05-0.24): in fereastra nu era semnal decodabil (pauza intre emisii, alt semnal - perechea sarea
+pe 1131 sau 1244 Hz - ori QRN), iar rularile erau intamplatoare. Incadrarea veche zicea „nesigur"
+acolo; duratele decideau oricum. Poarta: duratele decid doar daca macar o ipoteza incadreaza 30% din
+caractere (`MIN_INCADRARE_DURATE`). Pe 0.25 iesea la fel de bine (QRN 3 gresite), pe 0.20 raman
+cateva greseli.
+
+Pe A-TUNE din Android, `maxPairScore > 0.002` filtreaza deja multe ferestre fara semnal - de aceea
+masuratoarea ta (ferestrele cu semnal) dadea 0 gresite si fara poarta. Poarta e o asigurare pentru
+cazurile in care trece si un semnal nedecodabil (QRN, alt semnal mai puternic).
+
+Patch-ul atinge doar `RttyPolarity.java` (+11/-1). `RttyPolarityTest` + `RttyQsyTest` 16/16 cu el.
+Masuratoarea de mai sus e facuta cu C#-ul (acelasi algoritm si praguri); Java-ul nu l-am rulat pe
+inregistrari.
+
+**Aplicat in Android (`d139a48`), verificat si pe Java.** Aceleasi inregistrari la 48 kHz, toate
+ferestrele de 5 s cu pas de 1 s, tonul real (rafinat cu discriminatorul), NORM + REV oglindit:
+
+| Inregistrare | Fara poarta (`7ff7b6b`) | Poarta 0.25 | Poarta 0.30 |
+|---|---|---|---|
+| 14089 (RYRY) | 1030 corecte / 0 gresite | 1022 / 0 | 1010 / 0 |
+| 14086 | 4563 / 2 | 4563 / 0 | 4560 / 0 |
+| QRN 7086 | 2189 / 71 | 2003 / 2 | 1967 / 0 |
+
+0.30 e singurul prag fara greseli pe toate trei; se pierd 1-10% din deciziile corecte (A-TUNE lasa
+atunci NORM/REV cum era). `RttyPolarityTest` + `RttyQsyTest` 16/16 in Gradle.
+
+## atune-qsy-pereche.patch
+
+**Testul pe statii (YO9VA, 2026-11-05)**: FTX-1 emite cu aplicatia Android pe 3.505.200, FTDX10
+receptioneaza pe 3.505.000 cu RttyDecoder (PC); A-TUNE + dublu click:
+
+| Mod | QSY | Asteptat |
+|---|---|---|
+| RTTY-L | 3.505.201 | 3.505.200 - corect |
+| RTTY-U | 3.505.370 | 3.505.200 - **+170 Hz** (un shift) |
+
+**Cauza**: QSY-ul ducea **Mark-ul** semnalului pe 2125. O statie de pe aceeasi frecventa se aude insa
+cu perechea pe 2125 / 2295 in ambele moduri, iar in RTTY-U Mark-ul e tonul **de sus** (2295 - de aceea
+receptia cere REV). A-TUNE detecta corect REV, Mark-ul era tonul de sus, si dus pe 2125 muta statia
+cu 170 Hz prea departe. In RTTY-L Mark-ul e tonul de jos, deci acolo mergea.
+
+**Corectia** (aceeasi in RttyDecoder pe PC si in acest patch pentru Android):
+- QSY-ul aliniaza **tonul de jos al perechii** pe 2125 (`frecventaPentruEmisie` primeste `tonJos`,
+  nu Mark-ul) - nu mai depinde nici de polaritate;
+- dupa QSY decodorul trece pe Mark **2125 pe NORM, 2295 pe REV** (`RttyQsy.markDupaQsy`); inainte era
+  pus pe 2125 si pe REV, deci in RTTY-U decodorul ramanea dezacordat cu 170 Hz dupa QSY.
+
+Patch-ul: `RttyQsy.java` (doc, `markDupaQsy`), `EcranRttyDroid.java` (`pregatesteQsy(tonJos)`,
+`mutaStatiaPentruEmisie`), `RttyQsyTest.java` (cazurile testului pe statii + `markDupaQsy`).
+`RttyQsyTest` + `RttyPolarityTest` 18/18 (JUnit, fara SDK Android); `EcranRttyDroid.java` verificat
+doar sintactic.

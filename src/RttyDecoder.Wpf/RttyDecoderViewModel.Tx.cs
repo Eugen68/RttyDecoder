@@ -210,23 +210,74 @@ public sealed partial class RttyDecoderViewModel
     public List<MacroSettings> ExportMacros() =>
         Macros.Select(m => new MacroSettings { Name = m.Name, Text = m.Text }).ToList();
 
-    /// <summary>Trimite macro-ul F(index+1).</summary>
+    /// <summary>Trimite macro-ul F(index+1). Daca nu incepe cu CQ e un raspuns (QSY automat, daca e pornit).</summary>
     public void SendMacro(int index)
     {
         if (index < 0 || index >= Macros.Count) return;
         if (Expand(Macros[index].Text) is not { } text || !CanTransmit()) return;
-        PrepareTx();
-        _tx.Send(text);
+        Transmit(text);
     }
 
-    /// <summary>Enter in campul de emisie.</summary>
+    /// <summary>Enter in campul de emisie: ca macro-urile, raspuns daca nu incepe cu CQ.</summary>
     public void SendText()
     {
         if (_liveMode || string.IsNullOrWhiteSpace(TxText)) return;
         if (Expand(TxText) is not { } text || !CanTransmit()) return;
+        Transmit(text);
+        TxText = "";
+    }
+
+    /// <summary>Mesajul incepe cu CQ (chemare generala, pe frecventa ta): nu e raspuns, nu se face QSY.</summary>
+    public static bool IsCq(string text)
+    {
+        var t = text.TrimStart();
+        return t.StartsWith("CQ", StringComparison.OrdinalIgnoreCase)
+               && (t.Length == 2 || !char.IsLetterOrDigit(t[2]));
+    }
+
+    // mesaje care asteapta sa termine statia QSY-ul automat (null = niciun QSY in curs)
+    private List<string>? _afterQsy;
+
+    /// <summary>
+    /// Pune mesajul in emisie. La un raspuns (nu incepe cu CQ), cu QSY automat pornit si emisia oprita,
+    /// statia se muta intai unde a calculat ultimul A-TUNE (<see cref="TryAutoQsy"/>), iar PTT-ul vine
+    /// dupa o pauza scurta. CQ-ul uita QSY-ul pregatit: chemi pe frecventa ta.
+    /// </summary>
+    private void Transmit(string text)
+    {
+        if (_afterQsy != null)
+        {
+            _afterQsy.Add(text);   // al doilea mesaj in timpul pauzei: pleaca dupa primul
+            return;
+        }
+        if (IsCq(text)) ForgetPendingQsy();
+        else if (_tx.Settings.AutoQsy && !_tx.IsTransmitting && TryAutoQsy())
+        {
+            var batch = new List<string> { text };
+            _afterQsy = batch;
+            _ = SendAfterQsyAsync(batch);
+            return;
+        }
         PrepareTx();
         _tx.Send(text);
-        TxText = "";
+    }
+
+    private async Task SendAfterQsyAsync(List<string> batch)
+    {
+        try
+        {
+            await Task.Delay(AutoQsySettleMs);   // continuarea revine pe firul UI
+            if (!ReferenceEquals(_afterQsy, batch)) return;   // STOP intre timp
+            _afterQsy = null;
+            if (!CanTransmit()) return;
+            PrepareTx();
+            foreach (var text in batch) _tx.Send(text);
+        }
+        catch (Exception e)
+        {
+            _afterQsy = null;
+            Message = "Emisie dupa QSY: " + e.Message;
+        }
     }
 
     /// <summary>LIVE: un caracter scris (Enter = '\n').</summary>
@@ -239,6 +290,7 @@ public sealed partial class RttyDecoderViewModel
     /// <summary>Esc / STOP: emisia se opreste imediat.</summary>
     public void StopTx()
     {
+        _afterQsy = null;   // un raspuns care astepta QSY-ul nu mai pleaca
         _liveMode = false;
         OnPropertyChanged(nameof(LiveMode));
         _tx.Stop();
