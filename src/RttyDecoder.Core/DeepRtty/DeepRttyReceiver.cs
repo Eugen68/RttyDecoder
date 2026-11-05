@@ -64,6 +64,9 @@ public sealed class DeepRttyReceiver : IDisposable
     /// <summary>Dupa Dispose, se termina cand ultima inferenta a iesit si resursele modelului pot fi eliberate.</summary>
     public Task Completion { get { lock (_gate) return _worker == null ? Task.CompletedTask : _completion.Task; } }
 
+    // Bariera gazdei trebuie legata de sesiunea capturata inainte de a lasa lacatul ei.
+    internal object? SessionToken { get { lock (_gate) return _session; } }
+
     public DeepRttyQueueStatus QueueStatus
     {
         get
@@ -179,11 +182,16 @@ public sealed class DeepRttyReceiver : IDisposable
     }
 
     /// <summary>Bariera pentru audio-ul deja primit. False = timeout, STOP, CLEAR, reacordare sau Dispose.</summary>
-    public bool Flush(TimeSpan timeout)
+    public bool Flush(TimeSpan timeout) => FlushCore(timeout, null, checkSession: false);
+
+    internal bool Flush(TimeSpan timeout, object? expectedSession) => FlushCore(timeout, expectedSession, checkSession: true);
+
+    private bool FlushCore(TimeSpan timeout, object? expectedSession, bool checkSession)
     {
         TaskCompletionSource<bool> flush;
         lock (_gate)
         {
+            if (checkSession && !ReferenceEquals(_session, expectedSession)) return false;
             if (_session == null) return true;
             if (Thread.CurrentThread == _worker)
                 throw new InvalidOperationException("Flush nu poate astepta pe firul de inferenta.");
@@ -234,7 +242,7 @@ public sealed class DeepRttyReceiver : IDisposable
                             session = active;
                             break;
                         }
-                        Monitor.Wait(_gate, 100);
+                        Monitor.Wait(_gate, _session == null ? Timeout.Infinite : 100);
                     }
                     clear = session.ClearPreview;
                     session.ClearPreview = false;

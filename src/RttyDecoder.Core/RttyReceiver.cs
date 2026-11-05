@@ -326,21 +326,29 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
         if (budget < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
         long start = Stopwatch.GetTimestamp();
         long run;
-        lock (_lock) { if (!_running) return true; run = _runId; }
-        if (!WaitForDecoderCapacity(run, wait: true, timeout: budget)) return false;
         DeepRttyReceiver? deep;
+        object? session;
         lock (_lock)
         {
-            if (!_running || _runId != run) return false;
+            if (!_running) return true;
+            run = _runId;
+            deep = _settings.Decoder == RttyDecoderType.DeepRtty ? _deep : null;
+            session = deep?.SessionToken;
+        }
+        if (!WaitForDecoderCapacity(run, wait: true, timeout: budget)) return false;
+        lock (_lock)
+        {
+            if (!_running || _runId != run
+                || !ReferenceEquals(deep, _settings.Decoder == RttyDecoderType.DeepRtty ? _deep : null)
+                || !ReferenceEquals(deep?.SessionToken, session)) return false;
             if (_blockFill > 0)
             {
                 ProcessBlock(_block, _blockFill);
                 _blockFill = 0;
             }
-            deep = _settings.Decoder == RttyDecoderType.DeepRtty ? _deep : null;
         }
         var remaining = budget - Stopwatch.GetElapsedTime(start);
-        return deep == null || deep.Flush(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
+        return deep == null || deep.Flush(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero, session);
     }
 
     /// <summary>Asteapta incarcarea modelului DeepRTTY, daca e in curs.</summary>

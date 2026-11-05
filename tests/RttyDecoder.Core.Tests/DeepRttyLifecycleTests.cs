@@ -184,6 +184,27 @@ public class DeepRttyLifecycleTests
     }
 
     [Fact]
+    public void FinalizareaVecheNuGolesteNouaSesiune()
+    {
+        using var receiver = new DeepRttyReceiver((input, dims) =>
+        {
+            var data = Enumerable.Repeat(-100f, 33).ToArray();
+            data[3] = 0;
+            return (data, new long[] { 1, 1, 33 });
+        });
+        var confirmed = new ConcurrentQueue<int>();
+        receiver.Confirmed += tokens => { foreach (int token in tokens) confirmed.Enqueue(token); };
+        receiver.Start();
+        object? oldSession = receiver.SessionToken;
+        receiver.Stop();
+        receiver.Start();
+        FeedBlocks(receiver, 13);
+        Assert.False(receiver.Flush(TimeSpan.FromSeconds(5), oldSession));
+        Assert.True(receiver.Flush(TimeSpan.FromSeconds(5)));
+        Assert.Equal(new[] { 3 }, confirmed.ToArray());
+    }
+
+    [Fact]
     public async Task FlushTimeoutNuEsteRaportatCaSucces()
     {
         using var slow = new SlowInference();
