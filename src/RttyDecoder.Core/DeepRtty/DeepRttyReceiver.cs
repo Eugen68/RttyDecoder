@@ -1,208 +1,320 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace RttyDecoder.Core.DeepRtty;
 
+/// <summary>Audio inca neprocesat (nu include coada de text provizoriu) si recuperari dupa suprasarcina.</summary>
+public readonly record struct DeepRttyQueueStatus(double PendingAudioSeconds, int Overruns);
+
 /// <summary>
-/// Decodorul DeepRTTY pentru receptie continua. Firul audio apeleaza <see cref="Feed"/> cu blocuri
-/// de 48 kHz (pregatirea la 3200 Hz e ieftina si se face pe loc); decodarea ruleaza pe un fir
-/// propriu, ca o inferenta de cateva zeci/sute de ms sa nu blocheze receptia.
-///
-/// Iesiri (pe firul de decodare): codurile ITA2 confirmate - o singura data fiecare - si, o data
-/// pe secunda, codurile provizorii ale cozii inca neconfirmate (textul gri).
+/// Un singur fir de inferenta pentru toata viata receptorului. STOP/CLEAR/reacordarea invalideaza
+/// sesiunea curenta, inclusiv rezultatele unei inferente deja pornite; START nu o poate suprapune
+/// cu alta inferenta. Audio-ul asteapta intr-un buffer limitat (implicit 24 s, la 3200 Hz).
+/// Feed nu blocheaza: la suprasarcina live abandoneaza sesiunea veche si reincepe de la audio-ul
+/// nou. Pentru fisiere, apelantul foloseste WaitForCapacity inainte de fiecare bloc, fara lacate
+/// externe tinute, ca sa nu piarda audio. Evenimentele vin pe firul de inferenta.
 /// </summary>
 public sealed class DeepRttyReceiver : IDisposable
 {
-    /// <summary>Textul provizoriu se re-decodeaza o data pe secunda.</summary>
-    private const long ProvizoriuMs = 1000;
-
-    /// <summary>O mutare a centrului mai mare decat atat e o reacordare, nu deriva AFC.</summary>
-    private const double SaltAcordHz = 20.0;
-
-    private readonly RttyFrontEnd _frontEnd = new(48000);
-    private readonly DeepRttyStream _stream;
-    private readonly BlockingCollection<object> _coada = new();
+    public const int MaxFeedSamples = 3840; // PCM 48 kHz, 80 ms
+    private const int MaxReducedSamples = MaxFeedSamples / 15;
+    private const int BatchSamples = 4 * DeepRttyConst.SampleRate;
+    private const double SaltAcordHz = 20;
+    private readonly object _gate = new();
+    private readonly RttyInference _inference;
+    private readonly int _capacity;
+    private readonly Queue<object> _queue = new();
+    private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Thread? _worker;
-    private volatile bool _ruleaza;
+    private Session? _session;
+    private bool _disposed;
+    private int _overruns;
 
-    /// <summary>
-    /// Resetarile trec prin coada, in ordine cu audio-ul: ce s-a primit inainte se arunca, ce vine dupa
-    /// nu. (Un flag partajat, ca in varianta Android, putea fi procesat dupa ce primele blocuri ajunsesera
-    /// deja in coada si le arunca si pe ele - grila ferestrelor se decala.)
-    /// </summary>
-    private sealed class MarcajReset
+    private sealed class Session
     {
-        public static readonly MarcajReset Instanta = new();
+        public readonly RttyFrontEnd FrontEnd = new();
+        public readonly DeepRttyStream Stream;
+        public readonly HashSet<TaskCompletionSource<bool>> Flushes = new();
+        public int BufferedSamples;
+        public double LastCentre = double.NaN;
+        public bool Reverse;
+        public long NextPreviewMs;
+        public bool ClearPreview = true;
+
+        public Session(DeepRttyReceiver owner)
+        {
+            Stream = new DeepRttyStream((input, dims) =>
+                owner.IsCurrent(this) ? owner._inference(input, dims) : null);
+        }
     }
 
-    // doar pe firul audio
-    private double _ultimulCentru = double.NaN;
-    private bool _ultimulReverse;
-    private float[] _iesire = Array.Empty<float>();
-
-    /// <summary>Coduri ITA2 confirmate (pe firul de decodare).</summary>
     public event Action<int[]>? Confirmed;
-
-    /// <summary>Coduri provizorii ale cozii neconfirmate (pe firul de decodare).</summary>
     public event Action<int[]>? Provisional;
-
-    /// <summary>Eroare de inferenta (pe firul de decodare).</summary>
     public event Action<Exception>? Error;
 
-    public DeepRttyReceiver(RttyInference inference)
+    public DeepRttyReceiver(RttyInference inference, int maxBufferedSeconds = 24)
     {
-        _stream = new DeepRttyStream(inference);
+        ArgumentNullException.ThrowIfNull(inference);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxBufferedSeconds, 1);
+        _inference = inference;
+        _capacity = checked(maxBufferedSeconds * DeepRttyConst.SampleRate);
     }
 
-    public bool IsRunning => _ruleaza;
+    public bool IsRunning { get { lock (_gate) return _session != null; } }
+
+    /// <summary>Dupa Dispose, se termina cand ultima inferenta a iesit si resursele modelului pot fi eliberate.</summary>
+    public Task Completion { get { lock (_gate) return _worker == null ? Task.CompletedTask : _completion.Task; } }
+
+    // Bariera gazdei trebuie legata de sesiunea capturata inainte de a lasa lacatul ei.
+    internal object? SessionToken { get { lock (_gate) return _session; } }
+
+    public DeepRttyQueueStatus QueueStatus
+    {
+        get
+        {
+            lock (_gate) return new((_session?.BufferedSamples ?? 0) / (double)DeepRttyConst.SampleRate, _overruns);
+        }
+    }
 
     public void Start()
     {
-        if (_ruleaza) return;
-        _ruleaza = true;
-        while (_coada.TryTake(out _)) { }
-        _stream.Reset(); // firul de decodare nu ruleaza inca
-        _ultimulCentru = double.NaN;
-        _worker = new Thread(Bucla) { Name = "DeepRTTY", IsBackground = true };
-        _worker.Start();
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_session != null) return;
+            _overruns = 0;
+            _session = new Session(this);
+            if (_worker == null)
+            {
+                _worker = new Thread(Loop) { Name = "DeepRTTY", IsBackground = true };
+                _worker.Start();
+            }
+            Monitor.PulseAll(_gate);
+        }
     }
 
     public void Stop()
     {
-        if (!_ruleaza) return;
-        _ruleaza = false;
-        _worker?.Join(2000);
-        _worker = null;
-        // un Flush in asteptare nu mai are cine sa-l proceseze: il eliberam
-        while (_coada.TryTake(out var element))
-        {
-            if (element is ManualResetEventSlim g) g.Set();
-        }
+        lock (_gate) CancelSession();
     }
 
-    /// <summary>Arunca audio-ul si textul neconfirmat; textul deja confirmat ramane.</summary>
+    // Sub _gate. Elibereaza si Flush/WaitForCapacity, chiar daca inferenta nativa inca ruleaza.
+    private void CancelSession()
+    {
+        if (_session != null)
+            foreach (var flush in _session.Flushes) flush.TrySetResult(false);
+        _session = null;
+        _queue.Clear();
+        Monitor.PulseAll(_gate);
+    }
+
+    private Session ReplaceSession()
+    {
+        CancelSession();
+        return _session = new Session(this);
+    }
+
     public void Reset()
     {
-        if (_ruleaza) _coada.Add(MarcajReset.Instanta);
+        lock (_gate)
+        {
+            if (_session != null) ReplaceSession();
+        }
     }
 
     /// <summary>
-    /// Firul audio: un bloc PCM de 48 kHz. <paramref name="centruHz"/> = centrul semnalului RTTY
-    /// (Mark +/- 85 Hz), <paramref name="reverse"/> = Mark e sus. O mutare brusca a acordului
-    /// porneste decodarea de la zero; derivele mici ale AFC sunt urmarite din mers.
+    /// Asteapta loc pentru un bloc Feed (maximum 3840 PCM). False = sesiunea s-a oprit/schimbat.
+    /// Un singur producator audio. Nu se apeleaza cu lacatul receptorului/UI tinut.
     /// </summary>
+    public bool WaitForCapacity(TimeSpan? timeout = null)
+    {
+        lock (_gate)
+        {
+            var session = _session;
+            if (session == null) return false;
+            long start = Stopwatch.GetTimestamp();
+            while (ReferenceEquals(_session, session) && session.BufferedSamples + MaxReducedSamples > _capacity)
+            {
+                if (timeout is { } limit)
+                {
+                    TimeSpan remaining = limit - Stopwatch.GetElapsedTime(start);
+                    if (remaining <= TimeSpan.Zero) return false;
+                    Monitor.Wait(_gate, remaining);
+                }
+                else Monitor.Wait(_gate);
+            }
+            return ReferenceEquals(_session, session);
+        }
+    }
+
+    /// <summary>Audio PCM 48 kHz; centrul este Mark +/- 85 Hz. Pentru date mari, se imparte in blocuri de 80 ms.</summary>
     public void Feed(short[] pcm, int n, double centruHz, bool reverse)
     {
-        if (!_ruleaza) return;
-        if (double.IsNaN(_ultimulCentru) || Math.Abs(centruHz - _ultimulCentru) > SaltAcordHz || reverse != _ultimulReverse)
+        ArgumentNullException.ThrowIfNull(pcm);
+        ArgumentOutOfRangeException.ThrowIfNegative(n);
+        if (n > pcm.Length) throw new ArgumentOutOfRangeException(nameof(n));
+        for (int offset = 0; offset < n; offset += MaxFeedSamples)
         {
-            _frontEnd.Reset();
-            if (!double.IsNaN(_ultimulCentru)) _coada.Add(MarcajReset.Instanta); // reacordare
-        }
-        _ultimulCentru = centruHz;
-        _ultimulReverse = reverse;
-        if (_iesire.Length < n / 15 + 2) _iesire = new float[n / 15 + 2];
-        int m = _frontEnd.Process(pcm, n, centruHz, reverse, _iesire, 0);
-        if (m > 0) _coada.Add(_iesire.AsSpan(0, m).ToArray());
-    }
-
-    /// <summary>
-    /// Sfarsitul unei surse finite (fisier WAV): asteapta decodarea a tot ce s-a primit si confirma
-    /// si coada provizorie. Blocheaza pana termina (cel mult <paramref name="timeout"/>).
-    /// </summary>
-    public bool Flush(TimeSpan timeout)
-    {
-        if (!_ruleaza) return true;
-        var gata = new ManualResetEventSlim(); // fara Dispose: firul de decodare il poate seta si dupa un timeout
-        _coada.Add(gata);
-        // verificam periodic: daca receptorul se opreste intre timp, nu mai asteptam degeaba
-        var limita = DateTime.UtcNow + timeout;
-        while (!gata.Wait(200))
-        {
-            if (!_ruleaza || DateTime.UtcNow > limita) return false;
-        }
-        return true;
-    }
-
-    private void Bucla()
-    {
-        var ceas = Stopwatch.StartNew();
-        long ultimulProvizoriu = 0;
-        while (_ruleaza)
-        {
-            try
+            int count = Math.Min(MaxFeedSamples, n - offset);
+            // RttyFrontEnd primeste un array de la indexul zero.
+            short[] block = offset == 0 && count == n ? pcm : pcm.AsSpan(offset, count).ToArray();
+            lock (_gate)
             {
-                if (_coada.TryTake(out var primul, 100))
+                if (_session is not { } session) return;
+                if ((!double.IsNaN(session.LastCentre) && Math.Abs(centruHz - session.LastCentre) > SaltAcordHz)
+                    || (!double.IsNaN(session.LastCentre) && reverse != session.Reverse))
+                    session = ReplaceSession();
+                if (session.BufferedSamples + (count + 14) / 15 > _capacity)
                 {
-                    // tot ce s-a strans intre timp, intr-un singur push (pana la un flush)
-                    var lot = new List<float[]>();
-                    ManualResetEventSlim? flush = null;
-                    object? element = primul;
-                    while (element != null)
+                    _overruns++;
+                    session = ReplaceSession();
+                }
+                session.LastCentre = centruHz;
+                session.Reverse = reverse;
+                var audio = new float[(count + 14) / 15];
+                int m = session.FrontEnd.Process(block, count, centruHz, reverse, audio, 0);
+                if (m == 0) continue;
+                if (m != audio.Length) Array.Resize(ref audio, m);
+                _queue.Enqueue(audio);
+                session.BufferedSamples += m;
+                Monitor.PulseAll(_gate);
+            }
+        }
+    }
+
+    /// <summary>Bariera pentru audio-ul deja primit. False = timeout, STOP, CLEAR, reacordare sau Dispose.</summary>
+    public bool Flush(TimeSpan timeout) => FlushCore(timeout, null, checkSession: false);
+
+    internal bool Flush(TimeSpan timeout, object? expectedSession) => FlushCore(timeout, expectedSession, checkSession: true);
+
+    private bool FlushCore(TimeSpan timeout, object? expectedSession, bool checkSession)
+    {
+        TaskCompletionSource<bool> flush;
+        lock (_gate)
+        {
+            if (checkSession && !ReferenceEquals(_session, expectedSession)) return false;
+            if (_session == null) return true;
+            if (Thread.CurrentThread == _worker)
+                throw new InvalidOperationException("Flush nu poate astepta pe firul de inferenta.");
+            flush = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            _session.Flushes.Add(flush);
+            _queue.Enqueue(flush);
+            Monitor.PulseAll(_gate);
+        }
+        return flush.Task.Wait(timeout) && flush.Task.Result;
+    }
+
+    private bool IsCurrent(Session session)
+    {
+        lock (_gate) return ReferenceEquals(_session, session);
+    }
+
+    private void Publish(Session session, Action callback)
+    {
+        if (IsCurrent(session)) callback();
+    }
+
+    private void ReportError(Session session)
+    {
+        if (session.Stream.LastError is not { } error) return;
+        session.Stream.LastError = null;
+        Publish(session, () => Error?.Invoke(error));
+    }
+
+    private void Loop()
+    {
+        var clock = Stopwatch.StartNew();
+        try
+        {
+            while (true)
+            {
+                Session session;
+                float[]? audio = null;
+                TaskCompletionSource<bool>? flush = null;
+                bool clear;
+                bool preview;
+                lock (_gate)
+                {
+                    while (true)
                     {
-                        if (element is float[] f) lot.Add(f);
-                        else if (element is MarcajReset)
+                        if (_disposed) return;
+                        if (_session is { } active && (_queue.Count > 0 || active.ClearPreview || clock.ElapsedMilliseconds >= active.NextPreviewMs))
                         {
-                            // audio-ul de dinainte de reset nu mai conteaza
-                            lot.Clear();
-                            _stream.Reset();
-                            Provisional?.Invoke(Array.Empty<int>());
-                        }
-                        else if (element is ManualResetEventSlim g)
-                        {
-                            flush = g;
+                            session = active;
                             break;
                         }
-                        if (!_coada.TryTake(out element)) element = null;
+                        Monitor.Wait(_gate, _session == null ? Timeout.Infinite : 100);
                     }
-                    if (lot.Count > 0)
+                    clear = session.ClearPreview;
+                    session.ClearPreview = false;
+                    if (_queue.TryPeek(out var first) && first is float[])
                     {
-                        int total = lot.Sum(b => b.Length);
-                        var audio = new float[total];
-                        int o = 0;
-                        foreach (var b in lot) { Array.Copy(b, 0, audio, o, b.Length); o += b.Length; }
-                        var confirmate = _stream.Push(audio, total);
-                        if (confirmate.Count > 0) Confirmed?.Invoke(confirmate.Select(t => t.Index).ToArray());
-                        RaporteazaEroare();
+                        var batch = new List<float[]>();
+                        int total = 0;
+                        while (_queue.TryPeek(out var item) && item is float[] f && total + f.Length <= BatchSamples)
+                        {
+                            _queue.Dequeue(); batch.Add(f); total += f.Length;
+                        }
+                        audio = new float[total];
+                        int offset = 0;
+                        foreach (var block in batch) { block.CopyTo(audio, offset); offset += block.Length; }
                     }
-                    if (flush != null)
-                    {
-                        var rest = _stream.Finish();
-                        if (rest.Count > 0) Confirmed?.Invoke(rest.Select(t => t.Index).ToArray());
-                        RaporteazaEroare();
-                        Provisional?.Invoke(Array.Empty<int>());
-                        flush.Set();
-                        continue;
-                    }
+                    else if (_queue.Count > 0) flush = (TaskCompletionSource<bool>)_queue.Dequeue();
+                    preview = audio == null && flush == null && clock.ElapsedMilliseconds >= session.NextPreviewMs;
+                    if (preview) session.NextPreviewMs = clock.ElapsedMilliseconds + 1000;
                 }
-                long acum = ceas.ElapsedMilliseconds;
-                if (acum - ultimulProvizoriu >= ProvizoriuMs)
+                try
                 {
-                    ultimulProvizoriu = acum;
-                    var p = _stream.Preview();
-                    RaporteazaEroare();
-                    Provisional?.Invoke(p.Select(t => t.Index).ToArray());
+                    if (clear) Publish(session, () => Provisional?.Invoke(Array.Empty<int>()));
+                    if (audio != null)
+                    {
+                        var tokens = session.Stream.Push(audio, audio.Length);
+                        if (tokens.Count > 0) Publish(session, () => Confirmed?.Invoke(tokens.Select(t => t.Index).ToArray()));
+                    }
+                    else if (flush != null)
+                    {
+                        var tokens = session.Stream.Finish();
+                        if (tokens.Count > 0) Publish(session, () => Confirmed?.Invoke(tokens.Select(t => t.Index).ToArray()));
+                        Publish(session, () => Provisional?.Invoke(Array.Empty<int>()));
+                    }
+                    else if (preview)
+                    {
+                        var tokens = session.Stream.Preview();
+                        Publish(session, () => Provisional?.Invoke(tokens.Select(t => t.Index).ToArray()));
+                    }
+                    ReportError(session);
+                }
+                catch (Exception error)
+                {
+                    // O eroare a unui abonat nu trebuie sa lase producatorul/Flush blocat.
+                    try { Publish(session, () => Error?.Invoke(error)); } catch { }
+                    flush?.TrySetResult(false);
+                }
+                finally
+                {
+                    lock (_gate)
+                    {
+                        if (audio != null) session.BufferedSamples -= audio.Length;
+                        if (flush != null)
+                        {
+                            session.Flushes.Remove(flush);
+                            flush.TrySetResult(ReferenceEquals(_session, session));
+                        }
+                        Monitor.PulseAll(_gate);
+                    }
                 }
             }
-            catch (Exception e)
-            {
-                Error?.Invoke(e);
-            }
         }
+        finally { _completion.TrySetResult(); }
     }
 
-    private void RaporteazaEroare()
-    {
-        if (_stream.LastError is { } e)
-        {
-            _stream.LastError = null;
-            Error?.Invoke(e);
-        }
-    }
-
+    /// <summary>Oprire fara asteptarea inferentei native; asteptati Completion inainte de a elibera modelul.</summary>
     public void Dispose()
     {
-        Stop();
-        _coada.Dispose();
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            CancelSession();
+        }
     }
 }

@@ -25,6 +25,9 @@ jobs:
       - name: Teste
         run: dotnet test tests/RttyDecoder.Core.Tests -c Release --logger "console;verbosity=normal"
 
+      - name: Teste WPF (schimbarea sursei in timpul incarcarii)
+        run: dotnet test tests/RttyDecoder.Wpf.Tests -c Release --logger "console;verbosity=normal"
+
       - name: Publicare (win-x64, un singur exe, fara .NET instalat)
         run: >
           dotnet publish src/RttyDecoder.App -c Release -r win-x64 --self-contained true

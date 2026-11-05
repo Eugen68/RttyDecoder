@@ -19,7 +19,7 @@ public class RttyReceiverTests : IClassFixture<DeepRttyModelFixture>
         for (int pos = 0; pos < audio.Length; pos += chunk)
         {
             int n = Math.Min(chunk, audio.Length - pos);
-            rx.Process(audio.AsSpan(pos, n), sampleRate);
+            rx.Process(audio.AsSpan(pos, n), sampleRate, waitForDecoder: true);
         }
         rx.Flush();
         rx.Stop();
@@ -136,9 +136,9 @@ public class RttyReceiverTests : IClassFixture<DeepRttyModelFixture>
         var sb = new StringBuilder();
         rx.TextReceived += t => { lock (sb) sb.Append(t); };
         rx.Start();
-        for (int p = 0; p < a.Length; p += 4800) rx.Process(a.AsSpan(p, Math.Min(4800, a.Length - p)), 48000);
+        for (int p = 0; p < a.Length; p += 4800) rx.Process(a.AsSpan(p, Math.Min(4800, a.Length - p)), 48000, waitForDecoder: true);
         rx.ClearDecoderState();
-        for (int p = 0; p < b.Length; p += 4800) rx.Process(b.AsSpan(p, Math.Min(4800, b.Length - p)), 48000);
+        for (int p = 0; p < b.Length; p += 4800) rx.Process(b.AsSpan(p, Math.Min(4800, b.Length - p)), 48000, waitForDecoder: true);
         rx.Flush();
         rx.Stop();
         string text;

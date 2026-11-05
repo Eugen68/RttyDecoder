@@ -1,77 +1,41 @@
-# Inregistrari RTTY de test
+# Corpus si rezultate de decodare
 
-Inregistrarile WebSDR (8 kHz mono) sunt atasate la release-ul
-[`recordings`](https://github.com/Eugen68/RttyDecoder/releases/tag/recordings) (prea mari pentru
-repo). Toate sunt transmisii de test W6IWI, NORM (Mark = tonul de jos), cu text cunoscut, deci se
-pot numara exact erorile.
+Inregistrarile WebSDR (8 kHz mono) sunt in release-ul public
+[recordings](https://github.com/Eugen68/RttyDecoder/releases/tag/recordings).
+Benchmark-ul automat verifica SHA256 inainte de fiecare decodare.
 
-| Fisier | Durata | Mark masurat | Shift real | Text |
-|---|---|---|---|---|
-| `websdr_recording_2022-06-14T23_08_37Z_14086.0kHz.wav` | 39 min | 2123 Hz | 168.5 Hz | `00`..`99 THE QUICK BROWN FOX JUMPED OVER THE LAZY DOGS BACK. TEST DE W6IWI` |
-| `QRN.websdr_recording_2022-03-15T05_45_16Z_7086.0kHz.wav` | 26 min | 2048 Hz | 166 Hz | la fel, 100 de randuri; a doua jumatate foarte slaba, QRN |
-| `websdr_recording_2024-04-15T23_12_30Z_14089.1kHz.wav` | 9.5 min | 2120 Hz | 168.5 Hz | `TEST DE W6IWI` / `RYRY...` (70 caractere) alternativ |
+| Caz | Fisier | Mark fix | Referinta |
+|---|---|---:|---|
+| 14086 | `websdr_recording_2022-06-14T23_08_37Z_14086.0kHz.wav` | 2123 Hz | Mesajele W6IWI 00..99 |
+| 7086-qrn | `QRN.websdr_recording_2022-03-15T05_45_16Z_7086.0kHz.wav` | 2048 Hz | Mesajele W6IWI 00..99; a doua jumatate foarte slaba |
+| 14089 | `websdr_recording_2024-04-15T23_12_30Z_14089.1kHz.wav` | 2120 Hz | RY / TEST DE W6IWI; transcriere completa neverificata, CER n/a |
+| sample | `samples/rtty_sample_11025hz.wav` | 1275 Hz | Text cunoscut, repetat de doua ori |
+| noise | Generat la rulare, seed 12345, 120 s | 2125 Hz | Sir gol; caractere/minut in loc de CER |
 
-## Rezultate (2026-11-03)
+## Rezultate actuale
 
-Erori = distanta Levenshtein fata de textul transmis (include caracterele "inventate" din zgomotul
-dintre transmisii); "perfecte" = randuri decodate fara nicio greseala. Acord pe Mark 2118 / 2045 /
-2115 Hz (cu ~5 Hz sub tonul real), fara AFC, daca nu se spune altfel.
+[Masuratori 2026-11-05](results-2026-11-05.md), cu commit, setari, metoda si legatura spre
+artefactele JSON/TXT/CSV ale rularii. [Datele JSON](results-2026-11-05.json) pastreaza
+setarile si hash-urile chiar daca artefactul CI expira.
 
-### 14086 kHz (39 min, semnal bun)
+Trei profiluri din interfata folosesc configuratiile masurate: Matched Filter pe semnal bun,
+DeepRTTY pe semnal slab, Chebyshev ca alternativa rapida pentru QRN/flutter. NB si ATC nu sunt
+activate automat in ultimul profil: combinatiile masurate au crescut CER pe proba QRN.
+Rezultatul unei singure inregistrari nu garanteaza comportamentul pe orice canal.
 
-| Decodor | Erori (CER) | Randuri perfecte |
-|---|---|---|
-| Chebyshev | 128 (1.86%) | 80 / 100 |
-| Chebyshev + ATC | 108 (1.57%) | 79 / 100 |
-| Chebyshev fara volant | 187 (2.71%) | 74 / 100 |
-| Matched Filter | 256 (3.71%) | 55 / 100 |
-| **DeepRTTY** | **33 (0.48%)** | **92 / 100** |
+SQL este deja implementat si pornit implicit. Proba determinista de zgomot compara explicit
+SQL activ cu SQL oprit; nu trebuie interpretata drept garantie pentru orice zgomot sau interferenta.
+Pe 14089 raportam indicative si text integral, fara a inventa un numitor pentru CER.
 
-### 7086 kHz cu QRN (26 min)
+## Reproducere
 
-| Decodor | Erori (CER) | Randuri perfecte |
-|---|---|---|
-| Chebyshev | 2125 (30.8%) | 35 / 100 |
-| Chebyshev + AFC | 2109 (30.6%) | 36 / 100 |
-| Matched Filter | - | 0 / 100 |
-| **DeepRTTY** | **1163 (16.9%)** | **45 / 100** |
+Comenzile, referintele exacte, limitele masuratorilor de latenta/memorie si procedura FSK fizica:
+[tools/RttyDecoder.Benchmarks/README.md](../tools/RttyDecoder.Benchmarks/README.md).
+Workflow-ul `benchmark` publica automat raportul in rezumat si artefactul `RttyDecoder-benchmark`.
+Nu deschide porturi seriale si nu emite radio.
 
-### 14089.1 kHz (9.5 min)
+## Istoric
 
-| Decodor | Erori | Randuri perfecte |
-|---|---|---|
-| Chebyshev | 224 | 37 / 63 |
-| Chebyshev + ATC | 93 | 42 / 62 |
-| Matched Filter | 999 | 2 / 53 |
-| **DeepRTTY** | **14** | **59 / 61** |
-
-### AFC pornit cu acordul gresit (+-15 Hz)
-
-| Fisier | Start | Fara AFC | Cu AFC (Mark final) |
-|---|---|---|---|
-| 14086 | 2103 Hz | 150 erori, 71 perfecte | 130 erori, 80 perfecte (2123.9 Hz) |
-| 14089 | 2100 Hz | 1011 erori, 15 perfecte | 149 erori, 40 perfecte (2121.0 Hz) |
-| 7086 | 2030 Hz | 2373 erori, 11 perfecte | 2111 erori, 36 perfecte (2051.4 Hz) |
-
-Din orice punct de plecare AFC-ul ajunge la acelasi Mark, pe tonul real masurat din spectru.
-
-### Matched Filter dupa imbunatatiri
-
-Acord pe tonul real (2123 / 2048 / 2120 Hz):
-
-| Fisier | MF vechi | MF nou | Chebyshev | Chebyshev + ATC |
-|---|---|---|---|---|
-| 14086 | 270 erori, 59 perfecte | **88 erori, 80 perfecte** | 128 / 80 | 98 / 80 |
-| 14089 | 1008 erori, 5 perfecte | **97 erori, 33 perfecte** | 169 / 40 | 132 / 45 |
-| 7086 (QRN) | 0 perfecte | 16 perfecte | 36 perfecte | 32 perfecte |
-
-Pe 7086 MF trece singur pe jumatati necoerente (coerenta masurata ~0.84 - faza instabila); ramane
-in urma lui Chebyshev, ca la orice flutter.
-
-### Observatii
-
-- **DeepRTTY** e clar cel mai bun pe toate trei (de 4-16 ori mai putine erori decat Chebyshev).
-- **Matched Filter** nou e cel mai bun decodor clasic pe 14086 si 14089; la flutter (7086) Chebyshev.
-- W6IWI transmite in **US-TTY** (`DOG'S` = FIGS+J): cu tabelul ITA2 apostroful iese BELL.
-- Intre transmisii, decodoarele clasice scot "gunoi" din zgomot; un squelch ar reduce mult erorile
-  pe 7086 kHz.
+[Rezultatele din 2026-11-03](results-2026-11-03.md) sunt pastrate ca arhiva, inclusiv comparatiile
+AFC/MF vechi. Nu se compara direct cu CER-ul automat actual: acordul, SQL, alfabetul si
+normalizarea nu sunt identice in toate tabelele istorice.

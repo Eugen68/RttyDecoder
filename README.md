@@ -143,6 +143,37 @@ apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`
 Pentru o inregistrare: meniul **Fisier > Deschide WAV...** (Ctrl+O). Cu *Timp real* debifat, un fisier de o ora se decodeaza in
 cateva zeci de secunde (DeepRTTY: cateva minute).
 
+## Profiluri de receptie si reglaje
+
+Lista **Profil** ofera trei puncte de pornire masurate pe corpusul W6IWI:
+
+| Profil | Decodor | Utilizare |
+|---|---|---|
+| Semnal bun · rapid | Matched Filter | Acord bun si fading lent, fara confirmarea intarziata a modelului neural |
+| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe inregistrarea QRN; confirmarea textului dupa aproximativ 8-12 s |
+| QRN / flutter · rapid | Chebyshev | Alternativa clasica rapida la flutter; NB si ATC nu sunt activate automat, deoarece au iesit mai slab pe proba QRN masurata |
+
+Toate pornesc cu SQL 35%, volant activ si pragurile implicite. Profilul reseteaza reglajele
+procesarii, dar pastreaza Mark, NORM/REV, AFC/PLL si ITA2/US-TTY. Modificarea manuala a unui reglaj
+al profilului afiseaza **Personalizat**. Setarile efective se salveaza ca pana acum; la incarcare
+profilul este recunoscut daca valorile coincid. Sunt puncte de pornire pentru corpusul masurat,
+nu o alegere automata sau o garantie pentru orice tip de interferenta.
+
+In **Reglaje** apare explicatia decodorului selectat. Controalele fara efect sunt dezactivate:
+
+| Reglaj | Chebyshev | Matched Filter | DeepRTTY |
+|---|---|---|---|
+| NB / DNR | Audio-ul decodorului | Audio-ul decodorului | Numai SNR si AFC/PLL, nu intrarea modelului |
+| Latime filtru Chebyshev | Decodare si SNR/AFC | Nu se aplica | Numai SNR/AFC |
+| ATC | Decizie la fading selectiv | Normalizare proprie | Nu se aplica |
+| SNR-G, Sensibilitate, Volant | Decizie/sincronizare | Decizie/sincronizare | Nu se aplica textului neural |
+| SQL | Numai textul afisat | Numai textul afisat | Filtru propriu al DeepRTTY |
+| NORM/REV, US-TTY | Se aplica | Se aplica | Se aplica |
+
+Modelul neural primeste audio-ul original, prin propriul front-end. Nu trebuie presupus ca
+activarea DNR/NB curata si intrarea lui. Rezultatele si metoda de masurare:
+[recordings/README.md](recordings/README.md) si [benchmark](tools/RttyDecoder.Benchmarks/README.md).
+
 ## Structura
 
 | Proiect | Ce contine | Dependente |
@@ -180,6 +211,27 @@ Setarile se citesc/scriu cu `RttyDecoderViewModel.ExportSettings()` / `ImportSet
 Indicativele: gazda da bazele (`vm.UseReferenceData(ReferenceData.Load(folder))`), indicativul propriu
 (`vm.MyCall`) si primeste click-urile prin `vm.CallsignSelected` (ex. pentru log sau DX cluster);
 `vm.Callsigns` e `CallsignTracker`-ul cu lista statiilor.
+
+### Bufferul si oprirea DeepRTTY
+
+DeepRTTY pastreaza cel mult 24 s de audio neprocesat, inclusiv blocul aflat in lucru.
+Sub terminal apare cantitatea de audio in asteptare; aceasta nu include intarzierea normala
+(~8-12 s) a textului provizoriu. La un WAV (inclusiv cu *Timp real*), citirea asteapta automat
+loc liber, fara sa piarda audio. La live, daca bufferul se umple, decodorul abandoneaza audio-ul
+vechi si textul lui neconfirmat si reincepe de la semnalul nou; contorul de recuperari apare
+langa starea bufferului. Textul deja confirmat ramane in terminal.
+
+Pentru gazdele modulului care decodeaza surse finite, folositi
+`rx.Process(samples, sampleRate, waitForDecoder: true)` (sau aceeasi optiune la `Process48k`).
+STOP elibereaza o citire care asteapta bufferul. `TryFlush(timeout)` raporteaza daca finalul
+fisierului a fost confirmat; timeout-ul include si asteptarea unui buffer plin.
+
+STOP/START, CLEAR si reacordarea folosesc sesiuni distincte, procesate de un singur fir de
+inferenta. STOP nu asteapta o inferenta nativa lenta; rezultatul sesiunii anulate este ignorat.
+La inchidere modelul este eliberat abia dupa terminarea ultimei inferente, pe fundal.
+Gazda poate folosi `await rx.DisposeAsync()` pentru a astepta si eliberarea resurselor native.
+Gazdele care folosesc direct `DeepRttyReceiver` trebuie sa astepte `Completion` dupa `Dispose`
+inainte de a elibera modelul pe care l-au furnizat.
 
 ## Compilare si teste
 

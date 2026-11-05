@@ -29,11 +29,16 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     private IAudioSource? _source;
     private WavFileSource? _file;
+    private long _sourceRequest;
+    private bool _disposed;
 
-    public RttyDecoderViewModel()
+    public RttyDecoderViewModel() : this(new RttyReceiver()) { }
+
+    /// <summary>Receptor furnizat de gazda; ViewModel-ul preia responsabilitatea Dispose.</summary>
+    public RttyDecoderViewModel(RttyReceiver receiver)
     {
         _dispatcher = Dispatcher.CurrentDispatcher;
-        Receiver = new RttyReceiver();
+        Receiver = receiver ?? throw new ArgumentNullException(nameof(receiver));
         Receiver.TextReceived += t => { lock (_textLock) _pendingText.Append(t); };
         Receiver.ProvisionalTextChanged += t => _pendingProvisional = t;
         Receiver.StatusUpdated += s =>
@@ -239,6 +244,9 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     private string _provisionalText = "";
     public string ProvisionalText { get => _provisionalText; private set => Set(ref _provisionalText, value); }
 
+    private string _decoderQueueText = "";
+    public string DecoderQueueText { get => _decoderQueueText; private set => Set(ref _decoderQueueText, value); }
+
     private string _message = "";
     public string Message { get => _message; set => Set(ref _message, value); }
 
@@ -293,13 +301,18 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             if (Set(ref _decoder, value))
             {
                 OnPropertyChanged(nameof(IsChebyshev));
+                OnPropertyChanged(nameof(IsClassic));
+                OnPropertyChanged(nameof(IsChebyshevDecoder));
+                OnPropertyChanged(nameof(CanAdjustSnrGate));
+                OnPropertyChanged(nameof(CanAdjustSquelch));
+                OnPropertyChanged(nameof(DecoderHelp));
                 if (value == RttyDecoderType.DeepRtty && !Receiver.IsDeepRttyReady) Message = "DeepRTTY: se incarca modelul...";
                 Push(s => s.Decoder = value);
             }
         }
     }
 
-    /// <summary>Latimea filtrului si ATC au efect doar pe Chebyshev (si DeepRTTY, unde clasicul ramane pentru SNR/AFC).</summary>
+    /// <summary>Filtrele Chebyshev: text clasic sau masurare SNR/AFC la DeepRTTY.</summary>
     public bool IsChebyshev => Decoder != RttyDecoderType.MatchedFilter;
 
     private RttyTracking _tracking;
@@ -318,7 +331,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     public double DnrWidthHz { get => _dnrWidthHz; set { if (Set(ref _dnrWidthHz, value)) Push(s => s.DnrWidthHz = value); } }
 
     private bool _snrGating;
-    public bool SnrGating { get => _snrGating; set { if (Set(ref _snrGating, value)) Push(s => s.SnrGating = value); } }
+    public bool SnrGating { get => _snrGating; set { if (Set(ref _snrGating, value)) { OnPropertyChanged(nameof(CanAdjustSnrGate)); Push(s => s.SnrGating = value); } } }
 
     private double _snrGatingK;
     public double SnrGatingK { get => _snrGatingK; set { if (Set(ref _snrGatingK, value)) Push(s => s.SnrGatingK = value); } }
@@ -341,7 +354,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     private bool _squelch;
     /// <summary>SQL: textul decodorului clasic iese doar cand caracterele vin in ritmul RTTY.</summary>
-    public bool Squelch { get => _squelch; set { if (Set(ref _squelch, value)) Push(s => s.Squelch = value); } }
+    public bool Squelch { get => _squelch; set { if (Set(ref _squelch, value)) { OnPropertyChanged(nameof(CanAdjustSquelch)); Push(s => s.Squelch = value); } } }
 
     private double _squelchPercent;
     /// <summary>Pragul SQL in procente (10-80): proportia minima de caractere in ritm.</summary>
@@ -353,6 +366,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     {
         Receiver.ApplySettings(settings);
         SyncFromSettings(Receiver.Settings);
+        SyncProfile(Receiver.Settings, infer: true);
     }
 
     private void Push(Action<RttySettings> change)
@@ -391,6 +405,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         {
             _syncing = false;
         }
+        SyncProfile(s);
     }
 
     // ------------------------------------------------------------------
@@ -423,6 +438,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public void StartLive()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         StopSource();
         var src = new WasapiInputSource(SelectedDevice?.Id, Channel);
         try
@@ -449,7 +465,9 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public async Task OpenFileAsync(string path)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         StopSource();
+        long request = _sourceRequest;
         WavFileSource src;
         try
         {
@@ -465,6 +483,11 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             Message = "DeepRTTY: se incarca modelul...";
             await Receiver.WaitForModelAsync();
         }
+        if (_disposed || request != _sourceRequest)
+        {
+            src.Dispose();
+            return;
+        }
         _file = src;
         Attach(src, file: true);
         AppendLocal($"\n--- {src.Name} ({src.SampleRate} Hz, {src.Channels} ch, {src.Duration:hh\\:mm\\:ss}) ---\n");
@@ -476,9 +499,12 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public void StopSource()
     {
+        // Invalideaza si un OpenFileAsync care inca asteapta modelul.
+        _sourceRequest++;
         var src = _source;
         if (src == null) return;
         Detach();
+        Receiver.Stop(); // elibereaza citirea WAV daca asteapta loc in bufferul DeepRTTY
         try
         {
             src.Stop();
@@ -520,7 +546,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         if (!_tx.IsTransmitting)
         {
             KeepAudio(buffer.AsSpan(0, count), sampleRate);
-            Receiver.Process(buffer.AsSpan(0, count), sampleRate);
+            Receiver.Process(buffer.AsSpan(0, count), sampleRate, waitForDecoder: _file != null);
             Scope.Process(buffer.AsSpan(0, count), sampleRate);
         }
         // fisier decodat "cat de repede se poate": sunetul ar fi accelerat - nu il redam
@@ -534,7 +560,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         var src = _source;
         if (error == null && src is WavFileSource)
         {
-            Receiver.Flush(); // DeepRTTY: decodeaza si coada ramasa
+            if (!Receiver.TryFlush())
+                error = new TimeoutException("DeepRTTY nu a confirmat finalul fisierului (timeout sau sesiune intrerupta).");
         }
         _dispatcher.BeginInvoke(() =>
         {
@@ -624,6 +651,11 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             }
         }
 
+        var queue = Receiver.DeepRttyQueueStatus;
+        DecoderQueueText = Decoder == RttyDecoderType.DeepRtty && IsRunning
+            ? $"DeepRTTY: {queue.PendingAudioSeconds:0.0} s audio in asteptare"
+                + (queue.Overruns > 0 ? $" | recuperari dupa suprasarcina: {queue.Overruns}" : "")
+            : "";
         if (_file != null) FileProgress = _file.Progress;
         DrainTxEcho();
     }
@@ -632,6 +664,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _tx.Dispose();   // emisia oprita (PTT, FSK) inainte de orice
         _timer.Stop();
         StopSource();

@@ -141,15 +141,18 @@
             <TextBlock Text="Decodor:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="130" ItemsSource="{Binding Decoders}" SelectedItem="{Binding Decoder}"
                       ToolTip="Chebyshev (implicit, bun si la flutter), Matched Filter (cel mai bun clasic pe semnal slab si fading lent) sau DeepRTTY (model neural, cel mai bun; text provizoriu cu gri, confirmat dupa ~8-12 s)" />
+            <TextBlock Text="Profil:" VerticalAlignment="Center" Margin="12,0,4,0" />
+            <ComboBox Width="195" ItemsSource="{Binding ReceptionProfiles}" DisplayMemberPath="Name"
+                      SelectedItem="{Binding SelectedReceptionProfile}" ToolTip="{Binding SelectedReceptionProfile.Description}" />
             <TextBlock Text="Urmarire:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="64" ItemsSource="{Binding TrackingModes}" SelectedItem="{Binding Tracking}" ToolTip="AFC lent / PLL rapid" />
-            <ToggleButton Margin="12,2,2,2" Content="NB" IsChecked="{Binding NoiseBlanker}" ToolTip="Noise Blanker - impulsuri QRN" />
-            <ToggleButton Content="DNR" IsChecked="{Binding Dnr}" ToolTip="Bandpass centrat intre Mark si Space" />
-            <ToggleButton Content="SNR-G" IsChecked="{Binding SnrGating}" ToolTip="La semnal sub prag, decizia ramane pe Mark (idle)" />
-            <ToggleButton Content="SQL" IsChecked="{Binding Squelch}"
+            <ToggleButton Margin="12,2,2,2" Content="NB" IsChecked="{Binding NoiseBlanker}" ToolTip="NB: reduce impulsurile in decodorul clasic. La DeepRTTY afecteaza numai SNR/AFC, nu audio-ul modelului." />
+            <ToggleButton Content="DNR" IsChecked="{Binding Dnr}" ToolTip="DNR: bandpass intre Mark si Space pentru decodorul clasic. La DeepRTTY afecteaza numai SNR/AFC, nu audio-ul modelului." />
+            <ToggleButton Content="SNR-G" IsChecked="{Binding SnrGating}" IsEnabled="{Binding IsClassic}" ToolTip="La semnal sub prag, decizia ramane pe Mark (idle)" />
+            <ToggleButton Content="SQL" IsChecked="{Binding Squelch}" IsEnabled="{Binding IsClassic}"
                           ToolTip="Squelch: textul apare doar cand caracterele vin in ritmul RTTY (semnal real), nu pe zgomot. Nu schimba decodarea; inceputul mesajului nu se pierde. Pragul in Reglaje. (Chebyshev si Matched Filter; DeepRTTY are filtrul lui.)" />
-            <ToggleButton Content="ATC" IsChecked="{Binding Atc}" IsEnabled="{Binding IsChebyshev}" ToolTip="ATC W7AY - pentru fading selectiv (Chebyshev; Matched Filter isi normalizeaza singur tonurile)" />
-            <ToggleButton Content="Volant" IsChecked="{Binding Flywheel}" ToolTip="Sincronizare pe caracter la RTTY continuu" />
+            <ToggleButton Content="ATC" IsChecked="{Binding Atc}" IsEnabled="{Binding IsChebyshevDecoder}" ToolTip="ATC W7AY - pentru fading selectiv (Chebyshev; Matched Filter isi normalizeaza singur tonurile)" />
+            <ToggleButton Content="Volant" IsChecked="{Binding Flywheel}" IsEnabled="{Binding IsClassic}" ToolTip="Sincronizare pe caracter la RTTY continuu" />
             <ToggleButton Content="US-TTY" IsChecked="{Binding UsTty}" ToolTip="Tabelul FIGS US-TTY (apostrof, ghilimele, $) in loc de ITA2" />
             <Button Margin="12,2,2,2" Width="64" Content="CLEAR" Command="{Binding ClearCommand}" />
             <Button Width="80" Content="Salveaza..." Click="OnSaveText" ToolTip="Salveaza textul receptionat intr-un fisier .txt" />
@@ -169,11 +172,13 @@
                 <ColumnDefinition Width="70" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition /><RowDefinition /><RowDefinition />
+                <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
+            <TextBlock Grid.Row="3" Grid.ColumnSpan="7" Text="{Binding DecoderHelp}" TextWrapping="Wrap"
+                       Foreground="{StaticResource Rtty.Muted}" Margin="0,6,0,0" />
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Sensibilitate" Style="{StaticResource Rtty.Label}" />
-            <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding SensitivityPercent}" />
+            <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="20" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding SensitivityPercent}" IsEnabled="{Binding IsClassic}" />
             <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding SensitivityPercent, StringFormat={}{0:0} %}" Style="{StaticResource Rtty.Value}" />
 
             <TextBlock Grid.Row="0" Grid.Column="4" Text="Latime filtru" Style="{StaticResource Rtty.Label}" />
@@ -181,20 +186,20 @@
             <TextBlock Grid.Row="0" Grid.Column="6" Text="{Binding FilterWidthHz, StringFormat=~{0:0} Hz}" Style="{StaticResource Rtty.Value}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Prag NB" Style="{StaticResource Rtty.Label}" />
-            <Slider Grid.Row="1" Grid.Column="1" Minimum="2" Maximum="12" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding NoiseBlankerThreshold}" />
+            <Slider Grid.Row="1" Grid.Column="1" Minimum="2" Maximum="12" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding NoiseBlankerThreshold}" IsEnabled="{Binding NoiseBlanker}" />
             <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding NoiseBlankerThreshold, StringFormat=x{0:0.0}}" Style="{StaticResource Rtty.Value}" />
 
             <TextBlock Grid.Row="1" Grid.Column="4" Text="Latime DNR" Style="{StaticResource Rtty.Label}" />
-            <Slider Grid.Row="1" Grid.Column="5" Minimum="250" Maximum="1500" TickFrequency="62.5" IsSnapToTickEnabled="True" Value="{Binding DnrWidthHz}" />
+            <Slider Grid.Row="1" Grid.Column="5" Minimum="250" Maximum="1500" TickFrequency="62.5" IsSnapToTickEnabled="True" Value="{Binding DnrWidthHz}" IsEnabled="{Binding Dnr}" />
             <TextBlock Grid.Row="1" Grid.Column="6" Text="{Binding DnrWidthHz, StringFormat=~{0:0} Hz}" Style="{StaticResource Rtty.Value}" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Prag SNR-G" Style="{StaticResource Rtty.Label}" />
-            <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding SnrGatingK}" />
+            <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="3" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding SnrGatingK}" IsEnabled="{Binding CanAdjustSnrGate}" />
             <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding SnrGatingK, StringFormat=x{0:0.0}}" Style="{StaticResource Rtty.Value}" />
 
             <TextBlock Grid.Row="2" Grid.Column="4" Text="Prag SQL" Style="{StaticResource Rtty.Label}" />
             <Slider Grid.Row="2" Grid.Column="5" Minimum="10" Maximum="80" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SquelchPercent}"
-                    IsEnabled="{Binding Squelch}"
+                    IsEnabled="{Binding CanAdjustSquelch}"
                     ToolTip="Proportia minima de caractere in ritm ca textul sa apara. Mai mic = deschide mai usor (si pe semnale tastate rar); mai mare = mai putin gunoi. Implicit 35%." />
             <TextBlock Grid.Row="2" Grid.Column="6" Text="{Binding SquelchPercent, StringFormat={}{0:0} %}" Style="{StaticResource Rtty.Value}" />
 
@@ -210,6 +215,8 @@
 
             <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <DockPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding DecoderQueueText}" Foreground="{StaticResource Rtty.Muted}"
+                               FontSize="11" Margin="0,2,0,0" />
                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding ProvisionalText}" Foreground="#808080" FontFamily="Consolas" FontSize="15"
                                Margin="6,0,6,4" TextWrapping="Wrap" ToolTip="DeepRTTY: text provizoriu, inca neconfirmat" />
                     <RichTextBox x:Name="Terminal" IsReadOnly="True" IsReadOnlyCaretVisible="False" Background="Black" Foreground="#00FF00"
