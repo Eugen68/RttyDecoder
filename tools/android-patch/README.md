@@ -8,6 +8,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `DeepRtty.patch` | DeepRTTY: textul gri fara gol si resetarea ca marcaj in coada | aplicat in Android (`9910082` pe `refactorizare_claude_2`) |
 | `fsk-rtty-u.patch` | emisia FSK inversata in RTTY-U | **respins** - testul pe statii arata ca emisia era deja corecta (vezi mai jos) |
 | `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | propus - se aplica pe `refactorizare_claude_2` (`49f80a3`) si pe `master` (`ea922b9`) |
+| `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | propus - se aplica **dupa** `atune-polaritate.patch` |
 
 ## DeepRtty.patch
 
@@ -145,5 +146,53 @@ Verificat: `RttyPolarityTest` 7/7 cu JUnit 4.13.2 (javac fara SDK Android, cu `R
 `BaudotCodec` si `RttyDemodulatorTest`); `EcranRttyDroid.java` doar verificat sintactic (fara SDK
 Android aici) - de compilat in Android Studio. `git apply --check` trece pe `49f80a3` si pe `ea922b9`.
 
-Nu face (de discutat separat): QSY-ul de la dublu click pe A-TUNE din RttyDecoder (statia mutata ca
-Mark-ul corespondentului sa cada pe 2125 Hz, emisia pe frecventa lui).
+QSY-ul de la dublu tap pe A-TUNE e in `atune-qsy.patch` (mai jos).
+
+## atune-qsy.patch
+
+Se aplica peste `atune-polaritate.patch`:
+
+```
+git apply atune-polaritate.patch
+git apply atune-qsy.patch
+```
+
+In modul RTTY al statiei (FSK) tonurile receptiei sunt fixe (Mark pe 2125 Hz, shift 170), iar
+statia emite exact unde e acordata. Daca corespondentul se aude cu Mark-ul in alta parte (A-TUNE
+acordeaza decodorul acolo), raspunsul tau pleaca alaturi de el. Ca in RttyDecoder:
+
+- **tap pe A-TUNE**: ca pana acum (acord + NORM/REV), iar in subsidiar se calculeaza unde trebuie
+  dusa statia; toast-ul spune `TX: radio to 3500.950 kHz (-50 Hz) - double-tap A-TUNE`;
+- **dublu tap** (doua tap-uri in 450 ms): statia se muta acolo (`FA%09d;`), decodorul trece pe Mark
+  2125 Hz si emisia pleaca pe frecventa corespondentului. Dublu tap-ul merge si direct, fara un tap
+  inainte: daca vine cat A-TUNE inca lucreaza, QSY-ul se face imediat ce termina.
+
+Calculul (ca HamRig `RigMath.QsyDial`): in RTTY-L statia lucreaza ca in LSB (ton audio mai sus =
+frecventa RF mai jos), in RTTY-U ca in USB; noua frecventa = VFO -/+ (Mark auzit - 2125). Pe PC
+verificat pe statie: emisia a cazut la 2 Hz de corespondent.
+
+Ce schimba:
+1. **`RttyQsy.java`** (nou):
+   - `frecventaPentruEmisie(vfo, codMod, markHz)` - doar in RTTY-L (`MD06`) si RTTY-U (`MD09`);
+   - `rafineazaTonJos(...)` - FFT-ul de la A-TUNE are binuri de 15.6 Hz (pana la ~8 Hz abatere),
+     destul pentru decodor (are AFC) dar prea grosier pentru QSY. Se cauta in +-12 Hz, pas 0.5 Hz,
+     maximul puterii celor doua tonuri pe ultimele 2 s (Goertzel cu fereastra Hann). Tonul rafinat
+     se foloseste si la acordul decodorului si la detectia polaritatii.
+2. **`EcranRttyDroid.java`**:
+   - A-TUNE cere `MD0;` si `FA;` la inceput (receptia RTTY porneste cu `AI0`, deci statia nu le mai
+     trimite singura); raspunsurile ajung in `StareRadio` pana termina FFT-ul (~0.3 s);
+   - `laTapAtune()` deosebeste tap-ul de dublu tap; `pregatesteQsy()` calculeaza, `executaQsyAtune()`
+     muta statia;
+   - QSY-ul nu se face: in emisie; daca statia nu e in RTTY-L/U (toast-ul o spune); daca rezultatul are
+     peste 30 s sau statia s-a mutat intre timp (`StareRadio` alta decat la calcul) - atunci se cere
+     un A-TUNE nou. Sub 3 Hz diferenta: „Radio already on the TX frequency".
+3. **`RttyQsyTest.java`** (nou, JVM): RTTY-L / RTTY-U in ambele directii, deja pe frecventa, alte
+   moduri si frecventa necunoscuta -> nimic; codul de mod; acordul fin pe NORM si REV cu tonul real
+   la -7.3..+7.8 Hz de binul FFT (6 dB SNR) si cu tastare manuala - mereu la sub 1 Hz.
+
+Verificat: `RttyQsyTest` 8/8 si `RttyPolarityTest` 7/7 (JUnit 4.13.2, fara SDK Android);
+`EcranRttyDroid.java` doar verificat sintactic - de compilat in Android Studio. Cele doua patch-uri se
+aplica in ordine pe `49f80a3` si pe `ea922b9`.
+
+De verificat pe statie: RTTY-U (pe PC directia ca USB a mers - 2 Hz); mutarea VFO-ului cu
+`FA` cand statia e pe VFO-B / split (patch-ul muta mereu VFO-A, ca restul aplicatiei).
