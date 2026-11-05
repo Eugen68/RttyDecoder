@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows.Threading;
 using RttyDecoder.Core;
 using RttyDecoder.Wpf;
