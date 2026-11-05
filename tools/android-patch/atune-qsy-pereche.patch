@@ -1,0 +1,131 @@
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java b/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
+index fb5f3e0..878a681 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
++++ b/app/src/main/java/com/example/yaesucatcontroladv/EcranRttyDroid.java
+@@ -1416,7 +1416,7 @@ public class EcranRttyDroid {
+                     demod.regimReverseSoftware = rev;
+                     demod.frecventaTunedBaza = rev ? tonJos + RttyDemodulator.SHIFT_HZ : tonJos;
+                     sincronizeazaSetariReceptie();
+-                    String qsy = pregatesteQsy(demod.frecventaTunedBaza);
++                    String qsy = pregatesteQsy(tonJos);   // perechea, nu Mark-ul (pe REV Mark-ul e sus)
+                     atuneInCurs = false;
+                     Toast.makeText(context, "Auto-Tune: " + Math.round(demod.frecventaTunedBaza) + " Hz, "
+                                     + (rev ? "REV" : "NORM")
+@@ -1454,12 +1454,12 @@ public class EcranRttyDroid {
+      * markHz, sa ajunga pe 2125 Hz - acolo emisia FSK pleaca exact pe frecventa corespondentului.
+      * Doar cu statia conectata si in RTTY-L / RTTY-U. Intoarce textul pentru toast.
+      */
+-    private String pregatesteQsy(double markHz) {
++    private String pregatesteQsy(double tonJosHz) {
+         qsyFrecventa = null;
+         if (radioManager == null || !radioManager.isConectat()) return "";
+         long dial = StareRadio.getFrecventaHz();
+         char mod = RttyQsy.codMod(StareRadio.getModText());
+-        Long noua = RttyQsy.frecventaPentruEmisie(dial, mod, markHz);
++        Long noua = RttyQsy.frecventaPentruEmisie(dial, mod, tonJosHz);
+         if (noua == null) return dial > 0 && mod != ' ' ? "\nRadio not in RTTY-L/U - no QSY for TX." : "";
+         if (Math.abs(noua - dial) < RttyQsy.TOLERANTA_HZ) return "\nRadio already on the TX frequency.";
+         qsyFrecventa = noua;
+@@ -1505,11 +1505,12 @@ public class EcranRttyDroid {
+     private void mutaStatiaPentruEmisie(long noua) {
+         radioManager.trimiteComandaCAT(String.format(java.util.Locale.US, "FA%09d;", noua));
+         StareRadio.setFrecventaHz(noua);
+-        // semnalul vine acum cu Mark-ul pe 2125 (si pe NORM, si pe REV - frecventaTunedBaza e Mark-ul)
+-        demod.frecventaTunedBaza = RttyQsy.MARK_FSK_HZ;
++        // perechea semnalului vine acum pe 2125 / 2295: Mark-ul pe tonul de jos (NORM) sau de sus (REV)
++        demod.frecventaTunedBaza = RttyQsy.markDupaQsy(demod.regimReverseSoftware);
+         sincronizeazaSetariReceptie();
+         Toast.makeText(context, String.format(java.util.Locale.US,
+-                "QSY: %.3f kHz - signal Mark on 2125 Hz, TX on its frequency.", noua / 1000.0),
++                "QSY: %.3f kHz - signal on 2125/2295 Hz (Mark %d), TX on its frequency.", noua / 1000.0,
++                Math.round(demod.frecventaTunedBaza)),
+                 Toast.LENGTH_SHORT).show();
+     }
+ 
+diff --git a/app/src/main/java/com/example/yaesucatcontroladv/RttyQsy.java b/app/src/main/java/com/example/yaesucatcontroladv/RttyQsy.java
+index e3eb81c..df2dab9 100644
+--- a/app/src/main/java/com/example/yaesucatcontroladv/RttyQsy.java
++++ b/app/src/main/java/com/example/yaesucatcontroladv/RttyQsy.java
+@@ -2,9 +2,15 @@ package com.example.yaesucatcontroladv;
+ 
+ /**
+  * A-TUNE pentru emisie: unde trebuie dusa statia (VFO-A) ca emisia FSK sa plece exact pe frecventa
+- * corespondentului. In modul RTTY al statiei (FSK) tonurile receptiei sunt fixe - Mark pe 2125 Hz,
+- * shift 170 - iar statia emite acolo unde e acordata. Daca semnalul corespondentului se aude cu
+- * Mark-ul in alta parte, statia se muta cu diferenta (QSY), nu decodorul.
++ * corespondentului. In modul RTTY al statiei (FSK) o statie de pe aceeasi frecventa se aude cu
++ * perechea de tonuri pe 2125 / 2295 Hz in ambele moduri - in RTTY-L Mark-ul e tonul de jos (NORM), in
++ * RTTY-U tonul de sus (2295, de aceea receptia cere REV) - iar statia emite acolo unde e acordata.
++ * Daca perechea corespondentului se aude in alta parte, statia se muta cu diferenta (QSY), nu
++ * decodorul.
++ *
++ * CORECTIE: se aliniaza perechea (tonul de jos pe 2125), nu Mark-ul. Cu Mark-ul pe 2125, in RTTY-U
++ * QSY-ul ducea statia cu 170 Hz alaturi (test YO9VA 2026-11-05: FTDX10 pe 3.505.000, FTX-1 emite pe
++ * 3.505.200 -> RTTY-L QSY la 3.505.201, RTTY-U la 3.505.370).
+  *
+  * Ca in RttyDecoder (C#, HamRig RigMath.QsyDial): in RTTY-L statia lucreaza ca in LSB (ton audio
+  * mai jos = frecventa RF mai mare), in RTTY-U ca in USB. Conteaza doar diferenta, nu ce arata
+@@ -12,7 +18,7 @@ package com.example.yaesucatcontroladv;
+  */
+ public final class RttyQsy {
+ 
+-    /** Tonul Mark al statiei in modul RTTY (FSK). */
++    /** Tonul de jos al perechii in modul RTTY al statiei (FSK): Mark pe NORM, Space pe REV. */
+     public static final double MARK_FSK_HZ = 2125.0;
+ 
+     /** Sub atat statia e deja pe frecventa (Hz). */
+@@ -32,15 +38,21 @@ public final class RttyQsy {
+     }
+ 
+     /**
+-     * Noua frecventa VFO astfel incat Mark-ul auzit acum la markHz sa ajunga pe 2125 Hz, sau null
+-     * daca statia nu e in RTTY-L / RTTY-U ori frecventa nu se stie.
++     * Noua frecventa VFO astfel incat tonul de jos al perechii, auzit acum la tonJosHz, sa ajunga pe
++     * 2125 Hz (perechea pe 2125 / 2295), sau null daca statia nu e in RTTY-L / RTTY-U ori frecventa
++     * nu se stie. Atentie: tonul de JOS, nu Mark-ul (pe REV Mark-ul e tonul de sus).
+      */
+-    public static Long frecventaPentruEmisie(long dialHz, char codMod, double markHz) {
++    public static Long frecventaPentruEmisie(long dialHz, char codMod, double tonJosHz) {
+         if (dialHz <= 0 || !esteRtty(codMod)) return null;
+-        double delta = markHz - MARK_FSK_HZ;
++        double delta = tonJosHz - MARK_FSK_HZ;
+         return Math.round(codMod == '9' ? dialHz + delta : dialHz - delta);
+     }
+ 
++    /** Mark-ul decodorului dupa QSY: tonul de jos (2125) pe NORM, cel de sus (2295) pe REV. */
++    public static double markDupaQsy(boolean rev) {
++        return rev ? MARK_FSK_HZ + RttyDemodulator.SHIFT_HZ : MARK_FSK_HZ;
++    }
++
+     /**
+      * Acordul fin al perechii de tonuri: FFT-ul de la A-TUNE are binuri de 15.6 Hz (pana la ~8 Hz
+      * abatere) - destul pentru decodor (are AFC), prea grosier pentru QSY.
+diff --git a/app/src/test/java/com/example/yaesucatcontroladv/RttyQsyTest.java b/app/src/test/java/com/example/yaesucatcontroladv/RttyQsyTest.java
+index 869c40e..ddefdc9 100644
+--- a/app/src/test/java/com/example/yaesucatcontroladv/RttyQsyTest.java
++++ b/app/src/test/java/com/example/yaesucatcontroladv/RttyQsyTest.java
+@@ -36,6 +36,24 @@ public class RttyQsyTest {
+         assertEquals(Long.valueOf(14_084_950), RttyQsy.frecventaPentruEmisie(14_085_000, '9', 2075));
+     }
+ 
++    /**
++     * Testul pe statii (YO9VA, 2026-11-05): FTDX10 pe 3.505.000, FTX-1 emite pe 3.505.200. Se
++     * aliniaza tonul de JOS al perechii. In RTTY-U Mark-ul e tonul de sus (2495 aici); cu Mark-ul pe
++     * 2125 QSY-ul iesea 3.505.370 - exact ce s-a vazut pe statie.
++     */
++    @Test
++    public void perecheaNuMarkulTestulPeStatii() {
++        assertEquals(Long.valueOf(3_505_200), RttyQsy.frecventaPentruEmisie(3_505_000, '6', 1925));  // RTTY-L
++        assertEquals(Long.valueOf(3_505_200), RttyQsy.frecventaPentruEmisie(3_505_000, '9', 2325));  // RTTY-U
++        assertEquals(Long.valueOf(3_505_370), RttyQsy.frecventaPentruEmisie(3_505_000, '9', 2495));  // greseala veche
++    }
++
++    @Test
++    public void markulDupaQsy() {
++        assertEquals(2125.0, RttyQsy.markDupaQsy(false), 0);
++        assertEquals(2295.0, RttyQsy.markDupaQsy(true), 0);
++    }
++
+     @Test
+     public void deJaPeFrecventa() {
+         assertEquals(Long.valueOf(7_080_000), RttyQsy.frecventaPentruEmisie(7_080_000, '6', 2125));

@@ -126,15 +126,21 @@ raspunzi pe frecventa corespondentului trebuie mutata **statia**, nu doar decodo
   x.5 biti), apoi, daca duratele nu decid, dupa incadrarea caracterelor (start pe Space, stop pe
   Mark) - decodorul se acordeaza pe Mark-ul real, cu NORM/REV pus dupa semnal. Pe RYRY incadrarea
   singura se insela; duratele nu. In subsidiar calculeaza frecventa statiei pentru
-  emisie (Mark-ul semnalului pe 2125; in RTTY-L ca in LSB, in RTTY-U ca in USB), afisata in mesaj
+  emisie (perechea semnalului pe 2125 / 2295; in RTTY-L ca in LSB, in RTTY-U ca in USB), afisata in mesaj
   si langa VFO (`TX: 3.501.300`);
-- **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe 2125;
+- **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe perechea 2125 / 2295
+  (Mark 2125 pe NORM, 2295 pe REV);
 - click pe waterfall ramane acordul decodorului, Shift+click = QSY ca inainte;
 - REV-ul pus de A-TUNE (de exemplu in RTTY-U) e doar pentru receptie: emisia FSK ramane normala.
 
 Exemplu: ambele statii pe 3.501.000, corespondentul cu 300 Hz mai sus apare in RTTY-L cu Mark-ul
 la ~1825 Hz; A-TUNE acordeaza decodorul pe 1825 si arata `TX: 3.501.300`; dublu click muta statia
 acolo, iar semnalul vine pe 2125.
+
+Se aliniaza **perechea** de tonuri, nu Mark-ul: o statie de pe aceeasi frecventa se aude pe 2125 / 2295
+in ambele moduri, dar in RTTY-U Mark-ul e tonul de sus (2295 - de aceea receptia cere REV). Testul pe
+statii (FTDX10 pe 3.505.000, FTX-1 emite pe 3.505.200): RTTY-L QSY la 3.505.201; in RTTY-U, cand se
+alinia Mark-ul, QSY-ul iesea 3.505.370 (+170 Hz) - corectat.
 
 Meniul tine de fereastra aplicatiei, nu de modul: o aplicatie mai mare isi pune propriul meniu si
 apeleaza aceleasi comenzi (`RttyDecoderView.OpenWavDialog()`, `SaveTextDialog()`,

@@ -11,6 +11,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b`, impreuna cu cel de sus) |
 | `atune-corectii.patch` | corectiile peste cele doua patch-uri A-TUNE: polaritatea dupa durate (RYRY), tonul QSY cu discriminator de faza, try/catch, `FA;` recitit | aplicat in Android (`7ff7b6b`); se aplica **dupa** `atune-qsy.patch` |
 | `atune-poarta-durate.patch` | duratele decid polaritatea doar daca exista si un minim de incadrare (0.30) - fara semnal decodabil rularile sunt intamplatoare | aplicat in Android (`d139a48` pe `refactorizare_claude_2`) |
+| `atune-qsy-pereche.patch` | QSY-ul aliniaza perechea de tonuri (tonul de jos pe 2125), nu Mark-ul: in RTTY-U QSY-ul iesea cu 170 Hz alaturi; dupa QSY decodorul pe Mark 2295 la REV | propus - se aplica pe `d139a48` |
 
 ## DeepRtty.patch
 
@@ -314,3 +315,29 @@ ferestrele de 5 s cu pas de 1 s, tonul real (rafinat cu discriminatorul), NORM +
 
 0.30 e singurul prag fara greseli pe toate trei; se pierd 1-10% din deciziile corecte (A-TUNE lasa
 atunci NORM/REV cum era). `RttyPolarityTest` + `RttyQsyTest` 16/16 in Gradle.
+
+## atune-qsy-pereche.patch
+
+**Testul pe statii (YO9VA, 2026-11-05)**: FTX-1 emite cu aplicatia Android pe 3.505.200, FTDX10
+receptioneaza pe 3.505.000 cu RttyDecoder (PC); A-TUNE + dublu click:
+
+| Mod | QSY | Asteptat |
+|---|---|---|
+| RTTY-L | 3.505.201 | 3.505.200 - corect |
+| RTTY-U | 3.505.370 | 3.505.200 - **+170 Hz** (un shift) |
+
+**Cauza**: QSY-ul ducea **Mark-ul** semnalului pe 2125. O statie de pe aceeasi frecventa se aude insa
+cu perechea pe 2125 / 2295 in ambele moduri, iar in RTTY-U Mark-ul e tonul **de sus** (2295 - de aceea
+receptia cere REV). A-TUNE detecta corect REV, Mark-ul era tonul de sus, si dus pe 2125 muta statia
+cu 170 Hz prea departe. In RTTY-L Mark-ul e tonul de jos, deci acolo mergea.
+
+**Corectia** (aceeasi in RttyDecoder pe PC si in acest patch pentru Android):
+- QSY-ul aliniaza **tonul de jos al perechii** pe 2125 (`frecventaPentruEmisie` primeste `tonJos`,
+  nu Mark-ul) - nu mai depinde nici de polaritate;
+- dupa QSY decodorul trece pe Mark **2125 pe NORM, 2295 pe REV** (`RttyQsy.markDupaQsy`); inainte era
+  pus pe 2125 si pe REV, deci in RTTY-U decodorul ramanea dezacordat cu 170 Hz dupa QSY.
+
+Patch-ul: `RttyQsy.java` (doc, `markDupaQsy`), `EcranRttyDroid.java` (`pregatesteQsy(tonJos)`,
+`mutaStatiaPentruEmisie`), `RttyQsyTest.java` (cazurile testului pe statii + `markDupaQsy`).
+`RttyQsyTest` + `RttyPolarityTest` 18/18 (JUnit, fara SDK Android); `EcranRttyDroid.java` verificat
+doar sintactic.
