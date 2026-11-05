@@ -6,6 +6,7 @@ namespace RttyDecoder.Core.Tx;
 public interface IFskOutput
 {
     void SetPtt(bool on);
+    /// <summary>Activeaza/dezactiveaza linia fizica FSK.</summary>
     void SetLine(bool active);
 }
 
@@ -41,11 +42,16 @@ public sealed class RttyFskTransmitter : IDisposable
     public RttyTxSettings Settings { get; set; } = new();
     public bool IsTransmitting => _transmitting;
     public bool IsLive => _liveOn;
+    /// <summary>Caractere in asteptare, fara cel deja inceput.</summary>
     public int QueuedCharacters => _queuedChars;
+    /// <summary>PTT activat, pe firul emisiei.</summary>
     public event Action? Started;
+    /// <summary>Iesirile au fost oprite/incercate; null = final normal, altfel motivul.</summary>
     public event Action<string?>? Stopped;
+    /// <summary>Caracter complet emis logic (CR/LF ca newline); nu se raporteaza caractere intrerupte.</summary>
     public event Action<char>? CharacterSent;
 
+    /// <summary>Normalizeaza in Baudot si adauga un mesaj. Porneste sau continua emisia.</summary>
     public void Send(string text)
     {
         lock (_lock)
@@ -59,6 +65,7 @@ public sealed class RttyFskTransmitter : IDisposable
         }
     }
 
+    /// <summary>Pastreaza emisia pornita; diddle intre caractere daca este activat.</summary>
     public void StartLive()
     {
         lock (_lock)
@@ -69,6 +76,7 @@ public sealed class RttyFskTransmitter : IDisposable
         }
     }
 
+    /// <summary>Adauga un caracter LIVE si porneste modul daca este necesar.</summary>
     public void SendLive(char c)
     {
         lock (_lock)
@@ -83,6 +91,7 @@ public sealed class RttyFskTransmitter : IDisposable
         }
     }
 
+    /// <summary>Iese din LIVE; caracterele deja in coada se termina normal.</summary>
     public void StopLive()
     {
         lock (_lock)
@@ -92,6 +101,7 @@ public sealed class RttyFskTransmitter : IDisposable
         }
     }
 
+    /// <summary>Anuleaza si goleste coada; asteapta cel mult 2 s firul. Un driver blocat poate intarzia oprirea fizica.</summary>
     public void Stop()
     {
         Thread? thread;
@@ -278,6 +288,7 @@ public sealed class RttyFskTransmitter : IDisposable
         _wakeDisposed = true;
     }
 
+    /// <summary>Opreste emisia si respinge mesaje noi; handle-ul se elibereaza dupa iesirea unui driver blocat.</summary>
     public void Dispose()
     {
         lock (_lock) { if (_disposed) return; _disposed = true; }

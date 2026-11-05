@@ -23,6 +23,24 @@ public static class Scoring
         return previous[actual.Length];
     }
 
+    public static int? CompleteMessages(string? expected, string actual)
+    {
+        if (string.IsNullOrEmpty(expected)) return null;
+        string text = Normalize(actual);
+        int found = 0;
+        foreach (var group in expected.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(Normalize).Where(x => x.Length > 0).GroupBy(x => x))
+        {
+            int count = 0, position = 0;
+            while (count < group.Count() && (position = text.IndexOf(group.Key, position, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                position += group.Key.Length;
+            }
+            found += count;
+        }
+        return found;
+    }
+
     public static int CountCall(string text, string call) => Regex.Matches(text.ToUpperInvariant(),
         @"(?<![A-Z0-9/])" + Regex.Escape(call.ToUpperInvariant()) + @"(?![A-Z0-9/])").Count;
 

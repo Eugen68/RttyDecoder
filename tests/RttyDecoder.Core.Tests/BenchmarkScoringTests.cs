@@ -24,6 +24,16 @@ public class BenchmarkScoringTests
     }
 
     [Fact]
+    public void MesajeleRepetateNuSuntNumarateDeMaiMulteOriDinAceeasiAparitie()
+    {
+        const string expected = "CQ DE YO9VA\nCQ DE YO9VA\n73";
+        Assert.Equal(1, Scoring.CompleteMessages(expected, "CQ DE YO9VA"));
+        Assert.Equal(2, Scoring.CompleteMessages(expected, "CQ DE YO9VA CQ DE YO9VA CQ DE YO9VA"));
+        Assert.Equal(3, Scoring.CompleteMessages(expected, "CQ DE YO9VA 73 CQ DE YO9VA"));
+        Assert.Null(Scoring.CompleteMessages(null, "CQ"));
+    }
+
+    [Fact]
     public void LipsaTranscrieriiNuEsteConfundataCuTextGol()
     {
         Assert.Null(Program.Reference(null));

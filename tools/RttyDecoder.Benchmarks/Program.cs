@@ -71,8 +71,9 @@ public static class Program
                     foreach (string profile in item.Id == "noise" ? Profiles.Concat(["Chebyshev-no-SQL", "MatchedFilter-no-SQL"]) : Profiles)
                     {
                         // Un proces per combinatie: varful de memorie nu mosteneste modelul cazului precedent.
-                        var start = new ProcessStartInfo(Environment.ProcessPath!) { RedirectStandardOutput = true, RedirectStandardError = true };
-                        if (Path.GetFileNameWithoutExtension(Environment.ProcessPath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                        string executable = Environment.ProcessPath ?? throw new InvalidOperationException("Gazda procesului nu poate fi identificata.");
+                        var start = new ProcessStartInfo(executable) { RedirectStandardOutput = true, RedirectStandardError = true };
+                        if (string.Equals(Path.GetFileNameWithoutExtension(executable), "dotnet", StringComparison.OrdinalIgnoreCase))
                             start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
                         foreach (var arg in new[] { "case", "--manifest", manifest, "--input", input, "--output", output,
                             "--revision", revision, "--id", item.Id, "--profile", profile }) start.ArgumentList.Add(arg);
@@ -189,7 +190,7 @@ public static class Program
         string normalized = Scoring.Normalize(decoded);
         string? reference = expected == null ? null : Scoring.Normalize(expected);
         int? errors = reference == null ? null : Scoring.Distance(reference, normalized);
-        int? complete = expected == null || expected.Length == 0 ? null : expected.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(line => normalized.Contains(Scoring.Normalize(line), StringComparison.Ordinal));
+        int? complete = Scoring.CompleteMessages(expected, decoded);
         var recognized = CallsignRecognizer.CreateDefault().RecognizeAll(decoded).ToArray();
         process.Refresh();
         return new(item.Id, profile, revision, RuntimeInformation.FrameworkDescription, RuntimeInformation.OSDescription,
