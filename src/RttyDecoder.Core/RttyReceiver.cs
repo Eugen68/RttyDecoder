@@ -1,4 +1,5 @@
 using System.Text;
+using System.Diagnostics;
 using RttyDecoder.Core.Baudot;
 using RttyDecoder.Core.DeepRtty;
 using RttyDecoder.Core.Dsp;
@@ -17,7 +18,7 @@ public readonly record struct RttyStatus(double SnrDb, double MarkFrequencyHz, b
 /// o interfata grafica trebuie sa le treaca pe firul ei.
 /// Metodele publice sunt thread-safe (un lacat comun cu <see cref="Process"/>).
 /// </summary>
-public sealed class RttyReceiver : IDisposable
+public sealed class RttyReceiver : IDisposable, IAsyncDisposable
 {
     public const int ProcessingSampleRate = 48000;
     private const int BlockSize = 3840; // 80 ms la 48 kHz, ca pe Android
@@ -35,6 +36,7 @@ public sealed class RttyReceiver : IDisposable
     private readonly short[] _block = new short[BlockSize];
     private int _blockFill;
     private bool _running;
+    private long _runId;
     private double _blockPeak;
     private double _inputLevelDb = -120;
 
@@ -44,6 +46,7 @@ public sealed class RttyReceiver : IDisposable
     private readonly TextSquelch _squelch;
     private Task? _modelLoad;
     private bool _disposed;
+    private Task _shutdown = Task.CompletedTask;
 
     /// <summary>Text confirmat (unul sau mai multe caractere; '\n' pentru rand nou, CR ignorat).</summary>
     public event Action<string>? TextReceived;
@@ -120,7 +123,6 @@ public sealed class RttyReceiver : IDisposable
     /// </summary>
     public void Update(Action<RttySettings> change)
     {
-        RttySettings applied;
         lock (_lock)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -131,9 +133,8 @@ public sealed class RttyReceiver : IDisposable
             Sanitize(next);
             ApplyToDemod(next, current);
             _settings = next;
-            applied = next.Clone();
         }
-        UpdateDeepRtty(applied);
+        UpdateDeepRtty();
     }
 
     /// <summary>NORM &lt;-&gt; REV pastrand tonurile pe loc (Mark trece pe celalalt ton), ca pe Android.</summary>
@@ -176,12 +177,12 @@ public sealed class RttyReceiver : IDisposable
     /// <summary>Porneste receptia (reseteaza starea de decodare).</summary>
     public void Start()
     {
-        RttySettings s;
         lock (_lock)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_running) return;
             _running = true;
+            _runId++;
             _demod.Start(ProcessingSampleRate);
             ApplyToDemod(_settings, null);
             _spectrum.Reset();
@@ -190,9 +191,8 @@ public sealed class RttyReceiver : IDisposable
             _blockPeak = 0;
             _inputLevelDb = -120;
             lock (_codecLock) _rx.ResetShift();
-            s = _settings.Clone();
         }
-        UpdateDeepRtty(s);
+        UpdateDeepRtty();
     }
 
     public void Stop()
@@ -201,29 +201,35 @@ public sealed class RttyReceiver : IDisposable
         {
             if (!_running) return;
             _running = false;
+            _deep?.Stop();
         }
-        _deep?.Stop();
     }
 
     /// <summary>Uita textul neconfirmat al DeepRTTY si starea LTRS/FIGS (butonul CLEAR).</summary>
     public void ClearDecoderState()
     {
-        lock (_codecLock) _rx.ResetShift();
-        lock (_lock) _squelch.Reset();
-        _deep?.Reset();
+        lock (_lock)
+        {
+            _deep?.Reset();
+            lock (_codecLock) _rx.ResetShift();
+            _squelch.Reset();
+        }
         ProvisionalTextChanged?.Invoke(string.Empty);
     }
 
     /// <summary>
-    /// Proceseaza audio mono (valori +-1) la rata <paramref name="sampleRate"/>. De apelat de pe un
-    /// singur fir; ignorat cat timp receptorul e oprit.
+    /// Audio mono +-1, de pe un singur fir. waitForDecoder=true pentru o sursa finita (WAV):
+    /// citirea asteapta bufferul DeepRTTY fara sa tina lacatul receptorului. Implicit live:
+    /// la suprasarcina decodorul abandoneaza audio-ul vechi si recupereaza de la semnalul nou.
     /// </summary>
-    public void Process(ReadOnlySpan<float> samples, int sampleRate)
+    public void Process(ReadOnlySpan<float> samples, int sampleRate, bool waitForDecoder = false)
     {
+        long run;
+        ReadOnlySpan<float> input = samples;
         lock (_lock)
         {
             if (!_running) return;
-            ReadOnlySpan<float> input = samples;
+            run = _runId;
             if (sampleRate != ProcessingSampleRate)
             {
                 if (_resampler == null || _resampler.InputRate != sampleRate)
@@ -233,13 +239,20 @@ public sealed class RttyReceiver : IDisposable
                 int n = _resampler.Process(samples, _resampled);
                 input = _resampled.AsSpan(0, n);
             }
-
-            foreach (float v in input)
+        }
+        while (!input.IsEmpty)
+        {
+            if (!WaitForDecoderCapacity(run, waitForDecoder)) return;
+            lock (_lock)
             {
-                double a = Math.Abs(v);
-                if (a > _blockPeak) _blockPeak = a;
-                float c = Math.Clamp(v, -1f, 1f);
-                _block[_blockFill++] = (short)Math.Round(c * 32767f);
+                if (!_running || _runId != run) return;
+                int n = Math.Min(BlockSize - _blockFill, input.Length);
+                foreach (float v in input[..n])
+                {
+                    _blockPeak = Math.Max(_blockPeak, Math.Abs(v));
+                    _block[_blockFill++] = (short)Math.Round(Math.Clamp(v, -1f, 1f) * 32767f);
+                }
+                input = input[n..];
                 if (_blockFill == BlockSize)
                 {
                     ProcessBlock(_block, BlockSize);
@@ -249,28 +262,76 @@ public sealed class RttyReceiver : IDisposable
         }
     }
 
-    /// <summary>Proceseaza direct PCM 16-bit la 48 kHz (fara reesantionare).</summary>
-    public void Process48k(short[] pcm, int count)
+    /// <summary>PCM 16-bit la 48 kHz. waitForDecoder are acelasi sens ca la Process.</summary>
+    public void Process48k(short[] pcm, int count, bool waitForDecoder = false)
     {
+        long run;
         lock (_lock)
         {
             if (!_running) return;
-            foreach (short v in pcm.AsSpan(0, count))
-                _blockPeak = Math.Max(_blockPeak, Math.Abs((double)v) / 32768.0);
-            ProcessBlock(pcm, count);
+            run = _runId;
         }
+        ArgumentNullException.ThrowIfNull(pcm);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        if (count > pcm.Length) throw new ArgumentOutOfRangeException(nameof(count));
+        for (int offset = 0; offset < count; offset += BlockSize)
+        {
+            if (!WaitForDecoderCapacity(run, waitForDecoder)) return;
+            int n = Math.Min(BlockSize, count - offset);
+            short[] block = offset == 0 && n == count ? pcm : pcm.AsSpan(offset, n).ToArray();
+            lock (_lock)
+            {
+                if (!_running || _runId != run) return;
+                foreach (short v in block.AsSpan(0, n))
+                    _blockPeak = Math.Max(_blockPeak, Math.Abs((double)v) / 32768.0);
+                ProcessBlock(block, n);
+            }
+        }
+    }
+
+    private bool WaitForDecoderCapacity(long run, bool wait, TimeSpan? timeout = null)
+    {
+        long start = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            DeepRttyReceiver? deep;
+            lock (_lock)
+            {
+                if (!_running || _runId != run) return false;
+                deep = _settings.Decoder == RttyDecoderType.DeepRtty ? _deep : null;
+            }
+            if (!wait || deep == null) return true;
+            TimeSpan? remaining = timeout is { } limit ? limit - Stopwatch.GetElapsedTime(start) : null;
+            if (deep.WaitForCapacity(remaining)) return true;
+            if (timeout is { } budget && Stopwatch.GetElapsedTime(start) >= budget) return false;
+            // STOP, CLEAR sau schimbarea decodorului pot invalida sesiunea asteptata.
+        }
+    }
+
+    public DeepRttyQueueStatus DeepRttyQueueStatus
+    {
+        get { lock (_lock) return _deep?.QueueStatus ?? default; }
     }
 
     /// <summary>
     /// Sfarsitul unei surse finite (fisier): proceseaza restul din buffer, asteapta DeepRTTY sa
     /// termine si confirma si coada lui provizorie.
     /// </summary>
-    public void Flush(TimeSpan? timeout = null)
+    public void Flush(TimeSpan? timeout = null) => TryFlush(timeout);
+
+    /// <summary>Ca Flush, dar raporteaza timeout-ul sau invalidarea sesiunii fara a declara fisierul complet.</summary>
+    public bool TryFlush(TimeSpan? timeout = null)
     {
+        var budget = timeout ?? TimeSpan.FromMinutes(2);
+        if (budget < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        long start = Stopwatch.GetTimestamp();
+        long run;
+        lock (_lock) { if (!_running) return true; run = _runId; }
+        if (!WaitForDecoderCapacity(run, wait: true, timeout: budget)) return false;
         DeepRttyReceiver? deep;
         lock (_lock)
         {
-            if (!_running) return;
+            if (!_running || _runId != run) return false;
             if (_blockFill > 0)
             {
                 ProcessBlock(_block, _blockFill);
@@ -278,7 +339,8 @@ public sealed class RttyReceiver : IDisposable
             }
             deep = _settings.Decoder == RttyDecoderType.DeepRtty ? _deep : null;
         }
-        deep?.Flush(timeout ?? TimeSpan.FromMinutes(2));
+        var remaining = budget - Stopwatch.GetElapsedTime(start);
+        return deep == null || deep.Flush(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
     }
 
     /// <summary>Asteapta incarcarea modelului DeepRTTY, daca e in curs.</summary>
@@ -460,19 +522,17 @@ public sealed class RttyReceiver : IDisposable
     // DeepRTTY
     // ------------------------------------------------------------------
 
-    private void UpdateDeepRtty(RttySettings s)
+    private void UpdateDeepRtty()
     {
-        bool vrea = s.Decoder == RttyDecoderType.DeepRtty;
-        if (!vrea)
-        {
-            _deep?.Stop();
-            ProvisionalTextChanged?.Invoke(string.Empty);
-            return;
-        }
         lock (_lock)
         {
-            // Modelul se poate termina de incarcat dupa STOP, o alta selectie sau Dispose.
-            if (_disposed || _settings.Decoder != RttyDecoderType.DeepRtty) return;
+            if (_disposed) return;
+            if (_settings.Decoder != RttyDecoderType.DeepRtty)
+            {
+                _deep?.Stop();
+                ProvisionalTextChanged?.Invoke(string.Empty);
+                return;
+            }
             if (_inference == null)
             {
                 StartModelLoad();
@@ -529,7 +589,7 @@ public sealed class RttyReceiver : IDisposable
                 }
                 _model = model;
                 _inference = model.Run;
-                UpdateDeepRtty(_settings);
+                UpdateDeepRtty();
                 Message?.Invoke("DeepRTTY: model incarcat");
             }
         });
@@ -537,18 +597,25 @@ public sealed class RttyReceiver : IDisposable
 
     public void Dispose()
     {
-        DeepRttyReceiver? deep;
-        DeepRttyModel? model;
         lock (_lock)
         {
             if (_disposed) return;
             _disposed = true;
             _running = false;
-            deep = _deep;
-            model = _model;
             _inference = null;
+            _deep?.Dispose();
+            var model = _model;
+            // Unele inferente native nu pot fi intrerupte. Modelul ramane valid pana ies din ele.
+            if (_deep == null || _deep.Completion.IsCompleted) model?.Dispose();
+            else _shutdown = _deep.Completion.ContinueWith(_ => model?.Dispose(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
-        deep?.Dispose();
-        model?.Dispose();
+    }
+
+    /// <summary>Ca Dispose, dar asteapta si incarcarea/inferenta nativa si eliberarea modelului.</summary>
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+        lock (_lock) return new ValueTask(Task.WhenAll(_modelLoad ?? Task.CompletedTask, _shutdown));
     }
 }

@@ -180,6 +180,27 @@ Indicativele: gazda da bazele (`vm.UseReferenceData(ReferenceData.Load(folder))`
 (`vm.MyCall`) si primeste click-urile prin `vm.CallsignSelected` (ex. pentru log sau DX cluster);
 `vm.Callsigns` e `CallsignTracker`-ul cu lista statiilor.
 
+### Bufferul si oprirea DeepRTTY
+
+DeepRTTY pastreaza cel mult 24 s de audio neprocesat, inclusiv blocul aflat in lucru.
+Sub terminal apare cantitatea de audio in asteptare; aceasta nu include intarzierea normala
+(~8-12 s) a textului provizoriu. La un WAV (inclusiv cu *Timp real*), citirea asteapta automat
+loc liber, fara sa piarda audio. La live, daca bufferul se umple, decodorul abandoneaza audio-ul
+vechi si textul lui neconfirmat si reincepe de la semnalul nou; contorul de recuperari apare
+langa starea bufferului. Textul deja confirmat ramane in terminal.
+
+Pentru gazdele modulului care decodeaza surse finite, folositi
+`rx.Process(samples, sampleRate, waitForDecoder: true)` (sau aceeasi optiune la `Process48k`).
+STOP elibereaza o citire care asteapta bufferul. `TryFlush(timeout)` raporteaza daca finalul
+fisierului a fost confirmat; timeout-ul include si asteptarea unui buffer plin.
+
+STOP/START, CLEAR si reacordarea folosesc sesiuni distincte, procesate de un singur fir de
+inferenta. STOP nu asteapta o inferenta nativa lenta; rezultatul sesiunii anulate este ignorat.
+La inchidere modelul este eliberat abia dupa terminarea ultimei inferente, pe fundal.
+Gazda poate folosi `await rx.DisposeAsync()` pentru a astepta si eliberarea resurselor native.
+Gazdele care folosesc direct `DeepRttyReceiver` trebuie sa astepte `Completion` dupa `Dispose`
+inainte de a elibera modelul pe care l-au furnizat.
+
 ## Compilare si teste
 
 HamCallsign e submodul, deci la clonare:

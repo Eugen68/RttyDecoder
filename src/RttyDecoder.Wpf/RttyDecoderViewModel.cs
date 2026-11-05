@@ -244,6 +244,9 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     private string _provisionalText = "";
     public string ProvisionalText { get => _provisionalText; private set => Set(ref _provisionalText, value); }
 
+    private string _decoderQueueText = "";
+    public string DecoderQueueText { get => _decoderQueueText; private set => Set(ref _decoderQueueText, value); }
+
     private string _message = "";
     public string Message { get => _message; set => Set(ref _message, value); }
 
@@ -494,6 +497,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         var src = _source;
         if (src == null) return;
         Detach();
+        Receiver.Stop(); // elibereaza citirea WAV daca asteapta loc in bufferul DeepRTTY
         try
         {
             src.Stop();
@@ -535,7 +539,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         if (!_tx.IsTransmitting)
         {
             KeepAudio(buffer.AsSpan(0, count), sampleRate);
-            Receiver.Process(buffer.AsSpan(0, count), sampleRate);
+            Receiver.Process(buffer.AsSpan(0, count), sampleRate, waitForDecoder: _file != null);
             Scope.Process(buffer.AsSpan(0, count), sampleRate);
         }
         // fisier decodat "cat de repede se poate": sunetul ar fi accelerat - nu il redam
@@ -549,7 +553,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         var src = _source;
         if (error == null && src is WavFileSource)
         {
-            Receiver.Flush(); // DeepRTTY: decodeaza si coada ramasa
+            if (!Receiver.TryFlush())
+                error = new TimeoutException("DeepRTTY nu a confirmat finalul fisierului (timeout sau sesiune intrerupta).");
         }
         _dispatcher.BeginInvoke(() =>
         {
@@ -639,6 +644,11 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             }
         }
 
+        var queue = Receiver.DeepRttyQueueStatus;
+        DecoderQueueText = Decoder == RttyDecoderType.DeepRtty && IsRunning
+            ? $"DeepRTTY: {queue.PendingAudioSeconds:0.0} s audio in asteptare"
+                + (queue.Overruns > 0 ? $" | recuperari dupa suprasarcina: {queue.Overruns}" : "")
+            : "";
         if (_file != null) FileProgress = _file.Progress;
         DrainTxEcho();
     }

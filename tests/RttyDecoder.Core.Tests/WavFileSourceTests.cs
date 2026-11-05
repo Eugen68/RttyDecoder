@@ -32,7 +32,7 @@ public class WavFileSourceTests
         rx.TextReceived += t => { lock (sb) sb.Append(t); };
         using var src = new WavFileSource(cale, realTime: false, canal);
         var gata = new ManualResetEventSlim();
-        src.SamplesAvailable += (b, n, sr) => rx.Process(b.AsSpan(0, n), sr);
+        src.SamplesAvailable += (b, n, sr) => rx.Process(b.AsSpan(0, n), sr, waitForDecoder: true);
         src.Stopped += _ => { rx.Flush(); gata.Set(); };
         rx.Start();
         src.Start();

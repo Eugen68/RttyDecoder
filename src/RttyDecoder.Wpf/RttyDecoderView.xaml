@@ -210,6 +210,8 @@
 
             <Border Grid.Column="0" Background="Black" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <DockPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding DecoderQueueText}" Foreground="{StaticResource Rtty.Muted}"
+                               FontSize="11" Margin="0,2,0,0" />
                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding ProvisionalText}" Foreground="#808080" FontFamily="Consolas" FontSize="15"
                                Margin="6,0,6,4" TextWrapping="Wrap" ToolTip="DeepRTTY: text provizoriu, inca neconfirmat" />
                     <RichTextBox x:Name="Terminal" IsReadOnly="True" IsReadOnlyCaretVisible="False" Background="Black" Foreground="#00FF00"
