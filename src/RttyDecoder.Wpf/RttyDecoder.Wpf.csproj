@@ -15,4 +15,7 @@
     <ProjectReference Include="..\..\external\HamRig\src\HamRig\HamRig.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="RttyDecoder.Wpf.Tests" />
+  </ItemGroup>
 </Project>

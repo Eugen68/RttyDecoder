@@ -12,6 +12,7 @@ public sealed class SpectralHistory
     private readonly List<SpectralBoundary> _boundaries = new();
     private SpectralRow? _last;
     private double _offset;
+    private SpectralSnapshot? _snapshot;
     public int Count => _rows.Count;
     public double EndTime => _last?.Time ?? 0;
 
@@ -28,16 +29,18 @@ public sealed class SpectralHistory
         double time = _offset + frame.AudioSeconds;
         double? gap = !newEpoch && time - _last!.Time > SpectrumAnalyzer.RowSeconds * 1.5 ? _last.Time : null;
         if (!newEpoch && frame.BinHz != _last!.Frame.BinHz) Mark("FFT schimbat");
+        _snapshot = null;
         _last = new(frame, time, gap);
         _rows.Enqueue(_last);
         double oldest = time - CapacitySeconds;
-        while (_rows.TryPeek(out var row) && row.Time < oldest) _rows.Dequeue();
+        while (_rows.TryPeek(out var row) && (row.Time < oldest || _rows.Count > 1024)) _rows.Dequeue();
         _boundaries.RemoveAll(b => b.Time < oldest);
         return true;
     }
 
     public void Mark(string label)
     {
+        _snapshot = null;
         if (_boundaries.Count > 0 && Math.Abs(_boundaries[^1].Time - EndTime) < .1)
         {
             var previous = _boundaries[^1];
@@ -47,8 +50,8 @@ public sealed class SpectralHistory
         else _boundaries.Add(new(EndTime, label));
     }
 
-    public SpectralSnapshot Snapshot() => new(_rows.ToArray(), _boundaries.ToArray(), EndTime);
-    public void Clear() { _rows.Clear(); _boundaries.Clear(); _last = null; _offset = 0; }
+    public SpectralSnapshot Snapshot() => _snapshot ??= new(_rows.ToArray(), _boundaries.ToArray(), EndTime);
+    public void Clear() { _rows.Clear(); _boundaries.Clear(); _last = null; _offset = 0; _snapshot = null; }
 
     /// <summary>Interpolare a puterii la frecventa exacta; centrul bin-ului nu este deplasat cu jumatate de pixel.</summary>
     public static double SampleDb(SpectrumFrame frame, double frequency)

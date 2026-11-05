@@ -40,6 +40,8 @@ public partial class RttyDecoderView : UserControl
     public RttyDecoderView()
     {
         InitializeComponent();
+        Waterfall.SpectrumSizeChanged += size => _vm?.Receiver.SetSpectrumSize(size);
+        Waterfall.Info += text => { if (_vm != null) _vm.Message = text; };
         _levelTimer = new System.Windows.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(250),
             System.Windows.Threading.DispatcherPriority.Background, (_, _) => UpdateLevels(), Dispatcher);
         Loaded += (_, _) => _levelTimer.Start();
@@ -64,7 +66,7 @@ public partial class RttyDecoderView : UserControl
             _vm.TextAppended -= OnText;
             _vm.InfoAppended -= OnInfo;
             _vm.TerminalCleared -= OnCleared;
-            _vm.SpectrumRow -= Waterfall.PushRow;
+            _vm.SpectrumFrame -= Waterfall.PushFrame;
             Tuning.Scope = null;
             _vm.CallsignSettingsChanged -= RecolorCallsigns;
             _vm.TxEcho -= OnTxEcho;
@@ -77,7 +79,8 @@ public partial class RttyDecoderView : UserControl
             vm.TextAppended += OnText;
             vm.InfoAppended += OnInfo;
             vm.TerminalCleared += OnCleared;
-            vm.SpectrumRow += Waterfall.PushRow;
+            vm.SpectrumFrame += Waterfall.PushFrame;
+            vm.Receiver.SetSpectrumSize(Waterfall.SpectrumSize);
             Tuning.Scope = vm.Scope;
             vm.CallsignSettingsChanged += RecolorCallsigns;
             vm.TxEcho += OnTxEcho;
@@ -103,19 +106,51 @@ public partial class RttyDecoderView : UserControl
     {
         get => new()
         {
-            AutoFloor = Waterfall.AutoFloor,
-            FloorDb = Waterfall.FloorDb,
-            RangeDb = Waterfall.RangeDb,
-            Gamma = Waterfall.Gamma,
+            LevelScaleVersion = 2, AutoFloor = Waterfall.AutoFloor, LockLevels = Waterfall.LockLevels,
+            FloorDb = Waterfall.EffectiveFloorDb, RangeDb = Waterfall.RangeDb, Gamma = Waterfall.Gamma,
+            Palette = Waterfall.Palette, SpectrumSize = Waterfall.SpectrumSize, HistorySeconds = Waterfall.HistorySeconds,
+            MinFrequencyHz = Waterfall.MinFrequencyHz, MaxFrequencyHz = Waterfall.MaxFrequencyHz,
+            ShowSpectrum = Waterfall.ShowSpectrum, FollowSignal = Waterfall.FollowSignal,
+            SnapToSignal = Waterfall.SnapToSignal, Height = WaterfallHeight.Value
         };
         set
         {
-            Waterfall.FloorDb = Math.Clamp(value.FloorDb, -160, 0);
-            Waterfall.RangeDb = Math.Clamp(value.RangeDb, 10, 120);
-            Waterfall.Gamma = Math.Clamp(value.Gamma, 0.2, 3);
+            static double Limit(double x, double min, double max, double fallback) => Math.Clamp(double.IsFinite(x) ? x : fallback, min, max);
+            Waterfall.RangeDb = Limit(value.RangeDb, 10, 120, 40);
+            Waterfall.Gamma = Limit(value.Gamma, .2, 3, 1);
+            Waterfall.Palette = value.LevelScaleVersion < 2 ? WaterfallPalette.Classic : value.Palette;
             Waterfall.AutoFloor = value.AutoFloor;
+            Waterfall.FloorDb = RttyDecoder.Wpf.WaterfallSettings.NormalizedFloor(value);
+            Waterfall.LockLevels = value.LockLevels;
+            if (value.LockLevels) Waterfall.RestoreHeldLevel(Waterfall.FloorDb);
+            Waterfall.SpectrumSize = value.SpectrumSize == 1024 ? 1024 : 512;
+            Waterfall.HistorySeconds = value.HistorySeconds <= 8 ? 8 : value.HistorySeconds <= 15 ? 15 : 30;
+            Waterfall.ShowSpectrum = value.ShowSpectrum;
+            Waterfall.SnapToSignal = value.SnapToSignal;
+            Waterfall.SetViewport(Limit(value.MinFrequencyHz, 0, 3900, 0), Limit(value.MaxFrequencyHz - value.MinFrequencyHz, 100, 4000, 4000));
+            Waterfall.FollowSignal = value.FollowSignal;
+            WaterfallHeight.Value = Limit(value.Height, 160, 400, 230);
             UpdateLevels();
         }
+    }
+
+    private void OnWaterfallFull(object sender, RoutedEventArgs e) => Waterfall.FullView();
+    private void OnWaterfallCenter(object sender, RoutedEventArgs e) { Waterfall.FollowSignal = true; Waterfall.CenterOnSignal(); }
+    private void OnWaterfallZoomIn(object sender, RoutedEventArgs e) => Waterfall.Zoom(.5, Waterfall.ActualWidth / 2);
+    private void OnWaterfallZoomOut(object sender, RoutedEventArgs e) => Waterfall.Zoom(2, Waterfall.ActualWidth / 2);
+    private void OnWaterfallCapture(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog { Filter = "Imagine PNG|*.png", FileName = "rtty-waterfall.png" };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(Waterfall.Capture()));
+            using var stream = File.Create(dialog.FileName);
+            encoder.Save(stream);
+            if (_vm != null) _vm.Message = "Waterfall salvat: " + dialog.FileName;
+        }
+        catch (Exception error) { if (_vm != null) _vm.Message = "Nu pot salva waterfall-ul: " + error.Message; }
     }
 
     private void UpdateClocks()
@@ -131,12 +166,11 @@ public partial class RttyDecoderView : UserControl
         UpdateClocks();
         // bifa Auto isi primeste valoarea inca din InitializeComponent, inainte sa existe textele de langa ea
         if (SignalText == null || FloorText == null || FloorSlider == null) return;
-        SignalText.Text = Waterfall.CurrentLevelRangeDb is { } r ? $"{r.MinDb:0}..{r.MaxDb:0} dB" : "-";
-        double floor = Waterfall.AutoFloor ? Waterfall.CurrentAutoFloorDb - 3 : Waterfall.FloorDb;
-        FloorText.Text = double.IsNaN(floor) ? "auto" : $"{floor:0} dB";
-        // cu Auto, cursorul arata unde e podeaua automata (ca la debifare sa nu sara)
-        if (Waterfall.AutoFloor && !double.IsNaN(Waterfall.CurrentAutoFloorDb))
-            FloorSlider.Value = Math.Clamp(Math.Round(Waterfall.CurrentAutoFloorDb - 3), FloorSlider.Minimum, FloorSlider.Maximum);
+        SignalText.Text = Waterfall.CurrentLevelRangeDb is { } r ? $"{r.MinDb:0}..{r.MaxDb:0} dBFS" : "-";
+        double floor = Waterfall.EffectiveFloorDb;
+        FloorText.Text = double.IsNaN(floor) ? "auto" : $"{floor:0} dBFS";
+        if (WaterfallStatus != null)
+            WaterfallStatus.Text = $"timp audio · {Waterfall.HistorySeconds:0}s" + (Waterfall.DroppedFrames > 0 ? $" · randuri omise: {Waterfall.DroppedFrames}" : "");
     }
 
     private void OnAutoFloorChanged(object sender, RoutedEventArgs e) => UpdateLevels();
@@ -276,7 +310,7 @@ public partial class RttyDecoderView : UserControl
     private bool _stampNextRx = true;
 
     /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora.</summary>
-    private void OnTuningChanged() => _stampNextRx = true;
+    private void OnTuningChanged() { _stampNextRx = true; Waterfall.MarkBoundary("ACORD / QSY"); }
 
     /// <summary>
     /// Pune ora in fata textului daca e un mesaj nou: dupa o pauza de cel putin 5 s, la trecerea
@@ -507,6 +541,10 @@ public partial class RttyDecoderView : UserControl
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(RttyDecoderViewModel.ShowStations)) UpdateStationsColumn();
+        if (_vm == null) return;
+        if (e.PropertyName == nameof(RttyDecoderViewModel.IsRunning)) Waterfall.MarkBoundary(_vm.IsRunning ? "START" : "STOP");
+        if (e.PropertyName == nameof(RttyDecoderViewModel.SourceName)) Waterfall.MarkBoundary(_vm.SourceName);
+        if (e.PropertyName == nameof(RttyDecoderViewModel.IsTransmitting)) Waterfall.MarkBoundary(_vm.IsTransmitting ? "TX" : "RX");
     }
 
     private void UpdateStationsColumn()

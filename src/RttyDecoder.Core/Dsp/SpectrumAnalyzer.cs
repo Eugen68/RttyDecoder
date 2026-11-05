@@ -18,6 +18,7 @@ public sealed class SpectrumAnalyzer
     private readonly double[] _h;
     private readonly double[] _delay;
     private int _delayPos, _phase, _ringPos, _sinceLastRow, _received;
+    private static long _nextEpoch;
     private long _samples, _epoch, _sequence;
     private double[] _ring = [], _frame = [], _mag = [];
     private SimpleFft _fft = null!;
@@ -31,6 +32,7 @@ public sealed class SpectrumAnalyzer
 
     public SpectrumAnalyzer(int size = FftSize)
     {
+        _epoch = Interlocked.Increment(ref _nextEpoch);
         const int taps = 121;
         const double fc = 3400.0 / InputRate;
         _h = new double[taps];
@@ -65,7 +67,7 @@ public sealed class SpectrumAnalyzer
         _delayPos = _phase = _ringPos = _sinceLastRow = _received = 0;
         _historyPos = _historyCount = 0;
         _samples = _sequence = 0;
-        _epoch++;
+        _epoch = Interlocked.Increment(ref _nextEpoch);
     }
 
     public void Process(short[] pcm, int count)
