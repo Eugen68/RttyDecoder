@@ -63,6 +63,31 @@ public class SpectrumTests
     [Theory]
     [InlineData(512)]
     [InlineData(1024)]
+    public void WaterfallGasesteToatePerechileDinBanda(int size)
+    {
+        // doua statii RTTY (915/1085 si 2125/2295) si o purtatoare singura la 1600
+        var spectrum = new SpectrumAnalyzer(size);
+        var tones = new[] { Tone(96000, 915, .1), Tone(96000, 1085, .08), Tone(96000, 2125, .12), Tone(96000, 2295, .1), Tone(96000, 1600, .15) };
+        var pcm = Enumerable.Range(0, 96000).Select(i => (short)tones.Sum(t => (int)t[i])).ToArray();
+        spectrum.Process(pcm, pcm.Length);
+        var all = AutoTune.FindCandidates(spectrum.AverageSpectrum()!, spectrum.BinWidthHz);
+        Assert.Equal(2, all.Count);
+        var lows = all.Select(c => c.LowerToneHz).Order().ToArray();
+        Assert.InRange(lows[0], 912, 918);
+        Assert.InRange(lows[1], 2122, 2128);
+        // cea mai buna pereche e aceeasi ca la A-TUNE
+        Assert.Equal(AutoTune.FindCandidate(spectrum.AverageSpectrum()!, spectrum.BinWidthHz)!.Value.LowerToneHz,
+            all[0].LowerToneHz, 3);
+        // zgomot: nimic
+        var random = new Random(7);
+        pcm = Enumerable.Range(0, 96000).Select(_ => (short)random.Next(-2000, 2001)).ToArray();
+        spectrum.Reset(); spectrum.Process(pcm, pcm.Length);
+        Assert.Empty(AutoTune.FindCandidates(spectrum.AverageSpectrum()!, spectrum.BinWidthHz));
+    }
+
+    [Theory]
+    [InlineData(512)]
+    [InlineData(1024)]
     public void AtuneRespingePurtatoareaUnicaSiZgomotul(int size)
     {
         var spectrum = new SpectrumAnalyzer(size);

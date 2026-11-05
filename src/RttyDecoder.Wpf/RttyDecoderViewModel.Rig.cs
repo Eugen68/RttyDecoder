@@ -86,6 +86,31 @@ public sealed partial class RttyDecoderViewModel
     public static long? TxDial(long dialHz, RigMode mode, double lowerToneHz) =>
         RigMath.QsyDial(dialHz, mode, lowerToneHz, FskMarkHz);
 
+    /// <summary>
+    /// Frecventa RF a unui ton audio, pentru cursorul waterfall-ului. In RTTY afisajul statiei e
+    /// frecventa Mark-ului unei statii de pe aceeasi frecventa: in RTTY-L Mark-ul ei se aude pe 2125
+    /// (ca LSB: ton mai sus = RF mai jos), in RTTY-U pe 2295 (ca USB). Deci pe un Mark arata exact
+    /// frecventa corespondentului. In SSB/DATA/CW: <see cref="RigMath.ToneToRf"/>. Null fara statie.
+    /// </summary>
+    public static double? AudioToRf(long dialHz, RigMode mode, double audioHz)
+    {
+        if (dialHz <= 0 || !double.IsFinite(audioHz)) return null;
+        return mode switch
+        {
+            RigMode.RttyL => dialHz + (FskMarkHz - audioHz),
+            RigMode.RttyU => dialHz + (audioHz - (FskMarkHz + RttySettings.ShiftHz)),
+            _ => RigMath.ToneToRf(dialHz, mode, audioHz),
+        };
+    }
+
+    private Func<double, double?>? _waterfallRf;
+    /// <summary>Ton audio -&gt; RF pentru cursorul waterfall-ului (null fara statie conectata).</summary>
+    public Func<double, double?>? WaterfallRf { get => _waterfallRf; private set => Set(ref _waterfallRf, value); }
+
+    private double _txPairLowerHz = double.NaN;
+    /// <summary>Tonul de jos al perechii pe care pleaca emisia FSK (2125), sau NaN daca statia nu e in RTTY.</summary>
+    public double TxPairLowerHz { get => _txPairLowerHz; private set => Set(ref _txPairLowerHz, value); }
+
     /// <summary>Mark-ul decodorului dupa QSY: tonul de jos pe NORM, cel de sus pe REV.</summary>
     public static double MarkAfterQsy(bool reverse) => reverse ? FskMarkHz + RttySettings.ShiftHz : FskMarkHz;
 
@@ -268,6 +293,8 @@ public sealed partial class RttyDecoderViewModel
     private void UpdateRigText()
     {
         var s = _rigState;
+        WaterfallRf = _rig != null && s.Connected ? audio => AudioToRf(s.FrequencyHz, s.Mode, audio) : null;
+        TxPairLowerHz = RigInRtty ? FskMarkHz : double.NaN;
         RigConnected = s.Connected;
         RigTransmitting = s.Connected && s.Transmitting;
         if (_rig == null)

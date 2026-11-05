@@ -69,6 +69,7 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
 | Comanda | Efect |
 | --- | --- |
 | Click | Acordul decodorului pe frecventa indicata; cu **Atragere pe semnal**, cauta o pereche apropiata, folosind NORM/REV curent |
+| Click pe un triunghi de sus | Acord pe perechea RTTY marcata (vezi **Semnale** mai jos) |
 | Rotita / Ctrl+rotita | Acord fin: 1 Hz / 10 Hz |
 | Alt+rotita | Zoom in jurul cursorului |
 | Alt+tragere / tragere cu butonul mijlociu | Deplasare in frecventa; dezactiveaza urmarirea automata a acordului |
@@ -89,7 +90,19 @@ intregului audio si nici o densitate de zgomot in dB/Hz. Nivelurile depind de po
 de rezolutia FFT si de filtrul anti-aliasing (atenuare spre 4 kHz). Indicatorul audio de langa SNR
 ramane separat. Setarile vechi de podea sunt convertite o singura data la noua scara.
 
-In **Afisare waterfall: niveluri, paleta si inaltime**, **Auto** estimeaza zgomotul din banda
+**Pe imagine**, pe langa M (rosu) si S (portocaliu):
+- **TX** - doua linii punctate verzi pe 2125 / 2295 Hz, cu statia in RTTY-L / RTTY-U: acolo pleaca
+  emisia FSK. Cand perechea corespondentului nu e pe ele, raspunsul tau iese alaturi - A-TUNE + dublu
+  click (sau QSY-ul automat) aduce statia pe frecventa lui.
+- **Semnale** - triunghiuri albastre sus, deasupra fiecarei perechi RTTY (doua tonuri la 170 Hz, ambele
+  peste zgomot) gasite in banda, din media ultimelor ~0,3 s; click pe triunghi = acord pe ea. Se pot
+  ascunde din bifa **Semnale**.
+- **Zona filtrului** - benzi slab colorate in jurul M si S, pe latimea filtrelor Chebyshev (numai cu
+  decodorul Chebyshev): se vede daca semnalul intra in filtru.
+- Cu statia conectata, cursorul arata si **frecventa RF** a tonului (in RTTY, pe un Mark: frecventa
+  corespondentului).
+
+In **Afisare waterfall: zoom, istoric, FFT, niveluri, paleta si inaltime**, **Auto** estimeaza zgomotul din banda
 250–3000 Hz si il urmareste lent, independent de zoom. **Fixeaza nivel** tine podeaua fixa;
 dezactivarea Auto permite reglajul manual. **Interval** stabileste domeniul deasupra podelei,
 iar **Gama** modifica intensitatea: peste 1 intuneca semnalele slabe, sub 1 le evidentiaza.

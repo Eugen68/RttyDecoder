@@ -17,6 +17,8 @@ public sealed class WaterfallSettings
     public bool ShowSpectrum { get; set; } = true;
     public bool FollowSignal { get; set; } = true;
     public bool SnapToSignal { get; set; }
+    /// <summary>Marcajele perechilor RTTY gasite in banda (sus, pe waterfall).</summary>
+    public bool ShowSignals { get; set; } = true;
     public double Height { get; set; } = 230;
 
     public static double NormalizedFloor(WaterfallSettings value)
