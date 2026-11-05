@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../tools/RttyDecoder.Benchmarks/RttyDecoder.Benchmarks.csproj" />
     <ProjectReference Include="..\..\src\RttyDecoder.Core\RttyDecoder.Core.csproj" />
     <ProjectReference Include="..\..\src\RttyDecoder.Audio\RttyDecoder.Audio.csproj" />
   </ItemGroup>
