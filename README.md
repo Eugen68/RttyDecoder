@@ -68,7 +68,7 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
 
 | Comanda | Efect |
 | --- | --- |
-| Click | Acordul decodorului pe frecventa indicata; cu **Snap RTTY**, cauta o pereche apropiata, folosind NORM/REV curent |
+| Click | Acordul decodorului pe frecventa indicata; cu **Atragere pe semnal**, cauta o pereche apropiata, folosind NORM/REV curent |
 | Rotita / Ctrl+rotita | Acord fin: 1 Hz / 10 Hz |
 | Alt+rotita | Zoom in jurul cursorului |
 | Alt+tragere / tragere cu butonul mijlociu | Deplasare in frecventa; dezactiveaza urmarirea automata a acordului |
@@ -90,9 +90,9 @@ de rezolutia FFT si de filtrul anti-aliasing (atenuare spre 4 kHz). Indicatorul 
 ramane separat. Setarile vechi de podea sunt convertite o singura data la noua scara.
 
 In **Afisare waterfall: niveluri, paleta si inaltime**, **Auto** estimeaza zgomotul din banda
-250–3000 Hz si il urmareste lent, independent de zoom. **Blocheaza nivelul** tine podeaua fixa;
+250–3000 Hz si il urmareste lent, independent de zoom. **Fixeaza nivel** tine podeaua fixa;
 dezactivarea Auto permite reglajul manual. **Interval** stabileste domeniul deasupra podelei,
-iar **Gamma** modifica intensitatea: peste 1 intuneca semnalele slabe, sub 1 le evidentiaza.
+iar **Gama** modifica intensitatea: peste 1 intuneca semnalele slabe, sub 1 le evidentiaza.
 Sunt disponibile paleta clasica si cea de contrast, spectrul si inaltimea de 160–400 px.
 Preferintele se salveaza intre sesiuni; pauza imaginii este temporara.
 
