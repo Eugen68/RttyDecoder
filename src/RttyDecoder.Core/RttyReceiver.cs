@@ -43,6 +43,7 @@ public sealed class RttyReceiver : IDisposable
     private DeepRttyReceiver? _deep;
     private readonly TextSquelch _squelch;
     private Task? _modelLoad;
+    private bool _disposed;
 
     /// <summary>Text confirmat (unul sau mai multe caractere; '\n' pentru rand nou, CR ignorat).</summary>
     public event Action<string>? TextReceived;
@@ -104,7 +105,10 @@ public sealed class RttyReceiver : IDisposable
         get { lock (_lock) return _running; }
     }
 
-    public bool IsDeepRttyReady => _inference != null;
+    public bool IsDeepRttyReady
+    {
+        get { lock (_lock) return !_disposed && _inference != null; }
+    }
 
     /// <summary>Inlocuieste toate setarile.</summary>
     public void ApplySettings(RttySettings settings) => Update(s => CopyInto(settings, s));
@@ -119,6 +123,7 @@ public sealed class RttyReceiver : IDisposable
         RttySettings applied;
         lock (_lock)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             var current = _settings.Clone();
             current.MarkFrequencyHz = _demod.frecventaTunedBaza;
             var next = current.Clone();
@@ -174,6 +179,7 @@ public sealed class RttyReceiver : IDisposable
         RttySettings s;
         lock (_lock)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_running) return;
             _running = true;
             _demod.Start(ProcessingSampleRate);
@@ -181,6 +187,8 @@ public sealed class RttyReceiver : IDisposable
             _spectrum.Reset();
             _resampler = null;
             _blockFill = 0;
+            _blockPeak = 0;
+            _inputLevelDb = -120;
             lock (_codecLock) _rx.ResetShift();
             s = _settings.Clone();
         }
@@ -247,6 +255,8 @@ public sealed class RttyReceiver : IDisposable
         lock (_lock)
         {
             if (!_running) return;
+            foreach (short v in pcm.AsSpan(0, count))
+                _blockPeak = Math.Max(_blockPeak, Math.Abs((double)v) / 32768.0);
             ProcessBlock(pcm, count);
         }
     }
@@ -272,7 +282,10 @@ public sealed class RttyReceiver : IDisposable
     }
 
     /// <summary>Asteapta incarcarea modelului DeepRTTY, daca e in curs.</summary>
-    public Task WaitForModelAsync() => _modelLoad ?? Task.CompletedTask;
+    public Task WaitForModelAsync()
+    {
+        lock (_lock) return _modelLoad ?? Task.CompletedTask;
+    }
 
     private void ProcessBlock(short[] pcm, int count)
     {
@@ -456,15 +469,18 @@ public sealed class RttyReceiver : IDisposable
             ProvisionalTextChanged?.Invoke(string.Empty);
             return;
         }
-        if (_inference == null)
+        lock (_lock)
         {
-            StartModelLoad();
-            return;
+            // Modelul se poate termina de incarcat dupa STOP, o alta selectie sau Dispose.
+            if (_disposed || _settings.Decoder != RttyDecoderType.DeepRtty) return;
+            if (_inference == null)
+            {
+                StartModelLoad();
+                return;
+            }
+            EnsureDeepReceiver();
+            if (_running) _deep!.Start();
         }
-        EnsureDeepReceiver();
-        bool running;
-        lock (_lock) running = _running;
-        if (running) _deep!.Start();
     }
 
     private void EnsureDeepReceiver()
@@ -477,33 +493,62 @@ public sealed class RttyReceiver : IDisposable
         _deep = deep;
     }
 
+    // Apelat sub _lock: o singura incarcare, inclusiv la cereri simultane.
     private void StartModelLoad()
     {
-        if (_modelLoad != null) return;
+        if (_modelLoad is { IsCompleted: false }) return;
         _modelLoad = Task.Run(() =>
         {
+            DeepRttyModel model;
             try
             {
-                var model = _modelFactory!();
-                _model = model;
-                _inference = model.Run;
-                Message?.Invoke("DeepRTTY: model incarcat");
-                UpdateDeepRtty(Settings);
+                model = _modelFactory!();
             }
             catch (Exception e)
             {
-                _modelLoad = null;
-                Message?.Invoke("DeepRTTY indisponibil (" + e.Message + ") - revin pe Chebyshev");
-                Update(x => x.Decoder = RttyDecoderType.Chebyshev);
-                SettingsChanged?.Invoke(Settings);
+                lock (_lock)
+                {
+                    if (_disposed) return;
+                    Message?.Invoke("DeepRTTY indisponibil (" + e.Message + ")");
+                    // O incarcare veche nu schimba alegerea facuta intre timp de utilizator.
+                    if (_settings.Decoder != RttyDecoderType.DeepRtty) return;
+                    var next = _settings.Clone();
+                    next.Decoder = RttyDecoderType.Chebyshev;
+                    ApplyToDemod(next, _settings);
+                    _settings = next;
+                    SettingsChanged?.Invoke(Settings);
+                }
+                return;
+            }
+            lock (_lock)
+            {
+                if (_disposed)
+                {
+                    model.Dispose();
+                    return;
+                }
+                _model = model;
+                _inference = model.Run;
+                UpdateDeepRtty(_settings);
+                Message?.Invoke("DeepRTTY: model incarcat");
             }
         });
     }
 
     public void Dispose()
     {
-        Stop();
-        _deep?.Dispose();
-        _model?.Dispose();
+        DeepRttyReceiver? deep;
+        DeepRttyModel? model;
+        lock (_lock)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _running = false;
+            deep = _deep;
+            model = _model;
+            _inference = null;
+        }
+        deep?.Dispose();
+        model?.Dispose();
     }
 }

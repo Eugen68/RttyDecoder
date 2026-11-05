@@ -12,5 +12,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RttyDecoder.Core.Tests/RttyDecoder.Core.Tests.csproj" />
+    <Project Path="tests/RttyDecoder.Wpf.Tests/RttyDecoder.Wpf.Tests.csproj" />
   </Folder>
 </Solution>

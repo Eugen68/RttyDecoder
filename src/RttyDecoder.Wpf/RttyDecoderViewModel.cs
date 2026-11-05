@@ -29,11 +29,16 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     private IAudioSource? _source;
     private WavFileSource? _file;
+    private long _sourceRequest;
+    private bool _disposed;
 
-    public RttyDecoderViewModel()
+    public RttyDecoderViewModel() : this(new RttyReceiver()) { }
+
+    /// <summary>Receptor furnizat de gazda; ViewModel-ul preia responsabilitatea Dispose.</summary>
+    public RttyDecoderViewModel(RttyReceiver receiver)
     {
         _dispatcher = Dispatcher.CurrentDispatcher;
-        Receiver = new RttyReceiver();
+        Receiver = receiver ?? throw new ArgumentNullException(nameof(receiver));
         Receiver.TextReceived += t => { lock (_textLock) _pendingText.Append(t); };
         Receiver.ProvisionalTextChanged += t => _pendingProvisional = t;
         Receiver.StatusUpdated += s =>
@@ -423,6 +428,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public void StartLive()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         StopSource();
         var src = new WasapiInputSource(SelectedDevice?.Id, Channel);
         try
@@ -449,7 +455,9 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public async Task OpenFileAsync(string path)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         StopSource();
+        long request = _sourceRequest;
         WavFileSource src;
         try
         {
@@ -465,6 +473,11 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             Message = "DeepRTTY: se incarca modelul...";
             await Receiver.WaitForModelAsync();
         }
+        if (_disposed || request != _sourceRequest)
+        {
+            src.Dispose();
+            return;
+        }
         _file = src;
         Attach(src, file: true);
         AppendLocal($"\n--- {src.Name} ({src.SampleRate} Hz, {src.Channels} ch, {src.Duration:hh\\:mm\\:ss}) ---\n");
@@ -476,6 +489,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public void StopSource()
     {
+        // Invalideaza si un OpenFileAsync care inca asteapta modelul.
+        _sourceRequest++;
         var src = _source;
         if (src == null) return;
         Detach();
@@ -632,6 +647,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _tx.Dispose();   // emisia oprita (PTT, FSK) inainte de orice
         _timer.Stop();
         StopSource();
