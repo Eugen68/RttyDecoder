@@ -51,6 +51,9 @@
         </Grid>
         <CheckBox x:Name="CrLfBox" Content="CR/LF automat la inceputul si la sfarsitul emisiei" />
         <CheckBox x:Name="DiddleBox" Content="Diddle in LIVE (LTRS continuu cand nu scrii)" />
+        <CheckBox x:Name="AutoQsyBox" Content="QSY automat inainte de raspuns (statia pe frecventa corespondentului)" />
+        <TextBlock Style="{StaticResource Hint}" Margin="20,0,0,0"
+                   Text="La macrourile si textul (Enter) care nu incep cu CQ, dupa un A-TUNE care a calculat alta frecventa decat a statiei: statia se muta intai acolo, ca la dublu click pe A-TUNE. Doar in RTTY-L / RTTY-U. Nu muta: CQ-ul (ramai pe frecventa ta), LIVE, si dupa ce ai dat click pe alt semnal in waterfall sau statia s-a mutat de la A-TUNE." />
 
         <TextBlock Text="Polaritatea FSK" FontWeight="Bold" Margin="0,14,0,4" />
         <CheckBox x:Name="InvertBox" Content="Inverseaza pinul FSK (pin activ = Space)" />

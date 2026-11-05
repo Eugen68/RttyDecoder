@@ -69,7 +69,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         });
         ClearCommand = new RelayCommand(Clear);
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
-        SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) MarkFrequencyHz = hz; });
+        // click pe waterfall = alt semnal: QSY-ul pregatit de A-TUNE nu mai e pentru el
+        SetFrequencyCommand = new RelayCommand(p => { if (p is double hz) { ForgetPendingQsy(); MarkFrequencyHz = hz; } });
 
         ClearStationsCommand = new RelayCommand(ClearStations);
         _callsigns = CreateTracker(new CallsignRecognizer());

@@ -89,6 +89,57 @@ public sealed partial class RttyDecoderViewModel
     /// <summary>Mark-ul decodorului dupa QSY: tonul de jos pe NORM, cel de sus pe REV.</summary>
     public static double MarkAfterQsy(bool reverse) => reverse ? FskMarkHz + RttySettings.ShiftHz : FskMarkHz;
 
+    // ------------------------------------------------------------------
+    // QSY automat inainte de emisie (RttyTxSettings.AutoQsy)
+    // ------------------------------------------------------------------
+
+    /// <summary>Pauza dupa QSY, inainte de PTT, ca statia sa termine mutarea.</summary>
+    public const int AutoQsySettleMs = 250;
+
+    /// <summary>
+    /// Decizia QSY-ului automat: frecventa calculata la ultimul A-TUNE (<paramref name="pendingDial"/>),
+    /// daca statia e in RTTY-L / RTTY-U, n-a plecat de unde era la A-TUNE si frecventa calculata difera de
+    /// a ei. Altfel null. E acelasi QSY ca la dublu click pe A-TUNE, facut la emisie.
+    /// </summary>
+    public static long? AutoQsyPlan(long? pendingDial, long pendingFrom, long dialHz, RigMode mode)
+    {
+        if (pendingDial is not { } dial || !RigMath.IsRtty(mode)) return null;
+        if (dialHz != pendingFrom || dial == dialHz) return null;
+        return dial;
+    }
+
+    /// <summary>Inainte de un raspuns: QSY-ul pregatit de A-TUNE. True = s-a mutat (emisia asteapta putin).</summary>
+    private bool TryAutoQsy()
+    {
+        if (_rig == null || !_rigState.Connected) return false;
+        if (AutoQsyPlan(_pendingQsyDial, _pendingQsyFrom, _rigState.FrequencyHz, _rigState.Mode) is not { } dial)
+            return false;
+        long diff = dial - _rigState.FrequencyHz;
+        ApplyTxQsy(dial);
+        Message = $"QSY automat {diff:+0;-0} Hz (A-TUNE) inainte de emisie: statia pe {RigMath.FormatFrequency(dial)}.";
+        return true;
+    }
+
+    /// <summary>Uita QSY-ul pregatit de A-TUNE (click pe alt semnal, CQ).</summary>
+    private void ForgetPendingQsy()
+    {
+        if (_pendingQsyDial == null) return;
+        _pendingQsyDial = null;
+        UpdateRigText();
+    }
+
+    /// <summary>Statia pe frecventa pentru emisie, decodorul pe perechea 2125 / 2295.</summary>
+    private void ApplyTxQsy(long dial)
+    {
+        _pendingQsyDial = null;
+        _rig!.SetFrequency(dial);
+        // perechea semnalului vine pe 2125 / 2295: Mark-ul pe tonul de jos (NORM) sau de sus (REV)
+        // (dupa SyncFromSettings deja in coada)
+        double mark = MarkAfterQsy(Reverse);
+        _dispatcher.BeginInvoke(() => MarkFrequencyHz = mark, System.Windows.Threading.DispatcherPriority.Background);
+        UpdateRigText();
+    }
+
     /// <summary>Statia e conectata si in RTTY-L / RTTY-U (FSK).</summary>
     public bool RigInRtty => _rig != null && _rigState.Connected && RigMath.IsRtty(_rigState.Mode);
 
@@ -158,16 +209,11 @@ public sealed partial class RttyDecoderViewModel
             Message = "Statia s-a mutat intre timp - apasa din nou A-TUNE.";
             return;
         }
-        _pendingQsyDial = null;
         // dublu click: al doilea "click" al butonului vine dupa (la ridicarea mouse-ului) si ar acorda
         // decodorul pe pozitia veche a semnalului - A-TUNE se ignora putin dupa QSY
         _ignoreAutoTuneUntil = DateTime.UtcNow.AddSeconds(1.5);
-        _rig.SetFrequency(dial);
-        // perechea semnalului vine pe 2125 / 2295: Mark-ul pe tonul de jos (NORM) sau de sus (REV)
-        // (dupa SyncFromSettings deja in coada)
+        ApplyTxQsy(dial);
         double mark = MarkAfterQsy(Reverse);
-        _dispatcher.BeginInvoke(() => MarkFrequencyHz = mark, System.Windows.Threading.DispatcherPriority.Background);
-        UpdateRigText();
         Message = $"QSY: statia pe {RigMath.FormatFrequency(dial)} - semnalul pe {FskMarkHz:0} / {FskMarkHz + RttySettings.ShiftHz:0} Hz (Mark {mark:0}), emisia pe frecventa lui.";
     }
 

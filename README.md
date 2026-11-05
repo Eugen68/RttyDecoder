@@ -82,6 +82,11 @@ Conexiune statie:
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
   limita unei emisii (180 s), CR/LF automat, diddle, inversarea pinului FSK (implicit oprita).
   Valorile implicite sunt cele din aplicatia Android. AFSK urmeaza.
+- **QSY automat inainte de raspuns** (Setari transmisie, implicit oprit): la un macro sau text (Enter)
+  care **nu incepe cu CQ**, dupa un **A-TUNE** care a calculat alta frecventa decat a statiei, statia se
+  muta intai acolo (ca dublu click pe A-TUNE), apoi pleaca emisia (~250 ms mai tarziu). Doar in RTTY-L /
+  RTTY-U. Nu muta: CQ-ul (chemi pe frecventa ta - si uita QSY-ul pregatit), LIVE, dupa un click pe alt
+  semnal in waterfall sau daca statia s-a mutat de la A-TUNE.
 - **Polaritatea emisiei**: pinul FSK pleaca mereu normal (activ = Mark) - **NORM/REV e doar pentru
   receptie**, iar emisia nu depinde nici de modul statiei. Testul pe statii (FTDX10 <-> FTX-1 +
   aplicatia Android, `tools/android-patch/README.md`): emisia iese la fel in RTTY-L si RTTY-U, doar
