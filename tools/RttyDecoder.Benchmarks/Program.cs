@@ -39,7 +39,7 @@ public static class Program
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try
         {
-            if (args.Length == 0) throw new ArgumentException("run|case|fsk-timing --output dossier [--input dossier --manifest fichier --revision SHA --only sample]");
+            if (args.Length == 0) throw new ArgumentException("run|case|fsk-timing --output folder [--input folder --manifest fisier --revision SHA --only sample]");
             var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             for (int i = 1; i < args.Length; i += 2)
             {
@@ -48,7 +48,7 @@ public static class Program
             }
             string output = Path.GetFullPath(options.GetValueOrDefault("output", "benchmark-results"));
             Directory.CreateDirectory(output);
-            if (args[0] == "fsk-timing") { await FskTiming.Run(output); return 0; }
+            if (args[0] == "fsk-timing") { await FskTiming.Run(output, options.GetValueOrDefault("revision", "unknown")); return 0; }
             string manifest = Path.GetFullPath(options.GetValueOrDefault("manifest", "tools/RttyDecoder.Benchmarks/manifest.json"));
             var corpus = JsonSerializer.Deserialize<Corpus>(await File.ReadAllTextAsync(manifest), Json)
                 ?? throw new InvalidDataException("Manifest gol.");
@@ -210,7 +210,7 @@ public static class Program
         uint seed = 12345;
         for (int i = 0; i < seconds * 8000; i++)
         {
-            // Somme de 12 uniformes (gaussienne approchee), PRNG entier fixe.
+            // Suma a 12 uniforme (aproximare gaussiana), PRNG intreg fix.
             double sample = 0;
             for (int j = 0; j < 12; j++) { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; sample += seed / 4294967296.0; }
             writer.WriteSample((float)((sample - 6) * 0.03));

@@ -29,7 +29,10 @@ jobs:
       - name: Compilare benchmark
         run: dotnet build tools/RttyDecoder.Benchmarks -c Release
       - name: Temporizare FSK (fara hardware)
-        run: dotnet tools/RttyDecoder.Benchmarks/bin/Release/net10.0/RttyDecoder.Benchmarks.dll fsk-timing --output benchmark-results
+        shell: pwsh
+        env:
+          BENCH_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: dotnet tools/RttyDecoder.Benchmarks/bin/Release/net10.0/RttyDecoder.Benchmarks.dll fsk-timing --output benchmark-results --revision $env:BENCH_REVISION
       - name: Decodare reproductibila (setari si SHA256 in rezultate)
         shell: pwsh
         env:

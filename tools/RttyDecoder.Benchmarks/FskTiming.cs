@@ -5,7 +5,7 @@ using RttyDecoder.Core.Tx;
 
 namespace RttyDecoder.Benchmarks;
 
-public sealed record TimingResult(string Load, int BusyThreads, int Intervals, double MedianAbsoluteErrorMs,
+public sealed record TimingResult(string Revision, string Load, int BusyThreads, int Intervals, double MedianAbsoluteErrorMs,
     double P95AbsoluteErrorMs, double MaxAbsoluteErrorMs, double MaxPositiveErrorMs, double MedianBitMs,
     string OS, string Runtime);
 
@@ -18,7 +18,7 @@ public static class FskTiming
         public void SetLine(bool active) => Times.Add(Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency);
     }
 
-    public static async Task Run(string output)
+    public static async Task Run(string output, string revision)
     {
         var results = new List<TimingResult>();
         foreach (bool load in new[] { false, true })
@@ -61,7 +61,7 @@ public static class FskTiming
                 }
                 string name = load ? "cpu-load" : "idle";
                 await File.WriteAllTextAsync(Path.Combine(output, "fsk-" + name + ".csv"), rows.ToString());
-                results.Add(new(name, workers, errors.Count, Scoring.Percentile(errors.Select(Math.Abs), 0.5),
+                results.Add(new(revision, name, workers, errors.Count, Scoring.Percentile(errors.Select(Math.Abs), 0.5),
                     Scoring.Percentile(errors.Select(Math.Abs), 0.95), errors.Max(Math.Abs), errors.Max(),
                     Scoring.Percentile(bits, 0.5), System.Runtime.InteropServices.RuntimeInformation.OSDescription,
                     System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription));
@@ -70,7 +70,7 @@ public static class FskTiming
         }
         await File.WriteAllTextAsync(Path.Combine(output, "fsk-timing.json"), JsonSerializer.Serialize(results, Program.Json));
         var report = new StringBuilder("# FSK: temporizare software\n\n");
-        report.AppendLine($"{results[0].OS}; {results[0].Runtime}. Bit nominal: {1000 / RttyTxSettings.Baud:0.000} ms; 1.5 biti de stop. 48 caractere RY pe fiecare proba.\n");
+        report.AppendLine($"Commit: `{revision}`. {results[0].OS}; {results[0].Runtime}. Bit nominal: {1000 / RttyTxSettings.Baud:0.000} ms; 1.5 biti de stop. 48 caractere RY pe fiecare proba.\n");
         report.AppendLine("| Sarcina | Fire CPU ocupate | Intervale | Bit median ms | Eroare absoluta mediana ms | P95 ms | Max ms |\n|---|---:|---:|---:|---:|---:|---:|");
         foreach (var r in results) report.AppendLine($"| {r.Load} | {r.BusyThreads} | {r.Intervals} | {r.MedianBitMs:0.000} | {r.MedianAbsoluteErrorMs:0.000} | {r.P95AbsoluteErrorMs:0.000} | {r.MaxAbsoluteErrorMs:0.000} |");
         report.AppendLine("\nMasurare la intrarea in IFskOutput.SetLine, fara port serial, PTT fizic sau emisie radio. Nu masoara jitter-ul USB/driverului/pinului. Runnerul CI este partajat; rezultatele sunt diagnostic, nu limita garantata si nu blocheaza build-ul pe un prag de jitter. CSV-urile pastreaza fiecare interval.\n");

@@ -301,13 +301,18 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             if (Set(ref _decoder, value))
             {
                 OnPropertyChanged(nameof(IsChebyshev));
+                OnPropertyChanged(nameof(IsClassic));
+                OnPropertyChanged(nameof(IsChebyshevDecoder));
+                OnPropertyChanged(nameof(CanAdjustSnrGate));
+                OnPropertyChanged(nameof(CanAdjustSquelch));
+                OnPropertyChanged(nameof(DecoderHelp));
                 if (value == RttyDecoderType.DeepRtty && !Receiver.IsDeepRttyReady) Message = "DeepRTTY: se incarca modelul...";
                 Push(s => s.Decoder = value);
             }
         }
     }
 
-    /// <summary>Latimea filtrului si ATC au efect doar pe Chebyshev (si DeepRTTY, unde clasicul ramane pentru SNR/AFC).</summary>
+    /// <summary>Filtrele Chebyshev: text clasic sau masurare SNR/AFC la DeepRTTY.</summary>
     public bool IsChebyshev => Decoder != RttyDecoderType.MatchedFilter;
 
     private RttyTracking _tracking;
@@ -326,7 +331,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     public double DnrWidthHz { get => _dnrWidthHz; set { if (Set(ref _dnrWidthHz, value)) Push(s => s.DnrWidthHz = value); } }
 
     private bool _snrGating;
-    public bool SnrGating { get => _snrGating; set { if (Set(ref _snrGating, value)) Push(s => s.SnrGating = value); } }
+    public bool SnrGating { get => _snrGating; set { if (Set(ref _snrGating, value)) { OnPropertyChanged(nameof(CanAdjustSnrGate)); Push(s => s.SnrGating = value); } } }
 
     private double _snrGatingK;
     public double SnrGatingK { get => _snrGatingK; set { if (Set(ref _snrGatingK, value)) Push(s => s.SnrGatingK = value); } }
@@ -349,7 +354,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
 
     private bool _squelch;
     /// <summary>SQL: textul decodorului clasic iese doar cand caracterele vin in ritmul RTTY.</summary>
-    public bool Squelch { get => _squelch; set { if (Set(ref _squelch, value)) Push(s => s.Squelch = value); } }
+    public bool Squelch { get => _squelch; set { if (Set(ref _squelch, value)) { OnPropertyChanged(nameof(CanAdjustSquelch)); Push(s => s.Squelch = value); } } }
 
     private double _squelchPercent;
     /// <summary>Pragul SQL in procente (10-80): proportia minima de caractere in ritm.</summary>
@@ -361,6 +366,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     {
         Receiver.ApplySettings(settings);
         SyncFromSettings(Receiver.Settings);
+        SyncProfile(Receiver.Settings, infer: true);
     }
 
     private void Push(Action<RttySettings> change)
@@ -399,6 +405,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
         {
             _syncing = false;
         }
+        SyncProfile(s);
     }
 
     // ------------------------------------------------------------------
