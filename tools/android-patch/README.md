@@ -10,7 +10,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b` pe `refactorizare_claude_2`) - vezi „Aplicat in Android cu corectii" |
 | `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b`, impreuna cu cel de sus) |
 | `atune-corectii.patch` | corectiile peste cele doua patch-uri A-TUNE: polaritatea dupa durate (RYRY), tonul QSY cu discriminator de faza, try/catch, `FA;` recitit | aplicat in Android (`7ff7b6b`); se aplica **dupa** `atune-qsy.patch` |
-| `atune-poarta-durate.patch` | duratele decid polaritatea doar daca exista si un minim de incadrare (0.30) - fara semnal decodabil rularile sunt intamplatoare | propus - se aplica pe `7ff7b6b` |
+| `atune-poarta-durate.patch` | duratele decid polaritatea doar daca exista si un minim de incadrare (0.30) - fara semnal decodabil rularile sunt intamplatoare | aplicat in Android (`d139a48` pe `refactorizare_claude_2`) |
 
 ## DeepRtty.patch
 
@@ -302,3 +302,15 @@ cazurile in care trece si un semnal nedecodabil (QRN, alt semnal mai puternic).
 Patch-ul atinge doar `RttyPolarity.java` (+11/-1). `RttyPolarityTest` + `RttyQsyTest` 16/16 cu el.
 Masuratoarea de mai sus e facuta cu C#-ul (acelasi algoritm si praguri); Java-ul nu l-am rulat pe
 inregistrari.
+
+**Aplicat in Android (`d139a48`), verificat si pe Java.** Aceleasi inregistrari la 48 kHz, toate
+ferestrele de 5 s cu pas de 1 s, tonul real (rafinat cu discriminatorul), NORM + REV oglindit:
+
+| Inregistrare | Fara poarta (`7ff7b6b`) | Poarta 0.25 | Poarta 0.30 |
+|---|---|---|---|
+| 14089 (RYRY) | 1030 corecte / 0 gresite | 1022 / 0 | 1010 / 0 |
+| 14086 | 4563 / 2 | 4563 / 0 | 4560 / 0 |
+| QRN 7086 | 2189 / 71 | 2003 / 2 | 1967 / 0 |
+
+0.30 e singurul prag fara greseli pe toate trei; se pierd 1-10% din deciziile corecte (A-TUNE lasa
+atunci NORM/REV cum era). `RttyPolarityTest` + `RttyQsyTest` 16/16 in Gradle.
