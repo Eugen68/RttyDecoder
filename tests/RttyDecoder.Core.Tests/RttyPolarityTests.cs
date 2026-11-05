@@ -5,9 +5,14 @@ namespace RttyDecoder.Core.Tests;
 
 public class RttyPolarityTests
 {
-    private static float[] Audio(bool spaceBelow, double snr, int fs, long seed = 3, double markHz = 2125, bool typing = false)
+    private const string RyText =
+        "RYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRY\n" +
+        "RYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRYRY\n";
+
+    private static float[] Audio(bool spaceBelow, double snr, int fs, long seed = 3, double markHz = 2125, bool typing = false,
+                                 string text = Text)
     {
-        var pcm = Generate(Text, new Options
+        var pcm = Generate(text, new Options
         {
             SnrDb = snr, Seed = seed, SampleRate = fs, SpaceBelow = spaceBelow, MarkHz = markHz, TypingPauses = typing,
         });
@@ -47,13 +52,36 @@ public class RttyPolarityTests
         Assert.True(r.MarkIsLow, r.ToString());
     }
 
+    /// <summary>
+    /// RYRY (biti alternanti) se incadreaza aproape la fel de bine si cu polaritatea inversata - pe
+    /// inregistrarea reala W6IWI 14089 incadrarea singura gresea ~6% din decizii (testul lui Eugen in
+    /// Android, 7ff7b6b). Duratele (stopul de 1.5 biti e pe Mark) decid corect.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Ryry(bool rev)
+    {
+        foreach (double snr in new[] { double.PositiveInfinity, 10.0, 6.0 })
+            for (long seed = 1; seed <= 3; seed++)
+            {
+                const int fs = 48000;
+                var r = RttyPolarity.Detect(Audio(rev, snr, fs, seed, rev ? 2295 : 2125, text: RyText), fs, 2125, 2295);
+                Assert.True(r.MarkIsLow == !rev,
+                    $"{(rev ? "REV" : "NORM")} SNR {snr} seed {seed}: {r}");
+            }
+    }
+
     [Fact]
     public void ZgomotulNuDecide()
     {
-        var rnd = new Random(1);
-        var a = new float[5 * 11025];
-        for (int i = 0; i < a.Length; i++) a[i] = (float)(0.1 * (rnd.NextDouble() * 2 - 1));
-        Assert.Null(RttyPolarity.Detect(a, 11025, 2125, 2295).MarkIsLow);
+        for (int seed = 1; seed <= 50; seed++)
+        {
+            var rnd = new Random(seed);
+            var a = new float[5 * 11025];
+            for (int i = 0; i < a.Length; i++) a[i] = (float)(0.1 * (rnd.NextDouble() * 2 - 1));
+            Assert.True(RttyPolarity.Detect(a, 11025, 2125, 2295).MarkIsLow == null, $"seed {seed}");
+        }
         Assert.Null(RttyPolarity.Detect(new float[100], 11025, 2125, 2295).MarkIsLow);   // prea scurt
     }
 }

@@ -10,6 +10,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b` pe `refactorizare_claude_2`) - vezi „Aplicat in Android cu corectii" |
 | `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b`, impreuna cu cel de sus) |
 | `atune-corectii.patch` | corectiile peste cele doua patch-uri A-TUNE: polaritatea dupa durate (RYRY), tonul QSY cu discriminator de faza, try/catch, `FA;` recitit | aplicat in Android (`7ff7b6b`); se aplica **dupa** `atune-qsy.patch` |
+| `atune-poarta-durate.patch` | duratele decid polaritatea doar daca exista si un minim de incadrare (0.30) - fara semnal decodabil rularile sunt intamplatoare | propus - se aplica pe `7ff7b6b` |
 
 ## DeepRtty.patch
 
@@ -234,7 +235,9 @@ stricte: 12 caractere, diferenta 0.30, scor minim 0.6.
 
 Am incercat si verificarea „stop inainte de start" pe incadrare - a iesit mai rau, deci respinsa.
 
-**Acelasi defect e si in C#** (`RttyPolarity.cs`) - de portat corectia si pe PC.
+**Acelasi defect e si in C#** (`RttyPolarity.cs`) - de portat corectia si pe PC. *Portat* in
+RttyDecoder (duratele, pragurile noi, test RYRY si zgomot pe 50 de seed-uri), cu o poarta in plus -
+vezi `atune-poarta-durate.patch` mai jos.
 
 ### 2. Tonul pentru QSY: discriminator de faza in loc de maximul puterii (`RttyQsy.java`)
 
@@ -271,3 +274,31 @@ compileaza.
 
 De verificat pe statie: A-TUNE pune singur REV in RTTY-U; dublu tap muta statia si FTDX10 decodeaza
 pe frecventa lui; comportamentul pe VFO-B / split.
+
+## atune-poarta-durate.patch
+
+La portarea corectiei de polaritate in C# am masurat pe aceleasi inregistrari (WAV-uri de 8 kHz din
+`recordings`), dar pe **toate** ferestrele de 5 s cu pas de 1 s, fara filtrul de semnal al A-TUNE
+(`maxPairScore`), perechea de tonuri gasita cu FFT pe fiecare fereastra; REV = spectrul oglindit in
+jurul centrului perechii. Gresite din decise, NORM + REV:
+
+| Inregistrare | Incadrarea (veche) | Duratele (`7ff7b6b`) | Duratele + poarta 0.30 |
+|---|---|---|---|
+| 14089 (RYRY) | 22 din 327 | 1 din 941 | 1 din 889 |
+| 14086 | 8 din 2729 | 39 din 4475 | 0 din 4426 |
+| QRN 7086 | 16 din 884 | 91 din 2147 | 1 din 1843 |
+
+Toate deciziile gresite ale duratelor aveau scorul de incadrare foarte mic la ambele ipoteze
+(0.05-0.24): in fereastra nu era semnal decodabil (pauza intre emisii, alt semnal - perechea sarea
+pe 1131 sau 1244 Hz - ori QRN), iar rularile erau intamplatoare. Incadrarea veche zicea „nesigur"
+acolo; duratele decideau oricum. Poarta: duratele decid doar daca macar o ipoteza incadreaza 30% din
+caractere (`MIN_INCADRARE_DURATE`). Pe 0.25 iesea la fel de bine (QRN 3 gresite), pe 0.20 raman
+cateva greseli.
+
+Pe A-TUNE din Android, `maxPairScore > 0.002` filtreaza deja multe ferestre fara semnal - de aceea
+masuratoarea ta (ferestrele cu semnal) dadea 0 gresite si fara poarta. Poarta e o asigurare pentru
+cazurile in care trece si un semnal nedecodabil (QRN, alt semnal mai puternic).
+
+Patch-ul atinge doar `RttyPolarity.java` (+11/-1). `RttyPolarityTest` + `RttyQsyTest` 16/16 cu el.
+Masuratoarea de mai sus e facuta cu C#-ul (acelasi algoritm si praguri); Java-ul nu l-am rulat pe
+inregistrari.

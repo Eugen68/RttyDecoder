@@ -121,10 +121,11 @@ decodorului.
 
 **A-TUNE si frecventa pentru emisie (FSK).** La FSK statia emite exact unde e acordata, deci ca sa
 raspunzi pe frecventa corespondentului trebuie mutata **statia**, nu doar decodorul:
-- **un click pe A-TUNE**: gaseste perechea de tonuri (170 Hz) si stabileste **care e Mark** dupa
-  incadrarea caracterelor pe ultimele ~5 s (cu polaritatea corecta fiecare caracter incepe cu un
-  bit de start Space si se termina cu stopul Mark; cu cea gresita nu) - decodorul se acordeaza pe
-  Mark-ul real, cu NORM/REV pus dupa semnal. In subsidiar calculeaza frecventa statiei pentru
+- **un click pe A-TUNE**: gaseste perechea de tonuri (170 Hz) si stabileste **care e Mark** pe
+  ultimele ~5 s: intai dupa durate (stopul de 1.5 biti e pe Mark, deci doar Mark-ul are rulari de
+  x.5 biti), apoi, daca duratele nu decid, dupa incadrarea caracterelor (start pe Space, stop pe
+  Mark) - decodorul se acordeaza pe Mark-ul real, cu NORM/REV pus dupa semnal. Pe RYRY incadrarea
+  singura se insela; duratele nu. In subsidiar calculeaza frecventa statiei pentru
   emisie (Mark-ul semnalului pe 2125; in RTTY-L ca in LSB, in RTTY-U ca in USB), afisata in mesaj
   si langa VFO (`TX: 3.501.300`);
 - **dublu click pe A-TUNE**: muta statia pe frecventa calculata, decodorul pe 2125;
