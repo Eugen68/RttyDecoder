@@ -9,6 +9,7 @@ Repo-ul Android il intretine Eugen; aici sunt doar propuneri, de aplicat cu `git
 | `fsk-rtty-u.patch` | emisia FSK inversata in RTTY-U | **respins** - testul pe statii arata ca emisia era deja corecta (vezi mai jos) |
 | `atune-polaritate.patch` | A-TUNE detecteaza singur care ton e Mark si pune NORM/REV (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b` pe `refactorizare_claude_2`) - vezi „Aplicat in Android cu corectii" |
 | `atune-qsy.patch` | dublu tap pe A-TUNE: statia pe frecventa corespondentului pentru emisie (ca RttyDecoder pe PC) | aplicat **cu corectii** in Android (`7ff7b6b`, impreuna cu cel de sus) |
+| `atune-corectii.patch` | corectiile peste cele doua patch-uri A-TUNE: polaritatea dupa durate (RYRY), tonul QSY cu discriminator de faza, try/catch, `FA;` recitit | aplicat in Android (`7ff7b6b`); se aplica **dupa** `atune-qsy.patch` |
 
 ## DeepRtty.patch
 
@@ -203,6 +204,16 @@ Cele doua patch-uri A-TUNE s-au aplicat pe `refactorizare_claude_2`, dar testate
 reale (W6IWI 14089 cu RYRY, 14086, QRN 7086 - WAV-uri la 48 kHz, ferestre de 5 s ca la A-TUNE; REV
 sintetizat prin oglindirea spectrului in jurul centrului perechii) au aratat doua probleme. Codul din
 Android difera deci de patch-uri in urmatoarele puncte:
+
+Diferenta exacta e in **`atune-corectii.patch`** (de citit la portarea in C#):
+
+```
+git apply atune-polaritate.patch
+git apply atune-qsy.patch
+git apply atune-corectii.patch
+```
+
+Rezultatul e identic cu `7ff7b6b`; verificat ca se aplica si pe `ea922b9` (`master`).
 
 ### 1. Polaritatea: duratele inaintea incadrarii (`RttyPolarity.java`)
 
