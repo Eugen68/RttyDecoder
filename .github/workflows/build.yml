@@ -78,7 +78,23 @@ jobs:
             if ($text -notmatch 'YO9VA,Romania,YO,EU,20,28,1,') { throw "${dec}: YO9VA lipseste din lista statiilor" }
           }
 
-      - name: Arhiva
+      - name: Test de fum Contest (fereastra separata, jurnal si export)
+        shell: pwsh
+        run: |
+          $p = Start-Process publish\RttyDecoder.exe -ArgumentList '--contest-smoke', 'contest-artifacts' -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'Contest: timeout' }
+          Get-Content contest-artifacts\result.txt
+          if ($p.ExitCode -ne 0) { throw "Contest: exit $($p.ExitCode)" }
+          if ((Get-Content contest-artifacts\result.txt -Raw) -notmatch '^PASS:') { throw 'Contest smoke failed' }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RttyDecoder-Contest-previews
+          path: contest-artifacts
+          if-no-files-found: ignore
+
+      - name: Arhiva Windows
         shell: pwsh
         run: Compress-Archive -Path publish\* -DestinationPath RttyDecoder-win-x64.zip
 

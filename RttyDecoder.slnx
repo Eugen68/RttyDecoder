@@ -9,6 +9,7 @@
     <Project Path="external/HamCallsign/src/HamCallsign/HamCallsign.csproj" />
     <Project Path="external/HamCallsign/src/HamCallsign.Online/HamCallsign.Online.csproj" />
     <Project Path="external/HamRig/src/HamRig/HamRig.csproj" />
+    <Project Path="external/HamContest/src/HamContest/HamContest.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/RttyDecoder.Benchmarks/RttyDecoder.Benchmarks.csproj" />

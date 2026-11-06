@@ -30,6 +30,14 @@
                           ToolTip="Verifica pe internet cty.dat, MASTER.SCP si LoTW si le foloseste imediat pe cele noi" />
                 <MenuItem Header="_Starea datelor..." Click="OnDataStatus" />
             </MenuItem>
+            <MenuItem Header="_Contest">
+                <MenuItem Header="Deschide fereastra de _concurs..." Click="OnOpenContest" InputGestureText="Ctrl+Shift+C"
+                          ToolTip="Fereastra separata: UDC, schimburi, seriale, jurnal, ADIF si Cabrillo" />
+                <Separator />
+                <MenuItem Header="Folder definitii _UDC" Click="OnContestDefinitionsFolder" />
+                <MenuItem Header="Folder liste _SEC" Click="OnContestSupportFolder" />
+                <MenuItem Header="Folder _sesiuni salvate" Click="OnContestSessionsFolder" />
+            </MenuItem>
             <MenuItem Header="_Setari">
                 <MenuItem Header="_Conexiune statie..." Click="OnRigSettings"
                           ToolTip="Direct pe portul serial (CAT Yaesu) sau prin OmniRig" />
