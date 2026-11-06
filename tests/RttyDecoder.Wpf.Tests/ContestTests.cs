@@ -14,24 +14,22 @@ namespace RttyDecoder.Wpf.Tests;
 
 public class ContestTests
 {
-    private static Task Sta(Func<Task> action)
+    // WPF native HWND callbacks may outlive an individual test action. Keep the STA dispatcher
+    // alive for this test host instead of destroying its CLR thread state after every window.
+    private static readonly Lazy<Dispatcher> Ui = new(() =>
     {
-        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ready = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
         {
             var dispatcher = Dispatcher.CurrentDispatcher;
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
-            dispatcher.BeginInvoke(async () =>
-            {
-                try { await action(); done.SetResult(); }
-                catch (Exception error) { done.SetException(error); }
-                finally { dispatcher.BeginInvokeShutdown(DispatcherPriority.Background); }
-            });
+            ready.SetResult(dispatcher);
             Dispatcher.Run();
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA); thread.Start();
-        return done.Task.WaitAsync(TimeSpan.FromSeconds(40));
-    }
+        return ready.Task.GetAwaiter().GetResult();
+    });
+    private static Task Sta(Func<Task> action) => Ui.Value.InvokeAsync(action).Task.Unwrap().WaitAsync(TimeSpan.FromSeconds(40));
     private sealed class Host : IContestHost
     {
         public long? FrequencyHz { get; set; } = 14_080_000;
