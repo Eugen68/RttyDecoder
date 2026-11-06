@@ -19,4 +19,39 @@
     <ProjectReference Include="..\RttyDecoder.Wpf\RttyDecoder.Wpf.csproj" />
   </ItemGroup>
 
+  <!--
+    Informatii de build pentru fereastra Despre: commit-ul (git), numarul rularii CI (GitHub Actions)
+    si momentul build-ului (UTC). Fara git (sursa copiata), commit-ul ramane gol.
+  -->
+  <Target Name="RttyBuildInfo" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git rev-parse --short=7 HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true"
+          StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="RttyCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="RttyCommitExit" />
+    </Exec>
+    <Exec Command="git status --porcelain --untracked-files=no" ConsoleToMSBuild="true" IgnoreExitCode="true"
+          StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="RttyDirty" />
+    </Exec>
+    <PropertyGroup>
+      <RttyCommit Condition="'$(RttyCommitExit)' != '0'"></RttyCommit>
+      <RttyCommit Condition="'$(RttyCommit)' != '' and '$(RttyDirty)' != ''">$(RttyCommit)+modificat</RttyCommit>
+      <RttyBuildTime>$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))</RttyBuildTime>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>BuildCommit</_Parameter1>
+        <_Parameter2>$(RttyCommit)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>BuildNumber</_Parameter1>
+        <_Parameter2>$(GITHUB_RUN_NUMBER)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>BuildTime</_Parameter1>
+        <_Parameter2>$(RttyBuildTime)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+
 </Project>

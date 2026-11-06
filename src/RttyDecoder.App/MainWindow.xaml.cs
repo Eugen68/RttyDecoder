@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Windows;
@@ -286,8 +287,26 @@ public partial class MainWindow : Window
             "Copyright (c) 2026 Eugen Trifu, YO9VA - licenta MIT\n\n" +
             "Decodor RTTY (Chebyshev, Matched Filter, DeepRTTY) portat din aplicatia Android Yaesu-FTX1-CAT-Control.\n" +
             "Indicative: biblioteca HamCallsign (cty.dat AD1C, MASTER.SCP, LoTW).\n\n" +
-            "https://github.com/Eugen68/RttyDecoder",
+            "https://github.com/Eugen68/RttyDecoder" +
+            (BuildInfo(a) is { Length: > 0 } build ? "\n\n" + build : ""),
             "Despre RTTY Decoder", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>
+    /// "Build #57 · commit 82e01be · 06.11.2026 14:32" (ora locala), din metadatele puse la compilare
+    /// (RttyDecoder.App.csproj, tinta RttyBuildInfo). Ce lipseste nu apare.
+    /// </summary>
+    internal static string BuildInfo(Assembly assembly)
+    {
+        string? Meta(string key) => assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(m => m.Key == key)?.Value is { Length: > 0 } v ? v : null;
+        var parts = new List<string>();
+        if (Meta("BuildNumber") is { } number) parts.Add("Build #" + number);
+        if (Meta("BuildCommit") is { } commit) parts.Add("commit " + commit);
+        if (Meta("BuildTime") is { } time && DateTime.TryParse(time, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var utc))
+            parts.Add(utc.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture));
+        return string.Join(" · ", parts);
     }
 
     protected override void OnClosing(CancelEventArgs e)
