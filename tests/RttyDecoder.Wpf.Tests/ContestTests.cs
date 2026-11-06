@@ -1,0 +1,255 @@
+using System.IO;
+using System.Text.RegularExpressions;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using HamContest;
+using RttyDecoder.Core;
+using RttyDecoder.Wpf;
+using RttyDecoder.Wpf.Contest;
+
+namespace RttyDecoder.Wpf.Tests;
+
+public class ContestTests
+{
+    private static Task Sta(Func<Task> action)
+    {
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            var dispatcher = Dispatcher.CurrentDispatcher;
+            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
+            dispatcher.BeginInvoke(async () =>
+            {
+                try { await action(); done.SetResult(); }
+                catch (Exception error) { done.SetException(error); }
+                finally { dispatcher.BeginInvokeShutdown(DispatcherPriority.Background); }
+            });
+            Dispatcher.Run();
+        }) { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA); thread.Start();
+        return done.Task.WaitAsync(TimeSpan.FromSeconds(40));
+    }
+    private sealed class Host : IContestHost
+    {
+        public long? FrequencyHz { get; set; } = 14_080_000;
+        public bool IsBusy { get; set; }
+        public string MyCall => "YO9VA";
+        public List<string> Sent { get; } = new();
+        public Action? BeforeSend { get; set; }
+        public bool Accept { get; set; } = true;
+        public int Stops { get; private set; }
+        public bool TryTransmit(string text) { BeforeSend?.Invoke(); if (!Accept) return false; Sent.Add(text); return true; }
+        public void Stop() => Stops++;
+    }
+    private sealed class Workspace : IDisposable
+    {
+        public string Root { get; } = Path.Combine(Path.GetTempPath(), "RttyContest-tests-" + Guid.NewGuid().ToString("N"));
+        public Host Host { get; } = new();
+        public ContestFiles Files { get; }
+        public ContestViewModel Model { get; }
+        public bool FailWrites { get; set; }
+        public Workspace()
+        {
+            Files = new(Root, (path, text) => { if (FailWrites) throw new IOException("Simulated disk error"); ContestFiles.AtomicWrite(path, text); });
+            Model = new(Files, ContestStationResolver.Load(), Host);
+        }
+        public void Start() { Model.CreateSession(); Fill(); }
+        public void Fill(string call = "YO3ABC") { Model.SelectCallsign(call); Model.Entry.Serial = "12"; Model.Entry.Exchange = "BU"; }
+        public void Dispose() { if (Directory.Exists(Root)) Directory.Delete(Root, true); }
+    }
+
+    [Fact]
+    public Task ReservationIsDurableBeforeTxAndRepeatRestartUseTheSameNumber() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start();
+        work.Host.BeforeSend = () =>
+        {
+            var saved = work.Files.Load(work.Model.SessionPath);
+            Assert.Equal("YO3ABC", saved.PendingContact!.Callsign);
+            Assert.Contains("\"Number\": 1", saved.SessionJson);
+        };
+        work.Model.Send("REPORT"); work.Model.Send("REPORT");
+        Assert.Equal(2, work.Host.Sent.Count); Assert.All(work.Host.Sent, text => Assert.Contains("001 001", text));
+        Assert.Empty(work.Model.Contacts);
+        // A session stores its own UDC; editing/removing the catalog must not change a running journal.
+        File.WriteAllText(Path.Combine(work.Files.DefinitionsFolder, "DEMO-RTTY.udc"), "[Contest]\nName=BROKEN\nNewRule=True");
+        var reopened = new ContestViewModel(work.Files, ContestStationResolver.Load(), work.Host);
+        reopened.LoadSession(work.Model.SessionPath);
+        Assert.True(reopened.IsReserved); Assert.Equal("YO3ABC", reopened.Entry.Callsign);
+        reopened.LogContact();
+        Assert.Equal(1, reopened.Contacts.Single().Qso.Sent.Serial);
+        Assert.Equal(2, reopened.Contacts.Single().Points);
+        Assert.Contains("002", reopened.SerialText);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task FailedPersistenceCannotTransmitOrSpendANumberAndFailedCancelKeepsReservation() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start();
+        work.FailWrites = true;
+        Assert.False(work.Model.Run(() => work.Model.Send("REPORT")));
+        Assert.Empty(work.Host.Sent); Assert.False(work.Model.IsReserved); Assert.Contains("001", work.Model.SerialText);
+        work.FailWrites = false; work.Model.ReserveSerial();
+        work.FailWrites = true;
+        Assert.False(work.Model.Run(work.Model.CancelContact)); Assert.True(work.Model.IsReserved);
+        Assert.NotNull(work.Files.Load(work.Model.SessionPath).PendingContact);
+        work.FailWrites = false; work.Model.CancelContact(); work.Fill(); work.Model.LogContact();
+        Assert.Equal(2, work.Model.Contacts.Single().Qso.Sent.Serial);
+        Assert.Empty(work.Host.Sent);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task InvalidReceivedExchangeDoesNotAdvanceSerialOrJournal() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start(); work.Model.Entry.Exchange = "INVALID";
+        Assert.False(work.Model.Run(work.Model.LogContact));
+        Assert.Empty(work.Model.Contacts); Assert.Contains("001", work.Model.SerialText);
+        work.Model.Entry.Exchange = "BU"; work.Model.LogContact();
+        Assert.Equal(1, work.Model.Contacts.Single().Qso.Sent.Serial);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task BoundCallCannotBeSwitchedAndBusyHostBlocksChanges() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start(); work.Model.ReserveSerial();
+        work.Model.SelectCallsign("YO4ABC"); Assert.Equal("YO3ABC", work.Model.Entry.Callsign);
+        work.Host.IsBusy = true;
+        Assert.Throws<InvalidOperationException>(work.Model.LogContact);
+        Assert.Throws<InvalidOperationException>(work.Model.CancelContact);
+        work.Host.IsBusy = false; work.Model.LogContact();
+        Assert.Equal("YO3ABC", work.Model.Contacts.Single().Call);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task EditingAndDeletingRecalculateDupesAndPreserveTransmittedNumbers() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start(); work.Model.LogContact();
+        work.Fill(); Assert.Contains("DUBLU", work.Model.Preview); work.Model.LogContact();
+        Assert.Equal(1, work.Model.Contacts.Count(q => q.IsDupe));
+        work.Model.SelectedQso = work.Model.Contacts.Single(q => q.Qso.Sent.Serial == 1); work.Model.EditSelected();
+        work.Model.Entry.Callsign = "YO4ABC"; work.Model.LogContact();
+        Assert.Equal(1, work.Model.Contacts.Single(q => q.Call == "YO4ABC").Qso.Sent.Serial);
+        Assert.Equal(0, work.Model.Contacts.Count(q => q.IsDupe));
+        work.Model.SelectedQso = work.Model.Contacts.Single(q => q.Call == "YO4ABC"); work.Model.DeleteSelected();
+        Assert.Single(work.Model.Contacts); Assert.Equal(2, work.Model.Contacts.Single().Qso.Sent.Serial);
+        var reopened = new ContestViewModel(work.Files, ContestStationResolver.Load(), work.Host); reopened.LoadSession(work.Model.SessionPath);
+        Assert.Single(reopened.Contacts); Assert.Contains("003", reopened.SerialText);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task ChangedCatalogRulesAreBlockedAndImportDoesNotOverwriteAnExistingFile() => Sta(() =>
+    {
+        using var work = new Workspace();
+        string original = Path.Combine(work.Files.DefinitionsFolder, "DEMO-RTTY.udc");
+        string text = File.ReadAllText(original); string source = Path.Combine(work.Root, "DEMO-RTTY.udc");
+        File.WriteAllText(source, text.Replace("PointsPerContact=2", "PointsPerContact=3"));
+        string imported = work.Files.Import(source);
+        Assert.NotEqual(original, imported); Assert.Equal(text, File.ReadAllText(original));
+        File.WriteAllText(original, text + "\nUnsupportedRule=True\n"); work.Model.RefreshDefinitions(original);
+        Assert.False(work.Model.CreateCommand.CanExecute(null)); Assert.Contains("UnsupportedRule", work.Model.Diagnostics);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task CatFrequencyIsRfAndDisconnectRequiresExplicitManualMode() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start();
+        work.Host.FrequencyHz = null;
+        Assert.False(work.Model.Run(work.Model.LogContact)); Assert.Empty(work.Model.Contacts);
+        work.Model.Entry.UseCat = false; work.Model.Entry.FrequencyKhz = "7080,125"; work.Model.LogContact();
+        Assert.Equal(7_080_125, work.Model.Contacts.Single().Qso.FrequencyHz);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task AdifUsesLengthsUtcMhzAndExplicitSerialsWithoutLosingEmbeddedTags() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start(); work.Model.Entry.TimeUtc = "2026-11-06 12:13:14";
+        work.Model.Entry.Comment = "TEXT <EOR> HERE"; work.Model.LogContact();
+        var fields = ParseAdi(work.Model.ExportAdif());
+        Assert.Equal("20261106", fields["QSO_DATE"]); Assert.Equal("121314", fields["TIME_ON"]);
+        Assert.Equal("14.08", fields["FREQ"]); Assert.Equal("1", fields["STX"]); Assert.Equal("12", fields["SRX"]);
+        Assert.Equal("TEXT <EOR> HERE", fields["COMMENT"]); Assert.Equal("YO9VA", fields["STATION_CALLSIGN"]);
+        Assert.Single(Directory.GetFiles(work.Files.SessionsFolder, "*.json"));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task CabrilloRequiresOperatorCategoryAndAdifDoesNotSilentlyDropUnicode() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start(); work.Model.Entry.Comment = "Stefan Ș"; work.Model.LogContact();
+        Assert.Throws<ArgumentException>(() => work.Model.ExportAdif());
+        Assert.Equal("Stefan Ș", work.Model.Contacts.Single().Qso.Received.Comment);
+        Assert.Throws<ArgumentException>(() => work.Model.ExportCabrillo());
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public void WaeOverlayOverridesDxccAliasesAndPortableWpxIsExplicit()
+    {
+        const string source = "Island: 14: 28: EU: 0: 0: 0: *T/i:\n    =T1ABC;\nMainland: 14: 28: EU: 0: 0: 0: T:\n    T,=T1ABC;\n";
+        var resolver = new ContestStationResolver(source);
+        Assert.Equal("T", resolver.Resolve("T1ABC", CountryIdentityKind.Dxcc).CountryPrefix);
+        Assert.Equal("T/i", resolver.Resolve("T1ABC", CountryIdentityKind.Wae).CountryPrefix);
+        Assert.Equal("YO9", ContestStationResolver.SimpleWpx("YO9VA"));
+        Assert.Equal("", ContestStationResolver.SimpleWpx("DL/YO9VA"));
+    }
+
+    [Fact]
+    public Task DecoderBridgeCannotTransmitWithoutRigOrAlterTheNormalMacros() => Sta(() =>
+    {
+        using var rx = new RttyReceiver(() => null!);
+        using var decoder = new RttyDecoderViewModel(rx);
+        var before = decoder.ExportMacros().Select(m => m.Text).ToArray();
+        Assert.False(decoder.TrySendContestText("CQ TEST DE YO9VA"));
+        Assert.False(decoder.Tx.IsTransmitting); Assert.Equal(before, decoder.ExportMacros().Select(m => m.Text));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task SeparateWindowIsModelessAndCanReopenWithoutLosingTheJournal() => Sta(async () =>
+    {
+        using var work = new Workspace(); var parent = new Window { Width = 600, Height = 400 };
+        ContestWindow? window = null;
+        try
+        {
+            parent.Show(); window = new(work.Model) { Owner = parent }; window.Show();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.True(parent.IsEnabled); Assert.True(window.IsVisible); Capture(window, "contest-setup.png");
+            work.Start(); work.Model.LogContact();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Capture(window, "contest-journal.png");
+            window.Close(); Assert.True(parent.IsEnabled); Assert.Equal(0, work.Host.Stops);
+            window = new(work.Model) { Owner = parent, Width = 920, Height = 640 }; window.Show();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.Single(work.Model.Contacts); Capture(window, "contest-small.png");
+        }
+        finally { window?.Close(); parent.Close(); }
+    });
+
+    private static Dictionary<string, string> ParseAdi(string text)
+    {
+        var fields = new Dictionary<string, string>(); int index = 0;
+        while ((index = text.IndexOf('<', index)) >= 0)
+        {
+            int end = text.IndexOf('>', index); string header = text[(index + 1)..end]; index = end + 1;
+            int colon = header.IndexOf(':'); if (colon < 0) continue;
+            string key = header[..colon]; int length = int.Parse(header[(colon + 1)..]); fields[key] = text.Substring(index, length); index += length;
+        }
+        return fields;
+    }
+    private static void Capture(Window window, string name)
+    {
+        string? folder = Environment.GetEnvironmentVariable("RTTY_UI_ARTIFACTS"); if (folder == null) return;
+        Directory.CreateDirectory(folder); window.UpdateLayout();
+        var image = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32); image.Render(window);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image)); using var file = File.Create(Path.Combine(folder, name)); encoder.Save(file);
+    }
+}
