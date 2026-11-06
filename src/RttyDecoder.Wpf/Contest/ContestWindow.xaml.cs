@@ -64,6 +64,11 @@ public partial class ContestWindow : Window
     }
     private void OnAdif(object sender, RoutedEventArgs e) => Export(true);
     private void OnCabrillo(object sender, RoutedEventArgs e) => Export(false);
+    private void OnDetailsExpanded(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(sender, HeadersExpander)) DiagnosticsExpander.IsExpanded = false;
+        else HeadersExpander.IsExpanded = false;
+    }
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         ICommand? command = e.Key switch

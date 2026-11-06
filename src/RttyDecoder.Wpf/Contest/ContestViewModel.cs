@@ -23,7 +23,8 @@ public sealed class ContestViewModel : ObservableObject
     private string _sentReport = "599", _sentExchange = "", _status = "Alegeti o definitie UDC si creati o sesiune.", _preview = "", _diagnostics = "", _sessionPath = "", _summary = "";
     private ContestDefinitionFile? _selectedDefinition;
     private ContestQsoRow? _selectedQso;
-    private string _cabrilloHeaders = "CATEGORY-OPERATOR: \nCATEGORY-BAND: \nCATEGORY-POWER: \nCATEGORY-ASSISTED: \nCATEGORY-TRANSMITTER: \nOPERATORS: ";
+    private const string EmptyHeaders = "CATEGORY-OPERATOR: \nCATEGORY-BAND: \nCATEGORY-POWER: \nCATEGORY-ASSISTED: \nCATEGORY-TRANSMITTER: \nOPERATORS: ";
+    private string _cabrilloHeaders = EmptyHeaders;
     public ObservableCollection<ContestDefinitionFile> Definitions { get; } = new();
     public ObservableCollection<ContestQsoRow> Contacts { get; } = new();
     public ContestEntry Entry { get; } = new();
@@ -87,12 +88,12 @@ public sealed class ContestViewModel : ObservableObject
     {
         _files = files; _resolver = resolver; _host = host; OwnCall = host.MyCall;
         CreateCommand = Command(CreateSession, () => IsSetup && _definition?.Import.CanScore == true);
-        LogCommand = Command(LogContact, () => HasSession && !_host.IsBusy);
-        ReserveCommand = Command(ReserveSerial, () => HasSession && !IsEditing && !_host.IsBusy);
+        LogCommand = Command(LogContact, () => HasSession && !string.IsNullOrWhiteSpace(Entry.Callsign) && !_host.IsBusy);
+        ReserveCommand = Command(ReserveSerial, () => HasSession && !IsEditing && !string.IsNullOrWhiteSpace(Entry.Callsign) && !_host.IsBusy);
         CancelContactCommand = Command(CancelContact, () => HasSession && !_host.IsBusy);
         EditCommand = Command(EditSelected, () => HasSession && !IsReserved && SelectedQso != null && !_host.IsBusy);
         CqCommand = Command(() => Send("CQ"), () => HasSession && !IsEditing && !IsReserved && !_host.IsBusy);
-        ReportCommand = Command(() => Send("REPORT"), () => HasSession && !IsEditing && !_host.IsBusy);
+        ReportCommand = Command(() => Send("REPORT"), () => HasSession && !IsEditing && !string.IsNullOrWhiteSpace(Entry.Callsign) && !_host.IsBusy);
         AgnCommand = Command(() => Send("AGN"), () => HasSession && !IsEditing && !_host.IsBusy);
         TuCommand = Command(() => Send("TU"), () => HasSession && !IsEditing && !_host.IsBusy);
         StopCommand = new RelayCommand(host.Stop);
@@ -161,8 +162,8 @@ public sealed class ContestViewModel : ObservableObject
         if ((session.PendingSerial != null) != (document.PendingContact != null && rules.UsesSerialNumbers)) throw new InvalidDataException("Rezervarea si QSO-ul in asteptare nu corespund.");
         if (document.PendingContact is { } bound && (bound.Callsign.Length == 0 || document.Draft is { } draft && !draft.Callsign.Trim().Equals(bound.Callsign, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("Indicativul rezervarii nu corespunde formularului salvat.");
-        _definition = new(document.DefinitionFileName, document.DefinitionText, document.SectionTexts, imported);
         session.Score();
+        _definition = new(document.DefinitionFileName, document.DefinitionText, document.SectionTexts, imported);
         _session = session; _pending = document.PendingContact; _editing = null; _beforeEdit = null; SessionPath = System.IO.Path.GetFullPath(path);
         OwnCall = session.OwnStation.Callsign; OwnSection = session.OwnStation.Section; OwnGrid = session.OwnStation.Grid; OwnWpx = session.OwnStation.WpxPrefix;
         _sentReport = _pending?.Report ?? document.SentReport; _sentExchange = _pending?.FixedExchange ?? document.FixedExchange;
@@ -177,6 +178,7 @@ public sealed class ContestViewModel : ObservableObject
     {
         EnsureIdle(); if (!Flush()) throw new IOException("Sesiunea nu a putut fi salvata.");
         _session = null; _pending = null; _editing = null; _beforeEdit = null; SessionPath = ""; Contacts.Clear(); Summary = "";
+        _sentReport = "599"; _sentExchange = ""; FirstSerial = "1"; CabrilloHeaders = EmptyHeaders;
         _updating = true; Entry.Apply(new()); _updating = false; RefreshDefinitions(); NotifyState();
     }
 
@@ -315,6 +317,8 @@ public sealed class ContestViewModel : ObservableObject
     public void RefreshPreview()
     {
         if (_updating || _session == null) return;
+        if (string.IsNullOrWhiteSpace(Entry.Callsign) && !IsReserved && !IsEditing)
+        { Preview = "Selectati un indicativ din decodor sau completati formularul."; return; }
         try
         {
             var candidate = BuildQso(_editing ?? Guid.NewGuid());

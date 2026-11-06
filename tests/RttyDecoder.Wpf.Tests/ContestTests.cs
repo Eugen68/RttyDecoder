@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using HamContest;
+using HamContest.Udc;
 using RttyDecoder.Core;
 using RttyDecoder.Wpf;
 using RttyDecoder.Wpf.Contest;
@@ -214,6 +215,37 @@ public class ContestTests
     });
 
     [Fact]
+    public Task FailedSessionLoadCannotReplaceTheActiveDefinitionOrJournal() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start(); work.Model.LogContact();
+        string originalPath = work.Model.SessionPath;
+        var original = work.Files.Load(originalPath);
+        string changedText = original.DefinitionText + "\nPointsMultByBand=14,2147483647\n";
+        var changedRules = UdcImporter.Import(changedText, original.SectionTexts.Select(SectionList.Parse)).RequireRules();
+        var changedSession = new ContestSession(changedRules, new("YO9VA"));
+        changedSession.Log(work.Model.Contacts.Single().Qso, changedSession.ReserveSerial());
+        string badPath = Path.Combine(work.Files.SessionsFolder, "bad.contest.json");
+        work.Files.Save(badPath, original with { DefinitionText = changedText, SessionJson = SessionStore.Serialize(changedSession) });
+        Assert.Throws<OverflowException>(() => work.Model.LoadSession(badPath));
+        Assert.Equal(originalPath, work.Model.SessionPath); Assert.True(work.Model.Flush());
+        Assert.Equal(original.DefinitionText, work.Files.Load(originalPath).DefinitionText);
+        Assert.Equal(2, work.Model.Contacts.Single().Points);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task NewSessionDoesNotReusePreviousExchangeCategoryOrStartingSerial() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Model.FirstSerial = "42"; work.Start();
+        work.Model.SentExchange = "OLD"; work.Model.CabrilloHeaders = "CATEGORY-POWER: HIGH";
+        work.Model.EndSession();
+        Assert.Equal("1", work.Model.FirstSerial); Assert.Equal("", work.Model.SentExchange);
+        Assert.DoesNotContain("HIGH", work.Model.CabrilloHeaders);
+        work.Model.CreateSession(); Assert.Contains("001", work.Model.SerialText);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task SeparateWindowIsModelessAndCanReopenWithoutLosingTheJournal() => Sta(async () =>
     {
         using var work = new Workspace(); var parent = new Window { Width = 600, Height = 400 };
@@ -223,7 +255,9 @@ public class ContestTests
             parent.Show(); window = new(work.Model) { Owner = parent }; window.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.True(parent.IsEnabled); Assert.True(window.IsVisible); Capture(window, "contest-setup.png");
-            work.Start(); work.Model.LogContact();
+            work.Start(); work.Model.ReserveSerial();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); Capture(window, "contest-reserved.png");
+            work.Model.LogContact();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Capture(window, "contest-journal.png");
             window.Close(); Assert.True(parent.IsEnabled); Assert.Equal(0, work.Host.Stops);

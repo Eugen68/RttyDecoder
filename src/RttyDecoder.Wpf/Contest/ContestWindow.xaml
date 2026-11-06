@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RttyDecoder.Wpf"
-        Title="Contest · RTTY Decoder" Width="1180" Height="800" MinWidth="900" MinHeight="600"
+        Title="Contest · RTTY Decoder" Width="1180" Height="760" MinWidth="900" MinHeight="660"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="True" PreviewKeyDown="OnKeyDown"
         Background="{DynamicResource Rtty.Background}" Foreground="{DynamicResource Rtty.Foreground}" FontFamily="Segoe UI" FontSize="12">
     <Window.Resources>
@@ -107,7 +107,8 @@
                 <Button Content="Sterge selectat..." Click="OnDelete" IsEnabled="{Binding HasSession}" />
             </WrapPanel>
             <DataGrid x:Name="Journal" Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedQso}" IsReadOnly="True" AutoGenerateColumns="False"
-                      CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column" Margin="0,4,0,0">
+                      CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column" Margin="0,4,0,0"
+                      Background="#101820" Foreground="#E6E6E6" BorderBrush="#3C3C3C" HorizontalGridLinesBrush="#303A44" VerticalGridLinesBrush="#303A44">
                 <DataGrid.RowStyle><Style TargetType="DataGridRow"><Setter Property="Background" Value="#151C24" /><Setter Property="Foreground" Value="#E6E6E6" />
                     <Style.Triggers><DataTrigger Binding="{Binding IsDupe}" Value="True"><Setter Property="Foreground" Value="#FFD166" /></DataTrigger></Style.Triggers>
                 </Style></DataGrid.RowStyle>
@@ -121,11 +122,11 @@
         </Grid>
 
         <StackPanel Grid.Row="5">
-            <Expander x:Name="HeadersExpander" Header="Antete Cabrillo · completati categoria inainte de export">
+            <Expander x:Name="HeadersExpander" Header="Antete Cabrillo · completati categoria inainte de export" Expanded="OnDetailsExpanded">
                 <TextBox Text="{Binding CabrilloHeaders, UpdateSourceTrigger=PropertyChanged}" Height="115" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
                          ToolTip="CHEIE: valoare. Exemplu: CATEGORY-OPERATOR: SINGLE-OP; CATEGORY-BAND: ALL; CATEGORY-POWER: LOW; CATEGORY-ASSISTED: NON-ASSISTED; CATEGORY-TRANSMITTER: ONE. Verificati categoria si antetele cerute de organizator." />
             </Expander>
-            <Expander Header="Definitie UDC · diagnostice">
+            <Expander x:Name="DiagnosticsExpander" Header="Definitie UDC · diagnostice" Expanded="OnDetailsExpanded">
                 <TextBox Text="{Binding Diagnostics, Mode=OneWay}" Height="110" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
             </Expander>
         </StackPanel>
