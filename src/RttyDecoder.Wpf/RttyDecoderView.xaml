@@ -95,7 +95,9 @@
             <Border Grid.Column="0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <local:WaterfallControl x:Name="Waterfall"
                     MarkFrequencyHz="{Binding MarkFrequencyHz, Mode=OneWay}" Reverse="{Binding Reverse, Mode=OneWay}"
-                    FrequencyCommand="{Binding SetFrequencyCommand}" QsyCommand="{Binding QsyCommand}" />
+                    FrequencyCommand="{Binding SetFrequencyCommand}" QsyCommand="{Binding QsyCommand}"
+                    TxLowerToneHz="{Binding TxPairLowerHz, Mode=OneWay}" ToneToRf="{Binding WaterfallRf, Mode=OneWay}"
+                    FilterWidthHz="{Binding WaterfallFilterWidthHz, Mode=OneWay}" />
             </Border>
             <Border Grid.Column="1" Margin="8,0,0,0" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
                 <local:TuningIndicator x:Name="Tuning" />
@@ -142,6 +144,8 @@
                             <ComboBoxItem Content="Clasica" Tag="{x:Static local:WaterfallPalette.Classic}" />
                         </ComboBox>
                         <CheckBox Content="Spectru" IsChecked="{Binding ShowSpectrum, ElementName=Waterfall}" VerticalAlignment="Center" Margin="8,0,6,0" />
+                        <CheckBox Content="Semnale" IsChecked="{Binding ShowSignals, ElementName=Waterfall}" VerticalAlignment="Center" Margin="8,0,6,0"
+                            ToolTip="Triunghiuri sus deasupra perechilor RTTY gasite in banda; click pe triunghi = acord pe semnal" />
                         <CheckBox Content="Atragere pe semnal" IsChecked="{Binding SnapToSignal, ElementName=Waterfall}" VerticalAlignment="Center" Margin="8,0,6,0"
                             ToolTip="La click cauta o pereche RTTY apropiata. Foloseste NORM/REV curent; nu comanda QSY." />
                         <TextBlock Text="Inaltime:" Style="{StaticResource Rtty.Label}" Margin="8,0,4,0" />

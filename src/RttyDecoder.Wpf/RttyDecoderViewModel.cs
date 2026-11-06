@@ -304,6 +304,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             if (Set(ref _decoder, value))
             {
                 OnPropertyChanged(nameof(IsChebyshev));
+                OnPropertyChanged(nameof(WaterfallFilterWidthHz));
                 OnPropertyChanged(nameof(IsClassic));
                 OnPropertyChanged(nameof(IsChebyshevDecoder));
                 OnPropertyChanged(nameof(CanAdjustSnrGate));
@@ -350,7 +351,10 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     public double SensitivityPercent { get => _sensitivityPercent; set { if (Set(ref _sensitivityPercent, value)) Push(s => s.Sensitivity = value / 100.0); } }
 
     private double _filterWidthHz;
-    public double FilterWidthHz { get => _filterWidthHz; set { if (Set(ref _filterWidthHz, value)) Push(s => s.FilterWidthHz = value); } }
+    public double FilterWidthHz { get => _filterWidthHz; set { if (Set(ref _filterWidthHz, value)) { OnPropertyChanged(nameof(WaterfallFilterWidthHz)); Push(s => s.FilterWidthHz = value); } } }
+
+    /// <summary>Zona filtrului pe waterfall: latimea filtrelor Chebyshev, doar cand decodeaza Chebyshev; altfel NaN (ascunsa).</summary>
+    public double WaterfallFilterWidthHz => Decoder == RttyDecoderType.Chebyshev ? FilterWidthHz : double.NaN;
 
     private bool _usTty;
     public bool UsTty { get => _usTty; set { if (Set(ref _usTty, value)) Push(s => s.UsTty = value); } }

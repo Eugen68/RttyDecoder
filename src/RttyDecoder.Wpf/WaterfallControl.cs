@@ -37,6 +37,10 @@ public sealed class WaterfallControl : FrameworkElement
     public static readonly DependencyProperty SpectrumSizeProperty = Register(nameof(SpectrumSize), typeof(int), 512);
     public static readonly DependencyProperty FrequencyCommandProperty = Register(nameof(FrequencyCommand), typeof(ICommand), null!);
     public static readonly DependencyProperty QsyCommandProperty = Register(nameof(QsyCommand), typeof(ICommand), null!);
+    public static readonly DependencyProperty TxLowerToneHzProperty = Register(nameof(TxLowerToneHz), typeof(double), double.NaN);
+    public static readonly DependencyProperty ToneToRfProperty = Register(nameof(ToneToRf), typeof(Func<double, double?>), null!);
+    public static readonly DependencyProperty FilterWidthHzProperty = Register(nameof(FilterWidthHz), typeof(double), double.NaN);
+    public static readonly DependencyProperty ShowSignalsProperty = Register(nameof(ShowSignals), typeof(bool), true);
 
     public double MarkFrequencyHz { get => (double)GetValue(MarkFrequencyHzProperty); set => SetValue(MarkFrequencyHzProperty, value); }
     public bool Reverse { get => (bool)GetValue(ReverseProperty); set => SetValue(ReverseProperty, value); }
@@ -58,6 +62,14 @@ public sealed class WaterfallControl : FrameworkElement
     public int SpectrumSize { get => (int)GetValue(SpectrumSizeProperty); set => SetValue(SpectrumSizeProperty, value); }
     public ICommand? FrequencyCommand { get => (ICommand?)GetValue(FrequencyCommandProperty); set => SetValue(FrequencyCommandProperty, value); }
     public ICommand? QsyCommand { get => (ICommand?)GetValue(QsyCommandProperty); set => SetValue(QsyCommandProperty, value); }
+    /// <summary>Tonul de jos al perechii pe care pleaca emisia FSK (2125 cu statia in RTTY); NaN = ascuns.</summary>
+    public double TxLowerToneHz { get => (double)GetValue(TxLowerToneHzProperty); set => SetValue(TxLowerToneHzProperty, value); }
+    /// <summary>Ton audio -&gt; frecventa RF, pentru cursor; null fara statie.</summary>
+    public Func<double, double?>? ToneToRf { get => (Func<double, double?>?)GetValue(ToneToRfProperty); set => SetValue(ToneToRfProperty, value); }
+    /// <summary>Latimea filtrului pe fiecare ton (Hz): zona colorata in jurul M si S; NaN = ascunsa.</summary>
+    public double FilterWidthHz { get => (double)GetValue(FilterWidthHzProperty); set => SetValue(FilterWidthHzProperty, value); }
+    /// <summary>Marcheaza sus perechile RTTY gasite in banda; click pe marcaj = acord pe ea.</summary>
+    public bool ShowSignals { get => (bool)GetValue(ShowSignalsProperty); set => SetValue(ShowSignalsProperty, value); }
     public event Action<double>? FrequencySelected;
     public event Action<int>? SpectrumSizeChanged;
     public event Action<string>? Info;
@@ -78,12 +90,24 @@ public sealed class WaterfallControl : FrameworkElement
     private long _floorEpoch = -1;
     private bool _dirty = true, _hooked;
     private Point? _hover, _pan;
+    // media spectrului (putere) pentru marcajele de semnale; recalculate la cateva cadre
+    private double[] _avgPower = [];
+    private double _avgBinHz;
+    private int _framesSinceSignals;
+    private IReadOnlyList<AutoTuneCandidate> _signals = Array.Empty<AutoTuneCandidate>();
+    private const double SignalAveraging = 0.1;   // ~0.3 s la 31 de randuri/s
+    private const int SignalEveryFrames = 8;      // ~4 actualizari pe secunda
+    private const double SignalMarkerHeight = 9, SignalHitPx = 8;
     private double _panMin, _panSpan;
     private static readonly Pen MarkPen = Pen(Colors.Tomato, 1.5);
     private static readonly Pen SpacePen = Pen(Colors.Orange, 1.5);
     private static readonly Pen GreyPen = Pen(Color.FromRgb(75, 85, 100), 1);
     private static readonly Pen SpectrumPen = Pen(Colors.LightSkyBlue, 1);
     private static readonly Pen BoundaryPen = Pen(Colors.Orange, 1);
+    private static readonly Pen TxPen = DashedPen(Colors.LimeGreen, 1.2);
+    private static readonly Brush SignalBrush = Brush(Color.FromRgb(0x4D, 0xD0, 0xE1));
+    private static readonly Brush MarkZone = Brush(Color.FromArgb(55, 0xFF, 0x63, 0x47));
+    private static readonly Brush SpaceZone = Brush(Color.FromArgb(55, 0xFF, 0xA5, 0x00));
     private static readonly Brush Back = Brush(Color.FromRgb(14, 19, 28));
     private static readonly Brush LabelBack = Brush(Color.FromArgb(210, 0, 0, 0));
     private static readonly Typeface Font = new("Segoe UI");
@@ -230,12 +254,52 @@ public sealed class WaterfallControl : FrameworkElement
             Interlocked.Decrement(ref _pending);
             if (!_history.Add(frame)) continue;
             _latest = frame; added = true;
+            AccumulateSignals(frame);
         }
         if (added && _latest != null)
         {
             UpdateFloor(_latest);
             if (!IsPaused) _dirty = true;
         }
+    }
+
+    /// <summary>Media puterii pe ultimele ~0.3 s si, la cateva cadre, perechile RTTY din ea.</summary>
+    private void AccumulateSignals(SpectrumFrame frame)
+    {
+        if (_avgPower.Length != frame.Magnitudes.Length || _avgBinHz != frame.BinHz)
+        {
+            _avgPower = new double[frame.Magnitudes.Length];
+            _avgBinHz = frame.BinHz;
+            _framesSinceSignals = 0;
+            _signals = Array.Empty<AutoTuneCandidate>();
+        }
+        for (int i = 0; i < _avgPower.Length; i++)
+        {
+            double a = frame.Magnitudes[i];
+            double power = double.IsFinite(a) ? a * a : 0;
+            _avgPower[i] += SignalAveraging * (power - _avgPower[i]);
+        }
+        if (++_framesSinceSignals < SignalEveryFrames) return;
+        _framesSinceSignals = 0;
+        if (!ShowSignals) { _signals = Array.Empty<AutoTuneCandidate>(); return; }
+        var magnitude = Array.ConvertAll(_avgPower, Math.Sqrt);
+        _signals = AutoTune.FindCandidates(magnitude, _avgBinHz, 300, 3600, ShiftHz);
+        InvalidateVisual();
+    }
+
+    /// <summary>Perechea marcata sus cel mai aproape de x (pixeli), daca e destul de aproape.</summary>
+    private AutoTuneCandidate? SignalAt(double x)
+    {
+        AutoTuneCandidate? best = null;
+        double bestDistance = SignalHitPx;
+        foreach (var signal in _signals)
+        {
+            double distance = Math.Abs(HzToX(signal.LowerToneHz + ShiftHz / 2) - x);
+            if (distance > bestDistance) continue;
+            bestDistance = distance;
+            best = signal;
+        }
+        return best;
     }
 
     private void UpdateFloor(SpectrumFrame frame)
@@ -355,8 +419,11 @@ public sealed class WaterfallControl : FrameworkElement
             DrawText(dc, text, plot.Left + 4, label.Y + 1, label.Color);
         }
         dc.Pop();
+        DrawFilterZones(dc, plot);
         DrawSpectrum(dc, snapshot, plot);
         DrawAxes(dc, plot);
+        DrawTxPair(dc, plot);
+        DrawSignals(dc, plot);
         double space = MarkFrequencyHz + (Reverse ? -ShiftHz : ShiftHz);
         foreach (var item in new[] { (MarkFrequencyHz, "M", MarkPen), (space, "S", SpacePen) })
         {
@@ -372,11 +439,73 @@ public sealed class WaterfallControl : FrameworkElement
             dc.DrawLine(GreyPen, new Point(point.X, plot.Top), new Point(point.X, plot.Bottom));
             double age = (point.Y - plot.Top) / plot.Height * Seconds;
             var frame = SpectralHistory.FrameAtAge(snapshot, age);
-            string text = $"{hz:0.0} Hz  -{age:0.00}s" + (frame != null ? $"  {SpectralHistory.SampleDb(frame, hz):0.0} dBFS" : "  fara date");
-            double x = Math.Clamp(point.X + 6, plot.Left, Math.Max(plot.Left, plot.Right - 260));
-            dc.DrawRectangle(LabelBack, null, new Rect(x, plot.Bottom - 20, 260, 19));
+            string text = $"{hz:0.0} Hz";
+            if (ToneToRf?.Invoke(hz) is { } rf) text += $" ({FormatRf(rf)})";
+            text += $"  -{age:0.00}s" + (frame != null ? $"  {SpectralHistory.SampleDb(frame, hz):0.0} dBFS" : "  fara date");
+            if (point.Y < plot.Top + SignalMarkerHeight + 4 && SignalAt(point.X) is { } signal)
+                text = $"semnal RTTY {signal.LowerToneHz:0}/{signal.LowerToneHz + ShiftHz:0} Hz, +{signal.WeakToneSnrDb:0} dB - click: acord";
+            double x = Math.Clamp(point.X + 6, plot.Left, Math.Max(plot.Left, plot.Right - 330));
+            dc.DrawRectangle(LabelBack, null, new Rect(x, plot.Bottom - 20, 330, 19));
             DrawText(dc, text, x + 2, plot.Bottom - 19, Brushes.White);
         }
+    }
+
+    /// <summary>Banda filtrului in jurul fiecarui ton: in banda spectrului si ca bara subtire deasupra axei.</summary>
+    private void DrawFilterZones(DrawingContext dc, Rect plot)
+    {
+        double width = FilterWidthHz;
+        if (!double.IsFinite(width) || width <= 0) return;
+        double space = MarkFrequencyHz + (Reverse ? -ShiftHz : ShiftHz);
+        foreach (var (tone, brush) in new[] { (MarkFrequencyHz, MarkZone), (space, SpaceZone) })
+        {
+            double x0 = Math.Max(plot.Left, HzToX(tone - width / 2)), x1 = Math.Min(plot.Right, HzToX(tone + width / 2));
+            if (x1 <= x0) continue;
+            if (ShowSpectrum) dc.DrawRectangle(brush, null, new Rect(x0, 2, x1 - x0, 44));
+            dc.DrawRectangle(brush, null, new Rect(x0, plot.Bottom - 4, x1 - x0, 4));
+        }
+    }
+
+    /// <summary>Perechea pe care pleaca emisia FSK (statia in RTTY): linii punctate verzi, "TX".</summary>
+    private void DrawTxPair(DrawingContext dc, Rect plot)
+    {
+        double low = TxLowerToneHz;
+        if (!double.IsFinite(low)) return;
+        bool drawn = false;
+        foreach (double hz in new[] { low, low + ShiftHz })
+        {
+            double x = HzToX(hz);
+            if (x < plot.Left || x > plot.Right) continue;
+            dc.DrawLine(TxPen, new Point(x, plot.Top), new Point(x, plot.Bottom));
+            drawn = true;
+        }
+        if (drawn)
+            DrawText(dc, "TX", Math.Clamp(HzToX(low + ShiftHz / 2) - 6, plot.Left, plot.Right - 14), plot.Top + SignalMarkerHeight + 1, Brushes.LimeGreen);
+    }
+
+    /// <summary>Triunghiuri sus, deasupra centrului fiecarei perechi RTTY gasite.</summary>
+    private void DrawSignals(DrawingContext dc, Rect plot)
+    {
+        if (!ShowSignals) return;
+        foreach (var signal in _signals)
+        {
+            double x = HzToX(signal.LowerToneHz + ShiftHz / 2);
+            if (x < plot.Left || x > plot.Right) continue;
+            var geometry = new StreamGeometry();
+            using (var path = geometry.Open())
+            {
+                path.BeginFigure(new Point(x - 5, plot.Top), true, true);
+                path.LineTo(new Point(x + 5, plot.Top), true, false);
+                path.LineTo(new Point(x, plot.Top + SignalMarkerHeight), true, false);
+            }
+            geometry.Freeze();
+            dc.DrawGeometry(SignalBrush, null, geometry);
+        }
+    }
+
+    private static string FormatRf(double hz)
+    {
+        long h = (long)Math.Round(hz);
+        return $"{h / 1_000_000}.{h / 1000 % 1000:000}.{h % 1000:000}";
     }
 
     private void DrawSpectrum(DrawingContext dc, SpectralSnapshot snapshot, Rect plot)
@@ -448,6 +577,15 @@ public sealed class WaterfallControl : FrameworkElement
         if (!Plot.Contains(point)) return;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) { BeginPan(point); e.Handled = true; return; }
         double hz = XToHz(point.X);
+        if (ShowSignals && Keyboard.Modifiers == ModifierKeys.None && point.Y < Plot.Top + SignalMarkerHeight + 4
+            && SignalAt(point.X) is { } marked)
+        {
+            // acord pe perechea marcata: Mark pe tonul de jos (NORM) sau de sus (REV), ca la atragere
+            Info?.Invoke($"Semnal RTTY {marked.LowerToneHz:0}/{marked.LowerToneHz + ShiftHz:0} Hz, ton slab +{marked.WeakToneSnrDb:0} dB. NORM/REV ramane ales manual (A-TUNE il detecteaza).");
+            Select(marked.LowerToneHz + (Reverse ? ShiftHz : 0));
+            e.Handled = true;
+            return;
+        }
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
             if (QsyCommand?.CanExecute(hz) == true) QsyCommand.Execute(hz);
@@ -543,5 +681,6 @@ public sealed class WaterfallControl : FrameworkElement
     }
     private static Brush[] PaletteBrushes(int[] colors) => colors.Select(c => Brush(Color.FromRgb((byte)(c >> 16), (byte)(c >> 8), (byte)c))).ToArray();
     private static Pen Pen(Color color, double width) { var p = new Pen(Brush(color), width); p.Freeze(); return p; }
+    private static Pen DashedPen(Color color, double width) { var p = new Pen(Brush(color), width) { DashStyle = new DashStyle(new double[] { 4, 3 }, 0) }; p.Freeze(); return p; }
     private static Brush Brush(Color color) { var b = new SolidColorBrush(color); b.Freeze(); return b; }
 }

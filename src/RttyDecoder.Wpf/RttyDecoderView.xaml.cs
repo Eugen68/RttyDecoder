@@ -111,7 +111,7 @@ public partial class RttyDecoderView : UserControl
             Palette = Waterfall.Palette, SpectrumSize = Waterfall.SpectrumSize, HistorySeconds = Waterfall.HistorySeconds,
             MinFrequencyHz = Waterfall.MinFrequencyHz, MaxFrequencyHz = Waterfall.MaxFrequencyHz,
             ShowSpectrum = Waterfall.ShowSpectrum, FollowSignal = Waterfall.FollowSignal,
-            SnapToSignal = Waterfall.SnapToSignal, Height = WaterfallHeight.Value
+            SnapToSignal = Waterfall.SnapToSignal, ShowSignals = Waterfall.ShowSignals, Height = WaterfallHeight.Value
         };
         set
         {
@@ -127,6 +127,7 @@ public partial class RttyDecoderView : UserControl
             Waterfall.HistorySeconds = value.HistorySeconds <= 8 ? 8 : value.HistorySeconds <= 15 ? 15 : 30;
             Waterfall.ShowSpectrum = value.ShowSpectrum;
             Waterfall.SnapToSignal = value.SnapToSignal;
+            Waterfall.ShowSignals = value.ShowSignals;
             Waterfall.SetViewport(Limit(value.MinFrequencyHz, 0, 3900, 0), Limit(value.MaxFrequencyHz - value.MinFrequencyHz, 100, 4000, 4000));
             Waterfall.FollowSignal = value.FollowSignal;
             WaterfallHeight.Value = Limit(value.Height, 160, 400, 230);
