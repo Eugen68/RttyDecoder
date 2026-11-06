@@ -215,6 +215,32 @@ public class ContestTests
     });
 
     [Fact]
+    public Task MissingOwnSectionIsRejectedBeforeCreatingAContestThatExcludesOwnMultiplier() => Sta(() =>
+    {
+        using var work = new Workspace();
+        string path = Path.Combine(work.Files.DefinitionsFolder, "DEMO-RTTY.udc");
+        File.AppendAllText(path, "\nDoNotCountMeAsMult=True\n"); work.Model.RefreshDefinitions(path);
+        Assert.Throws<ArgumentException>(work.Model.CreateSession); Assert.False(work.Model.HasSession);
+        work.Model.OwnSection = "BU"; work.Model.CreateSession(); Assert.True(work.Model.HasSession);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task FixedExchangeMustBeFilledBeforeReportOrLog()
+        => Sta(() =>
+    {
+        using var work = new Workspace();
+        string path = Path.Combine(work.Files.DefinitionsFolder, "YEAR-RTTY.udc");
+        File.WriteAllText(path, "[Contest]\nName=YEAR-RTTY\nMode=RTTY\nNumMults=0\nDefaultContestExchange=SeeRules\nCabrilloFormat=0\n");
+        work.Model.RefreshDefinitions(path); work.Model.CreateSession(); work.Fill();
+        Assert.Throws<ArgumentException>(() => work.Model.Send("REPORT")); Assert.Empty(work.Host.Sent);
+        Assert.Throws<ArgumentException>(work.Model.LogContact); Assert.Empty(work.Model.Contacts);
+        work.Model.SentExchange = "1999"; work.Model.Send("REPORT");
+        Assert.Contains("1999 1999", work.Host.Sent.Single());
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task FailedSessionLoadCannotReplaceTheActiveDefinitionOrJournal() => Sta(() =>
     {
         using var work = new Workspace(); work.Start(); work.Model.LogContact();

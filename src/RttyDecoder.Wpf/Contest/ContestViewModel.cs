@@ -144,6 +144,13 @@ public sealed class ContestViewModel : ObservableObject
         if (mode is not ("RTTY" or "BOTH")) throw new InvalidOperationException("Acest modul foloseste RTTY. Alegeti un UDC cu Mode=RTTY sau BOTH.");
         if (!int.TryParse(FirstSerial, NumberStyles.None, CultureInfo.InvariantCulture, out int first) || first < 1) throw new ArgumentException("Serialul de inceput trebuie sa fie un numar pozitiv.");
         var own = _resolver.Resolve(OwnCall, rules.RequiredCountryIdentityKind, EmptyNull(OwnWpx), OwnSection, OwnGrid);
+        var ownIssues = rules.Validate(new Qso
+        {
+            Time = DateTimeOffset.UtcNow, FrequencyHz = 14_080_000, Station = own,
+            Sent = new() { Serial = rules.UsesSerialNumbers ? first : null },
+            Received = new() { Value = own.CqZone?.ToString(CultureInfo.InvariantCulture) ?? "", Section = own.Section, Grid = own.Grid }
+        }, own).Where(issue => issue.Field.StartsWith("Own", StringComparison.Ordinal) || issue.Field is "CountryPrefix" or "CountryIdentityKind" or "Continent").ToArray();
+        if (ownIssues.Length != 0) throw new ArgumentException("Completati datele statiei proprii: " + string.Join("; ", ownIssues.Select(issue => issue.Message)));
         var session = new ContestSession(rules, own, first);
         string path = _files.NewSessionPath(rules.Name);
         var previousPath = SessionPath; SessionPath = path;
@@ -286,6 +293,13 @@ public sealed class ContestViewModel : ObservableObject
     private void ValidateSent()
     {
         foreach (string value in new[] { SentReport, SentExchange }) if (value.Any(char.IsControl)) throw new ArgumentException("Schimbul transmis trebuie sa fie pe o singura linie.");
+        if (!IsEditing && _session?.Rules is UdcContestRules rules)
+        {
+            string[] proposed = rules.DefaultSentExchange.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            bool needsFixedPart = proposed.Length != 0 && (proposed[0] != "001" || proposed.Length > 1);
+            if (needsFixedPart && string.IsNullOrWhiteSpace(SentExchange))
+                throw new ArgumentException("Completati schimbul fix transmis, conform regulamentului. Textul propus de UDC este: " + rules.DefaultSentExchange);
+        }
     }
     private void EnsureIdle() { if (_host.IsBusy) throw new InvalidOperationException("Asteptati terminarea emisiei sau apasati STOP."); }
     private void EnsureSession() { if (_session == null) throw new InvalidOperationException("Creati sau deschideti o sesiune."); }
