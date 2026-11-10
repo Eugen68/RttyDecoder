@@ -20,6 +20,10 @@
     <InternalsVisibleTo Include="RttyDecoder.Wpf.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Subiectele de ajutor: Help/Topics/NN-nume.md (ordinea dupa NN); un subiect nou = un fisier nou. -->
+    <EmbeddedResource Include="Help\Topics\*.md" LogicalName="RttyDecoder.Wpf.Help.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="../../external/HamContest/samples/DEMO-RTTY.udc" LogicalName="RttyDecoder.Contest.DEMO-RTTY.udc" />
     <EmbeddedResource Include="../../external/HamContest/samples/DEMO.sec" LogicalName="RttyDecoder.Contest.DEMO.sec" />
   </ItemGroup>

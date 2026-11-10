@@ -161,7 +161,7 @@
         <WrapPanel Grid.Row="3" Margin="0,6,0,0" Orientation="Horizontal">
             <Button Width="64" Content="{Binding ReverseText}" Command="{Binding ReverseCommand}" ToolTip="NORM / REV (Space sub Mark)" />
             <Button Width="72" Content="A-TUNE" Command="{Binding AutoTuneCommand}" Style="{StaticResource Rtty.PrimaryButton}" MouseDoubleClick="OnAtuneDoubleClick"
-                    ToolTip="Click: acord automat pe cel mai puternic semnal RTTY (Mark-ul real, NORM/REV dupa semnal) si calculul frecventei statiei pentru emisie. Dublu click: muta statia acolo - Mark-ul semnalului pe 2125, emisia FSK pe frecventa corespondentului." />
+                    ToolTip="Click: acord automat pe cel mai puternic semnal RTTY (Mark-ul real, NORM/REV dupa semnal) si calculul frecventei statiei pentru emisie. Dublu click: muta statia acolo - perechea semnalului pe 2125 / 2295, emisia FSK pe frecventa corespondentului." />
             <TextBlock Text="Decodor:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="130" ItemsSource="{Binding Decoders}" SelectedItem="{Binding Decoder}"
                       ToolTip="Chebyshev (implicit, bun si la flutter), Matched Filter (cel mai bun clasic pe semnal slab si fading lent) sau DeepRTTY (model neural, cel mai bun; text provizoriu cu gri, confirmat dupa ~8-12 s)" />

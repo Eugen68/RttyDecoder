@@ -281,6 +281,22 @@ public partial class MainWindow : Window
         MessageBox.Show(this, text, "Starea datelor de indicative", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private RttyDecoder.Wpf.Help.HelpWindow? _helpWindow;
+
+    /// <summary>Ajutor > Ajutor: fereastra nemodala, una singura; a doua comanda o aduce in fata.</summary>
+    private void OnHelp(object sender, RoutedEventArgs e)
+    {
+        if (_helpWindow != null)
+        {
+            if (_helpWindow.WindowState == WindowState.Minimized) _helpWindow.WindowState = WindowState.Normal;
+            _helpWindow.Activate();
+            return;
+        }
+        _helpWindow = new RttyDecoder.Wpf.Help.HelpWindow { Owner = this };
+        _helpWindow.Closed += (_, _) => _helpWindow = null;
+        _helpWindow.Show();
+    }
+
     private void OnAbout(object sender, RoutedEventArgs e)
     {
         var a = Assembly.GetExecutingAssembly();
