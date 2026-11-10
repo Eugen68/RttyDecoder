@@ -99,7 +99,19 @@ public sealed class ContestFiles
         using var reader = new StreamReader(file, new UTF8Encoding(false, true), true);
         return reader.ReadToEnd();
     }
-    public static void AtomicWrite(string path, string text)
+    public string MacroPath(string definitionFileName)
+    {
+        // Restored sessions can come from another machine; only accept a bare UDC filename.
+        if (definitionFileName != System.IO.Path.GetFileName(definitionFileName)
+            || definitionFileName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0
+            || !System.IO.Path.GetExtension(definitionFileName).Equals(".udc", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Numele definitiei UDC nu este valid.");
+        return System.IO.Path.Combine(DefinitionsFolder, System.IO.Path.GetFileNameWithoutExtension(definitionFileName) + ".macros.json");
+    }
+
+    public static void AtomicWrite(string path, string text) => AtomicWrite(path, text, overwrite: true);
+
+    internal static void AtomicWrite(string path, string text, bool overwrite)
     {
         path = System.IO.Path.GetFullPath(path); string directory = System.IO.Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(directory); string temporary = System.IO.Path.Combine(directory, "." + Guid.NewGuid().ToString("N") + ".tmp");
@@ -107,7 +119,7 @@ public sealed class ContestFiles
         {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             { using var writer = new StreamWriter(stream, new UTF8Encoding(false), 4096, leaveOpen: true); writer.Write(text); writer.Flush(); stream.Flush(true); }
-            File.Move(temporary, path, true);
+            File.Move(temporary, path, overwrite);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }

@@ -93,8 +93,24 @@
             <WrapPanel Margin="0,2,0,8">
                 <Button Content="{Binding LogButtonText}" Command="{Binding LogCommand}" Style="{StaticResource Rtty.PrimaryButton}" />
                 <Button Content="Verifica" Command="{Binding CheckCommand}" />
-                <Button Content="F1 · CQ" Command="{Binding CqCommand}" /><Button Content="F2 · Raport / repetare" Command="{Binding ReportCommand}" />
-                <Button Content="F3 · AGN" Command="{Binding AgnCommand}" /><Button Content="F4 · TU" Command="{Binding TuCommand}" />
+                <CheckBox Content="S&amp;P" IsChecked="{Binding SearchAndPounce}" VerticalAlignment="Center"
+                          Margin="6,0" ToolTip="Bifat: Search &amp; Pounce. Debifat: Run." />
+                <Border Background="Transparent" Tag="0" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                    <Border.ToolTip><ToolTip Content="Macro F1" /></Border.ToolTip>
+                    <Button Content="{Binding F1Label}" Command="{Binding CqCommand}" />
+                </Border>
+                <Border Background="Transparent" Tag="1" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                    <Border.ToolTip><ToolTip Content="Macro F2" /></Border.ToolTip>
+                    <Button Content="{Binding F2Label}" Command="{Binding ReportCommand}" />
+                </Border>
+                <Border Background="Transparent" Tag="2" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                    <Border.ToolTip><ToolTip Content="Macro F3" /></Border.ToolTip>
+                    <Button Content="{Binding F3Label}" Command="{Binding AgnCommand}" />
+                </Border>
+                <Border Background="Transparent" Tag="3" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                    <Border.ToolTip><ToolTip Content="Macro F4" /></Border.ToolTip>
+                    <Button Content="{Binding F4Label}" Command="{Binding TuCommand}" />
+                </Border>
                 <Button Content="STOP (Esc)" Command="{Binding StopCommand}" Background="#8B3030" />
             </WrapPanel>
         </StackPanel>

@@ -60,6 +60,39 @@ public class ContestTests
     }
 
     [Fact]
+    public Task MacrosAreCreatedPerUdcAndReloadedForAReopenedSession() => Sta(() =>
+    {
+        using var work = new Workspace();
+        string macroPath = Path.Combine(work.Files.DefinitionsFolder, "DEMO-RTTY.macros.json");
+        Assert.True(File.Exists(macroPath));
+        work.Start();
+        string sessionPath = work.Model.SessionPath;
+        work.Model.SearchAndPounce = true;
+        work.Model.SaveMacro(1, new("Schimb", "{RST} {EXCHANGE} DE {MYCALL}"));
+        Assert.Contains("599 001 DE YO9VA", work.Model.MacroTooltip(1));
+        Assert.Contains("Serial estimat", work.Model.MacroTooltip(1));
+        Assert.False(work.Model.IsReserved);
+
+        var reopened = new ContestViewModel(work.Files, ContestStationResolver.Load(), work.Host);
+        reopened.LoadSession(sessionPath);
+        Assert.Equal("Raport", reopened.GetMacro(1).Name);
+        reopened.SearchAndPounce = true;
+        Assert.Equal("Schimb", reopened.GetMacro(1).Name);
+        reopened.SelectCallsign("YO3ABC");
+        reopened.Send("REPORT");
+        Assert.Equal("599 001 DE YO9VA", work.Host.Sent.Single());
+        Assert.DoesNotContain("Serial estimat", reopened.MacroTooltip(1));
+
+        reopened.EndSession();
+        string other = Path.Combine(work.Files.DefinitionsFolder, "Other.udc");
+        File.Copy(Path.Combine(work.Files.DefinitionsFolder, "DEMO-RTTY.udc"), other);
+        reopened.RefreshDefinitions(other);
+        Assert.True(File.Exists(Path.Combine(work.Files.DefinitionsFolder, "Other.macros.json")));
+        Assert.Equal("Raport", reopened.GetMacro(1).Name);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task ReservationIsDurableBeforeTxAndRepeatRestartUseTheSameNumber() => Sta(() =>
     {
         using var work = new Workspace(); work.Start();

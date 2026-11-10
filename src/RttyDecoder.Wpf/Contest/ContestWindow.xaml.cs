@@ -69,6 +69,39 @@ public partial class ContestWindow : Window
         if (ReferenceEquals(sender, HeadersExpander)) DiagnosticsExpander.IsExpanded = false;
         else HeadersExpander.IsExpanded = false;
     }
+    private void OnMacroTooltip(object sender, ToolTipEventArgs e)
+    {
+        if (sender is Border { Tag: string tag, ToolTip: ToolTip tip } && int.TryParse(tag, out int slot))
+            tip.Content = Model.MacroTooltip(slot);
+    }
+
+    private void OnMacroEdit(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border { Tag: string tag } || !int.TryParse(tag, out int slot)) return;
+        e.Handled = true;
+        Model.Run(() =>
+        {
+            var macro = Model.GetMacro(slot);
+            var defaults = ContestMacros.Defaults().Get(Model.SearchAndPounce, slot);
+            string mode = Model.SearchAndPounce ? "S&P" : "Run";
+            MacroEditWindow? dialog = null;
+            dialog = new MacroEditWindow($"F{slot + 1} · {mode}", macro.Name, macro.Text,
+                (defaults.Name, defaults.Text),
+                "{MYCALL}: indicativ propriu. {CALL}: corespondent. {RST}: raport transmis. " +
+                "In F2, {EXCHANGE}: serialul (daca este cerut) si schimbul fix.",
+                (name, text) =>
+                {
+                    if (Model.Run(() => Model.SaveMacro(slot, new(name, text)))) return true;
+                    MessageBox.Show(dialog!, Model.Status, "Macro", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                })
+            {
+                Owner = this
+            };
+            dialog.ShowDialog();
+        });
+    }
+
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         ICommand? command = e.Key switch

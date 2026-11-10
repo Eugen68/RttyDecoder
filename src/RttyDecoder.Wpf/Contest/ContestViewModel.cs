@@ -15,6 +15,20 @@ public sealed class ContestViewModel : ObservableObject
     private readonly IContestHost _host;
     private ContestSession? _session;
     private ContestDefinition? _definition;
+    private ContestMacros? _macros;
+    private string? _macroError;
+    private bool _searchAndPounce;
+
+    public bool SearchAndPounce
+    {
+        get => _searchAndPounce;
+        set { if (Set(ref _searchAndPounce, value)) NotifyMacros(); }
+    }
+    public string F1Label => MacroLabel(0);
+    public string F2Label => MacroLabel(1);
+    public string F3Label => MacroLabel(2);
+    public string F4Label => MacroLabel(3);
+
     private PendingContestContact? _pending;
     private Guid? _editing;
     private (string Report, string Fixed)? _beforeEdit;
@@ -68,6 +82,7 @@ public sealed class ContestViewModel : ObservableObject
                     : "Definitia nu poate fi folosita. Consultati diagnosticele UDC.";
             }
             catch (Exception error) { _definition = null; Status = "Citire UDC: " + error.Message; }
+            LoadMacros();
             CommandManager.InvalidateRequerySuggested();
         }
     }
@@ -110,7 +125,7 @@ public sealed class ContestViewModel : ObservableObject
     public void RefreshDefinitions(string? selectPath = null)
     {
         if (HasSession) return;
-        _selectedDefinition = null; _definition = null; OnPropertyChanged(nameof(SelectedDefinition));
+        _selectedDefinition = null; _definition = null; LoadMacros(); OnPropertyChanged(nameof(SelectedDefinition));
         Definitions.Clear(); foreach (var definition in _files.ListDefinitions()) Definitions.Add(definition);
         SelectedDefinition = Definitions.FirstOrDefault(d => d.Path == selectPath) ?? Definitions.FirstOrDefault();
     }
@@ -118,7 +133,9 @@ public sealed class ContestViewModel : ObservableObject
     {
         string? selected = null;
         foreach (string path in paths) { string target = _files.Import(path); if (System.IO.Path.GetExtension(target).Equals(".udc", StringComparison.OrdinalIgnoreCase)) selected = target; }
-        RefreshDefinitions(selected); Status = "Fisiere importate in UserDefinedContests / SupportFiles. Sesiunea activa pastreaza propria definitie.";
+        RefreshDefinitions(selected);
+        if (_macroError == null)
+            Status = "Fisiere importate in UserDefinedContests / SupportFiles. Sesiunea activa pastreaza propria definitie.";
     }
     public void SyncFrequency()
     {
@@ -156,7 +173,7 @@ public sealed class ContestViewModel : ObservableObject
         var previousPath = SessionPath; SessionPath = path;
         try { SaveCandidate(session, null, Entry.Capture()); }
         catch { SessionPath = previousPath; throw; }
-        _files.Remember(path); Status = "Sesiune creata. QSO-urile si rezervarile se salveaza automat.";
+        _files.Remember(path); Status = _macroError ?? "Sesiune creata. QSO-urile si rezervarile se salveaza automat.";
     }
 
     public void LoadSession(string path)
@@ -179,6 +196,7 @@ public sealed class ContestViewModel : ObservableObject
         if (_pending != null) { Entry.Callsign = _pending.Callsign; }
         Diagnostics = string.Join(Environment.NewLine, imported.Diagnostics.Select(d => $"{d.Severity} · {d.Key}: {d.Message}"));
         _files.Remember(path); Refresh(); Status = "Sesiune redeschisa; rezervarea existenta este pastrata.";
+        LoadMacros();
     }
 
     public void EndSession()
@@ -305,25 +323,101 @@ public sealed class ContestViewModel : ObservableObject
     private void EnsureSession() { if (_session == null) throw new InvalidOperationException("Creati sau deschideti o sesiune."); }
     private static string? EmptyNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
+    private void LoadMacros()
+    {
+        _macros = null;
+        _macroError = null;
+        if (_definition != null)
+        {
+            try { _macros = ContestMacros.LoadOrCreate(_files.MacroPath(_definition.FileName)); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+            {
+                _macroError = "Macro-uri: " + error.Message;
+                Status = _macroError;
+            }
+        }
+        NotifyMacros();
+    }
+
+    private void NotifyMacros()
+    {
+        OnPropertyChanged(nameof(F1Label));
+        OnPropertyChanged(nameof(F2Label));
+        OnPropertyChanged(nameof(F3Label));
+        OnPropertyChanged(nameof(F4Label));
+    }
+
+    private string MacroLabel(int slot) => $"F{slot + 1} · {_macros?.Get(SearchAndPounce, slot).Name ?? ContestMacros.Defaults().Get(SearchAndPounce, slot).Name}";
+    internal ContestMacro GetMacro(int slot) => RequireMacros().Get(SearchAndPounce, slot);
+
+    internal void SaveMacro(int slot, ContestMacro value)
+    {
+        var path = _files.MacroPath(_definition?.FileName ?? throw new InvalidOperationException("Alegeti un UDC."));
+        // Re-read to preserve edits made to other slots since this session was opened.
+        var updated = ContestMacros.LoadOrCreate(path).With(SearchAndPounce, slot, value);
+        ContestFiles.AtomicWrite(path, updated.Serialize());
+        _macros = updated;
+        _macroError = null;
+        NotifyMacros();
+        Status = "Macro salvat in " + System.IO.Path.GetFileName(path);
+    }
+
+    private ContestMacros RequireMacros() => _macros ?? throw new InvalidOperationException(_macroError ?? "Alegeti un UDC.");
+
+    private string RenderMacro(ContestMacro macro, bool preview)
+    {
+        string own = _session?.OwnStation.Callsign ?? OwnCall.Trim().ToUpperInvariant();
+        string call = _pending?.Callsign ?? Entry.Callsign.Trim().ToUpperInvariant();
+        int? serial = _session?.PendingSerial?.Number;
+        if (preview && serial == null && _session?.Rules.UsesSerialNumbers == true)
+            serial = _session.NextSerial;
+        string fixedExchange = (_pending?.FixedExchange ?? SentExchange).Trim();
+        string exchange = string.Join(" ", new[] { serial?.ToString("D3", CultureInfo.InvariantCulture), fixedExchange }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        return ContestMacros.Render(macro, key => key switch
+        {
+            "MYCALL" => Required(own, "Completati indicativul propriu."),
+            "CALL" => Required(call, "Completati indicativul corespondentului."),
+            "RST" => _pending?.Report ?? SentReport,
+            "EXCHANGE" => exchange,
+            _ => throw new InvalidOperationException("Variabila de macro necunoscuta.")
+        });
+    }
+
+    private static string Required(string value, string message) =>
+        string.IsNullOrWhiteSpace(value) ? throw new ArgumentException(message) : value;
+
+    internal string MacroTooltip(int slot)
+    {
+        const string help = "\n\nClick sau F1–F4: trimite. Click dreapta: editeaza.";
+        try
+        {
+            var macro = GetMacro(slot);
+            if (slot == 1) ValidateSent();
+            string text = RenderMacro(macro, preview: true);
+            if (slot == 1 && macro.Text.Contains("{EXCHANGE}") && _session?.Rules.UsesSerialNumbers == true && !IsReserved)
+                text += "\nSerial estimat; se fixeaza la transmitere.";
+            return text + help;
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        {
+            return error.Message + help;
+        }
+    }
+
     public void Send(string kind)
     {
         EnsureIdle(); EnsureSession(); if (IsEditing) throw new InvalidOperationException("Incheiati editarea inainte de emisie.");
-        string own = _session!.OwnStation.Callsign;
-        string text;
-        if (kind == "CQ")
+        int slot = kind switch { "CQ" => 0, "REPORT" => 1, "AGN" => 2, "TU" => 3, _ => throw new ArgumentException("Mesaj necunoscut.") };
+        var macro = GetMacro(slot);
+        if (slot == 0 && IsReserved) throw new InvalidOperationException("Logati sau anulati QSO-ul curent inainte de F1.");
+        if (slot == 1)
         {
-            if (IsReserved) throw new InvalidOperationException("Logati sau anulati QSO-ul curent inainte de CQ.");
-            text = $"CQ TEST DE {own} {own} K";
-        }
-        else if (kind == "REPORT")
-        {
+            ValidateSent();
+            RenderMacro(macro, preview: true);
             ReserveSerial();
-            string exchange = string.Join(" ", new[] { _session.PendingSerial?.Number.ToString("D3"), _pending!.FixedExchange }.Where(s => !string.IsNullOrWhiteSpace(s)));
-            text = $"{_pending.Callsign} {_pending.Report} {exchange} {exchange} DE {own} K";
         }
-        else if (kind == "AGN") text = "AGN AGN PSE";
-        else if (kind == "TU") text = $"{(IsReserved ? _pending!.Callsign : Entry.Callsign.Trim().ToUpperInvariant())} TU DE {own} K";
-        else throw new ArgumentException("Mesaj necunoscut.");
+        string text = RenderMacro(macro, preview: false);
         if (!_host.TryTransmit(text)) throw new InvalidOperationException("Mesajul nu a fost acceptat pentru emisie. Verificati statia si configuratia FSK in aplicatia principala.");
         Status = "Mesaj acceptat pentru emisie. Logarea QSO-ului se face explicit.";
     }
