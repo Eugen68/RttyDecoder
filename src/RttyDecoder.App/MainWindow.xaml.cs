@@ -284,15 +284,19 @@ public partial class MainWindow : Window
     private RttyDecoder.Wpf.Help.HelpWindow? _helpWindow;
 
     /// <summary>Ajutor > Ajutor: fereastra nemodala, una singura; a doua comanda o aduce in fata.</summary>
-    private void OnHelp(object sender, RoutedEventArgs e)
+    private void OnHelp(object sender, RoutedEventArgs e) => ShowHelp(null);
+
+    /// <summary>Fereastra de ajutor (una singura), optional la un subiect (de ex. "10-contest").</summary>
+    internal void ShowHelp(string? topic)
     {
         if (_helpWindow != null)
         {
             if (_helpWindow.WindowState == WindowState.Minimized) _helpWindow.WindowState = WindowState.Normal;
+            if (topic != null) _helpWindow.ShowTopic(topic);
             _helpWindow.Activate();
             return;
         }
-        _helpWindow = new RttyDecoder.Wpf.Help.HelpWindow { Owner = this };
+        _helpWindow = new RttyDecoder.Wpf.Help.HelpWindow(topic) { Owner = this };
         _helpWindow.Closed += (_, _) => _helpWindow = null;
         _helpWindow.Show();
     }
@@ -356,6 +360,7 @@ public partial class MainWindow : Window
         _settings.Macros = _vm.ExportMacros();
         _settings.Waterfall = Decoder.WaterfallSettings;
         _settings.ShowStations = _vm.ShowStations;
+        if (_contestWindow != null) SaveContestPlacement(_contestWindow);
         _settings.Maximized = WindowState == WindowState.Maximized;
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         _settings.Width = b.Width;

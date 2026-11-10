@@ -33,6 +33,50 @@ public partial class ContestWindow : Window
         InitializeComponent(); Model = model; DataContext = model;
         Loaded += (_, _) => { Model.SyncFrequency(); CallBox.Focus(); };
         Closing += OnClosing;
+        Model.FocusRequested += OnFocusRequested;
+        // ceasurile de deasupra jurnalului
+        var clock = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        clock.Tick += (_, _) => UpdateClocks();
+        UpdateClocks(); clock.Start();
+        Closed += (_, _) => { Model.FocusRequested -= OnFocusRequested; clock.Stop(); };
+    }
+
+    private void UpdateClocks()
+    {
+        var now = DateTime.Now;
+        UtcClock.Text = "UTC: " + now.ToUniversalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        LocalClock.Text = "LOCAL: " + now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Click dreapta pe un QSO il selecteaza (DataGrid nu o face singur), ca meniul sa lucreze pe el.</summary>
+    private void OnJournalRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var element = e.OriginalSource as DependencyObject;
+        while (element != null && element is not DataGridRow) element = System.Windows.Media.VisualTreeHelper.GetParent(element);
+        if (element is DataGridRow row) { row.IsSelected = true; Journal.SelectedItem = row.Item; }
+    }
+
+    private void OnJournalMenuOpened(object sender, RoutedEventArgs e)
+    {
+        bool selected = Model.SelectedQso != null;
+        QrzItem.IsEnabled = selected;
+        DeleteItem.IsEnabled = selected && Model.HasSession;
+        QrzItem.Header = selected ? $"_Look-up QRZ.com ({Model.SelectedQso!.Call})" : "_Look-up QRZ.com";
+    }
+
+    /// <summary>Pagina indicativului selectat pe QRZ.com, in browserul implicit.</summary>
+    private void OnJournalQrz(object sender, RoutedEventArgs e)
+    {
+        if (Model.SelectedQso is not { } selected) return;
+        try { Process.Start(new ProcessStartInfo("https://www.qrz.com/db/" + Uri.EscapeDataString(selected.Call)) { UseShellExecute = true }); }
+        catch (Exception error) { MessageBox.Show(this, error.Message, "QRZ.com", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    /// <summary>ESM: dupe raport cursorul trece la numarul/schimbul primit, dupa logare la indicativ.</summary>
+    private void OnFocusRequested(string target)
+    {
+        var box = target == "received" ? (Model.ReceivesSerial && string.IsNullOrEmpty(SerialBox.Text) ? SerialBox : ExchangeBox) : CallBox;
+        Dispatcher.BeginInvoke(() => { box.Focus(); box.SelectAll(); }, System.Windows.Threading.DispatcherPriority.Input);
     }
     private void OnClosing(object? sender, CancelEventArgs e)
     {
@@ -81,17 +125,16 @@ public partial class ContestWindow : Window
     }
     private void OnAdif(object sender, RoutedEventArgs e) => Export(true);
     private void OnCabrillo(object sender, RoutedEventArgs e) => Export(false);
-    private void OnHelp(object sender, RoutedEventArgs e) =>
-        MessageBox.Show(this, """
-            1. Din Fișiere, importă definiția UDC și listele SEC cerute de concurs.
-            2. Alege Nou, selectează definiția și completează datele stației. Poți redeschide un jurnal din același meniu.
-            3. Completează indicativul și schimbul primit. Folosește CAT sau introdu manual frecvența RF în kHz.
+    /// <summary>Ajutor > Ajutor: gazda deschide fereastra de ajutor a aplicatiei la subiectul cerut.</summary>
+    public event Action<string>? HelpRequested;
 
-            Enter salvează QSO-ul. F1–F4 trimit macro-urile, iar Esc oprește emisia.
-            Treci cu mouse-ul peste un macro pentru previzualizare sau fă click dreapta pentru editare.
-
-            În Setări găsești folderele UDC și SEC. Din Unelte poți exporta jurnalul în ADIF sau Cabrillo.
-            """, "Ajutor Contest", MessageBoxButton.OK, MessageBoxImage.Information);
+    private void OnHelp(object sender, RoutedEventArgs e)
+    {
+        const string topic = "10-contest";
+        if (HelpRequested != null) { HelpRequested(topic); return; }
+        // fara gazda (fereastra folosita separat): propria fereastra de ajutor
+        new Help.HelpWindow(topic) { Owner = this }.Show();
+    }
 
     private void OnAbout(object sender, RoutedEventArgs e)
     {
@@ -157,7 +200,7 @@ public partial class ContestWindow : Window
         {
             Key.Escape => Model.StopCommand, Key.F1 => Model.CqCommand, Key.F2 => Model.ReportCommand,
             Key.F3 => Model.AgnCommand, Key.F4 => Model.TuCommand,
-            Key.Enter when EntryArea.IsKeyboardFocusWithin && Keyboard.FocusedElement is not TextBox { AcceptsReturn: true } => Model.LogCommand,
+            Key.Enter when EntryArea.IsKeyboardFocusWithin && Keyboard.FocusedElement is not TextBox { AcceptsReturn: true } => Model.EnterCommand,
             _ => null
         };
         if (command?.CanExecute(null) == true) { command.Execute(null); e.Handled = true; }

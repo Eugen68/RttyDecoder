@@ -7,6 +7,8 @@ Indicativele din textul decodat sunt evidentiate:
 | Verde | Cunoscut: in MASTER.SCP sau in lista LoTW (sau confirmat online) |
 | Auriu | Forma corecta, dar necunoscut - poate fi si o eroare de decodare |
 | Portocaliu | Indicativul tau (campul "Indicativul meu" din lista statiilor) |
+| Gri, taiat | Contest: dublu (doar cu fereastra Contest deschisa) |
+| Roz | Contest: multiplicator nou (doar cu fereastra Contest deschisa) |
 
 - **Mouse-ul deasupra**: tara si zonele (din cty.dat).
 - **Click**: copiaza indicativul in clipboard si il foloseste pentru `{CALL}` in macro-uri (si il trimite in fereastra Contest, daca e deschisa).

@@ -18,6 +18,11 @@
     <SolidColorBrush x:Key="Call.Known.Back" Color="#123826" />
     <SolidColorBrush x:Key="Call.Own" Color="#FF8A65" />
     <SolidColorBrush x:Key="Call.Own.Back" Color="#3A1F15" />
+    <!-- Contest: dublu (gri, taiat) si multiplicator nou (roz) -->
+    <SolidColorBrush x:Key="Call.Dupe" Color="#7A7A7A" />
+    <SolidColorBrush x:Key="Call.Dupe.Back" Color="#00000000" />
+    <SolidColorBrush x:Key="Call.NewMult" Color="#FF80C0" />
+    <SolidColorBrush x:Key="Call.NewMult.Back" Color="#4A1035" />
 
     <Style TargetType="ButtonBase" x:Key="Rtty.ButtonBase">
         <Setter Property="Foreground" Value="White" />
@@ -233,6 +238,23 @@
                             <Setter Property="Opacity" Value="0.4" />
                         </Trigger>
                     </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Meniurile contextuale (click dreapta): acelasi fundal inchis ca submeniurile de sus. Fara el,
+         randurile (text deschis, din stilul MenuItem) aparea pe fundalul alb implicit din Windows. -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Foreground" Value="{StaticResource Rtty.Foreground}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{StaticResource Rtty.Panel}" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1" Padding="2" MinWidth="180">
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

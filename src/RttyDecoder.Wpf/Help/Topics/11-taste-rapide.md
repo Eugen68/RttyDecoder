@@ -12,6 +12,14 @@
 | Ctrl+Shift+C | Fereastra Contest |
 | Alt+F4 | Iesire |
 
+## Fereastra Contest
+
+| Tasta | Actiune |
+|---|---|
+| Enter | Cu ESM: mesajul potrivit starii (CQ / raport / TU + logare); fara ESM: logare |
+| F1 ... F4 | Macro-urile Run sau S&P |
+| Esc | STOP emisie |
+
 ## Waterfall
 
 | Comanda | Actiune |
@@ -34,5 +42,6 @@
 | Comanda | Actiune |
 |---|---|
 | Click | Copiaza; devine `{CALL}`; merge in formularul Contest |
+| Click pe un numar / cuvant (cu Contest deschis) | Preluat in Nr. primit / Schimb primit |
 | Dublu click | Pagina pe QRZ.com |
 | Click dreapta pe un macro | Editare macro |

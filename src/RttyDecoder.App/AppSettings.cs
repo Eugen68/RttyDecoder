@@ -86,6 +86,9 @@ public sealed class AppSettings
         }
     }
 
+    /// <summary>Pozitia si marimea ferestrei Contest (null = implicit, centrata pe fereastra principala).</summary>
+    public WindowBounds? ContestWindow { get; set; }
+
     /// <summary>Pozitia ferestrei (coltul stanga-sus, in pixeli WPF); null = centrata.</summary>
     public double? Left { get; set; }
 
@@ -123,4 +126,14 @@ public sealed class AppSettings
             // nu blocam inchiderea aplicatiei
         }
     }
+}
+
+/// <summary>Pozitia, marimea si starea unei ferestre secundare (salvate in settings.json).</summary>
+public sealed class WindowBounds
+{
+    public double Left { get; set; }
+    public double Top { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+    public bool Maximized { get; set; }
 }

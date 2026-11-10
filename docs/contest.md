@@ -7,17 +7,20 @@ dat; repetarea comenzii o aduce in fata. Inchiderea ei salveaza formularul si nu
 Opțiunea **Deasupra decodorului** este bifată implicit. Debifați-o pentru a aduce decodorul
 în față și pentru a permite ferestrei Contest să rămână în spate. **Ctrl+Shift+C** readuce
 Contest în față. Alegerea se păstrează dacă închideți și redeschideți Contest cât timp
-aplicația rămâne pornită.
+aplicația rămâne pornită. **Poziția și mărimea** ferestrei Contest se salvează în `settings.json`
+și se refac la următoarea deschidere. Deasupra jurnalului sunt ceasurile **UTC** și **LOCAL**.
 
 Biblioteca [HamContest](https://github.com/Eugen68/HamContest) este un submodul fixat la commit-ul
-`4132ff9` (preview.2, din PR #1 al bibliotecii). Clonati cu submodule:
+`86b76b4` (ramura `feature/initial-library`, PR #1 al bibliotecii: preview.2 plus `UdcContestRules.Preview`
+pentru culorile din decodor). Clonati cu submodule:
 
 ```sh
 git clone --recurse-submodules https://github.com/Eugen68/RttyDecoder.git
 ```
 
-Meniul **Ajutor** include un ghid rapid si informatii despre modulul Contest, versiunea
-aplicatiei, build si biblioteca HamContest.
+Meniul **Ajutor** al ferestrei Contest: **Ajutor** deschide fereastra de ajutor a aplicatiei la
+subiectele de concurs (pe scurt, definitii si sesiuni, logare si jurnal, macro-uri/seriale/emisie,
+export); **Despre** arata versiunea aplicatiei, build-ul si biblioteca HamContest.
 
 ## Fisiere
 
@@ -54,6 +57,20 @@ unei sesiuni incepute. Schimbarile incompatibile ale versiunii HamContest necesi
 
 - Click pe un indicativ in terminal sau lista statiilor il trimite si formularului Contest,
   daca fereastra este vizibila si nu exista un QSO fixat/corectie in lucru.
+- **Click pe un numar sau un cuvant** din terminal (care nu e indicativ) il preia in formular:
+  `599`/`5NN` = RST primit; un numar = **Nr. primit** (daca concursul are seriale si campul e gol),
+  altfel **Schimb primit**; un cuvant (sectiune, nume, zona) = **Schimb primit**. Cuvintele uzuale
+  (DE, TU, K, CQ, TEST, 73...) sunt ignorate, la fel ora si textul trimis. Sub mouse, cuvintele care se
+  pot prelua se evidentiaza (fundal si subliniere) si cursorul devine mana, ca la indicative. Preluarea
+  nu transmite nimic. Limita: un serial chiar egal cu 599 se introduce de mana.
+- Cat e deschisa fereastra Contest, **indicativele din terminal si din lista statiilor sunt colorate**
+  dupa starea lor in sesiune, pe banda curenta: **gri taiat = dublu**, **roz = multiplicator nou**,
+  culorile obisnuite = QSO valid. Tooltip-ul o spune si in cuvinte. Calculul e facut de HamContest
+  (`UdcContestRules.Preview`), fara schimbul primit: **dublu** = indicativ lucrat deja pe banda/modul
+  cerut de regulament; multiplicatorii care vin din indicativ (tara, prefix WPX, zona CQ/ITU din cty.dat)
+  se vad inainte de QSO, cei care vin din schimb (sectiune, numar) abia la logare. Daca regulamentul are
+  si un criteriu de dublu pe schimb, gri inseamna "lucrat deja" (QSO-ul poate fi totusi valid). Culorile
+  se refac la fiecare QSO si la schimbarea benzii (prin CAT).
 - **CAT** preia frecventa RF afisata de statie, in kHz. La pierderea conexiunii, logarea cere
   debifarea CAT si completarea manuala. Nu se foloseste frecventa audio Mark/Space.
 - Completati RST, numarul si schimbul primit. Campurile suplimentare se mapeaza explicit pe
@@ -64,11 +81,26 @@ unei sesiuni incepute. Schimbarile incompatibile ale versiunii HamContest necesi
   îl copiază în **Schimb primit** numai dacă acel câmp este gol. Verificați anul recepționat
   înainte de logare. Dacă anii diferă, nu se propune o valoare. Numărul primit se introduce manual.
 - **Verifica** si mesajul de sub formular indica erorile, dublele si multiplicatorii noi.
-- **Logheaza QSO**, sau Enter cand cursorul este in formular, salveaza QSO-ul. Un dupe ramane
+- **Enter** in formular, cu **ESM** bifat (implicit), trimite mesajul potrivit starii:
+
+  | Mod | Starea | Enter |
+  | --- | --- | --- |
+  | Run | fara indicativ | CQ (F1) |
+  | Run | indicativ, fara schimb primit | raportul (F2, fixeaza serialul; repetat = acelasi serial) |
+  | Run | schimbul primit completat | logheaza QSO-ul, apoi TU (F4) |
+  | S&P | fara schimb primit | indicativul tau (F1) |
+  | S&P | schimbul primit completat | schimbul tau (F2) |
+  | S&P | schimbul trimis | logheaza QSO-ul (fara emisie) |
+
+  Dupa raport cursorul trece la numarul/schimbul primit, dupa logare la indicativ. Cu ESM debifat,
+  Enter doar logheaza.
+- **Logheaza QSO** salveaza QSO-ul. Un dupe ramane
   in jurnal, cu zero puncte; nu este sters automat. Ora UTC poate ramane goala pentru momentul
   curent sau poate fi introdusa ca `yyyy-MM-dd HH:mm:ss`.
-- Corectarea se face pe randul selectat, apoi **Salveaza corectia**. Serialul deja transmis
-  nu poate fi schimbat. Stergerea cere confirmare; scorul si dublele se recalculeaza.
+- **Click dreapta pe un QSO** din jurnal: **Look-up QRZ.com** (pagina indicativului in browser),
+  **Corecteaza selectat...** (QSO-ul trece in formular, apoi **Salveaza corectia**; serialul deja
+  transmis nu poate fi schimbat) si **Sterge selectat...** (cere confirmare; scorul si dublele se
+  recalculeaza).
 
 O corectie nesalvata nu inlocuieste QSO-ul original. Salvarea jurnalului foloseste mai intai o
 copie a sesiunii: daca scrierea esueaza, randurile si contorul activ nu sunt avansate. La o

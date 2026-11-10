@@ -1,32 +1,33 @@
-# Contest
+# Contest: pe scurt
 
-**Contest > Deschide fereastra de concurs** sau **Ctrl+Shift+C**. Fereastra e separata si nemodala: decodorul ramane folosibil. Detaliile complete sunt in meniul **Ajutor** al ferestrei Contest.
+**Contest > Deschide fereastra de concurs** sau **Ctrl+Shift+C**. Fereastra e separata si nemodala: decodorul ramane folosibil. O singura fereastra Contest e deschisa; repetarea comenzii o aduce in fata. Inchiderea ei salveaza formularul si nu opreste receptia.
 
-## Pe scurt
+Subiectele urmatoare dau detaliile: **sesiuni si definitii**, **logare si jurnal**, **macro-uri, seriale si emisie**, **export ADIF si Cabrillo**.
 
-1. Alege **UDC-ul** (definitia concursului), indicativul propriu si primul serial; completeaza sectiunea/locatorul daca regulamentul le cere.
-2. **Incepe sesiunea**, apoi completeaza **Schimbul fix** cerut de regulament.
-3. Click pe un indicativ in terminal sau in lista statiilor il trimite in formular.
-4. **F2** fixeaza serialul (salvat pe disc **inainte** de emisie) si trimite raportul; repetarea foloseste acelasi serial, chiar si dupa repornire.
-5. Completeaza schimbul primit; **Enter** logheaza QSO-ul. TU nu logheaza automat.
+## Un QSO, pas cu pas
 
-## Tastele in fereastra Contest
+1. Alege definitia **UDC**, indicativul propriu si primul serial, apoi **Incepe sesiunea**; completeaza **Schimbul fix** cerut de regulament.
+2. Click pe un indicativ in terminal sau in lista statiilor il trimite in formular.
+3. **Enter** (cu ESM) sau **F2** fixeaza serialul - salvat pe disc **inainte** de emisie - si trimite raportul.
+4. Click pe numarul si pe schimbul primit in terminal (sau scrie-le), apoi **Enter**: QSO-ul se logheaza (in Run se trimite si TU).
 
-| Tasta | Run (S&P debifat) | S&P bifat |
-|---|---|---|
-| F1 | CQ TEST | Indicativul propriu (se poate repeta oricand) |
-| F2 | Raport + schimb, cu serialul fixat | Schimbul |
-| F3 | AGN AGN PSE | AGN AGN PSE |
-| F4 | TU | TU |
-| Esc | STOP TX | STOP TX |
+## Fereastra
 
-Macro-urile Run si S&P se editeaza separat (click dreapta pe F1-F4) si se salveaza langa UDC (`nume.macros.json`).
+- **Deasupra decodorului** (meniu, bifat implicit): Contest ramane deasupra decodorului. Debifat, decodorul poate veni in fata; **Ctrl+Shift+C** readuce Contest.
+- **Pozitia si marimea** ferestrei se pastreaza intre porniri.
+- Deasupra jurnalului: ceasurile **UTC** (ora din jurnal) si **LOCAL**.
+- **Click dreapta pe un QSO** din jurnal: Look-up QRZ.com, Corecteaza selectat..., Sterge selectat...
 
-## De retinut
+## Culori in decodor
 
-- **QSY automat** se face doar in **S&P**; in Run frecventa ta ramane pe loc.
-- Un dublu ramane in jurnal cu zero puncte; nu e sters automat.
-- Serialele anulate sau sterse nu se refolosesc.
-- Daca salvarea jurnalului esueaza, inchiderea aplicatiei e oprita, ca sa nu pierzi QSO-uri.
-- **Unelte > Export ADIF / Cabrillo**. La Cabrillo completeaza antetele reale ale categoriei tale (CATEGORY-...).
-- Fisierele concursului: vezi subiectul **Fisiere si foldere**.
+Cat e deschisa fereastra Contest, indicativele din terminal si din lista statiilor arata starea lor in sesiune, pe banda curenta:
+
+| Culoare | Inseamna |
+|---|---|
+| Gri, taiat | Dublu - lucrat deja pe banda (sau modul) cerut de regulament |
+| Roz | Multiplicator nou |
+| Culorile obisnuite | QSO valid |
+
+Multiplicatorii care vin din indicativ (tara, prefix WPX, zona CQ/ITU din cty.dat) se vad inainte de QSO; cei din schimb (sectiune, numar) abia la logare. Culorile se refac la fiecare QSO si la schimbarea benzii prin CAT.
+
+Numerele si cuvintele din terminal care se pot prelua in formular se **evidentiaza sub mouse** (cursorul devine mana), ca indicativele.

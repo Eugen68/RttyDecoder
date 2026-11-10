@@ -21,12 +21,58 @@ public partial class MainWindow
     {
         InputBindings.Add(new KeyBinding(new RelayCommand(ShowContestWindow), Key.C, ModifierKeys.Control | ModifierKeys.Shift));
         _vm.CallsignSelected += call => { if (_contestWindow?.IsVisible == true) _contestModel?.SelectCallsign(call.Full); };
+        // click pe un numar / cuvant din terminal: preluat in schimbul primit
+        _vm.WordSelected += word => { if (_contestWindow?.IsVisible == true) _contestModel?.Run(() => _contestModel.GrabWord(word)); };
         _vm.PropertyChanged += (_, e) =>
         {
             if (_contestWindow?.IsVisible == true && e.PropertyName == nameof(RttyDecoderViewModel.RigText)) _contestModel?.SyncFrequency();
         };
     }
     private void OnOpenContest(object sender, RoutedEventArgs e) => ShowContestWindow();
+
+    /// <summary>Fereastra Contest se deschide unde si cat de mare a fost lasata ultima data.</summary>
+    private void RestoreContestPlacement(Window window)
+    {
+        if (_settings.ContestWindow is not { Width: > 0, Height: > 0 } b) return;
+        window.Width = Math.Max(window.MinWidth, b.Width);
+        window.Height = Math.Max(window.MinHeight, b.Height);
+        if (IsOnScreen(b.Left, b.Top, window.Width, window.Height))
+        {
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.Left = b.Left;
+            window.Top = b.Top;
+        }
+        if (b.Maximized) window.WindowState = WindowState.Maximized;
+    }
+
+    /// <summary>La inchiderea ferestrei Contest (si a aplicatiei, cand e deschisa): pozitia si marimea in setari.</summary>
+    private void SaveContestPlacement(Window window)
+    {
+        var r = window.WindowState == WindowState.Normal ? new Rect(window.Left, window.Top, window.Width, window.Height) : window.RestoreBounds;
+        if (r.IsEmpty || double.IsNaN(r.Left) || double.IsInfinity(r.Left) || r.Width <= 0) return;
+        _settings.ContestWindow = new WindowBounds
+        {
+            Left = r.Left, Top = r.Top, Width = r.Width, Height = r.Height,
+            Maximized = window.WindowState == WindowState.Maximized,
+        };
+    }
+
+    private ContestViewModel? _colorsHooked;
+
+    /// <summary>Cat e deschisa fereastra Contest: indicativele din decodor colorate dupa dublu / multiplicator nou.</summary>
+    private void HookContestColors()
+    {
+        if (_contestModel == null) return;
+        if (!ReferenceEquals(_colorsHooked, _contestModel))
+        {
+            var model = _contestModel;
+            model.JournalChanged += () => { if (_contestWindow != null && ReferenceEquals(_contestModel, model)) _vm.RefreshContestColors(); };
+            _colorsHooked = model;
+        }
+        var current = _contestModel;
+        _vm.ContestCallStatus = call => current.CallState(call);
+        _vm.ContestCanGrab = word => current.CanGrab(word);
+    }
     private void ShowContestWindow()
     {
         try
@@ -49,8 +95,12 @@ public partial class MainWindow
                 window.Owner = _contestAboveDecoder ? this : null;
                 if (!_contestAboveDecoder) Activate();
             };
-            window.Closed += (_, _) => _contestWindow = null;
+            RestoreContestPlacement(window);
+            window.HelpRequested += ShowHelp;
+            window.Closing += (_, _) => SaveContestPlacement(window);
+            window.Closed += (_, _) => { _contestWindow = null; _vm.ContestCallStatus = null; _vm.ContestCanGrab = null; };
             _contestWindow = window;
+            HookContestColors();
             window.Show(); // deliberately modeless: the decoder remains interactive
         }
         catch (Exception error) { _vm.Message = "Contest: " + error.Message; }

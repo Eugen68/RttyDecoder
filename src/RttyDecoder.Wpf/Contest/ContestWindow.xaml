@@ -90,8 +90,8 @@
                         IsReadOnly="{Binding Entry.UseCat}" ToolTip="Frecventa RF a statiei, nu frecventa audio Mark/Space" /></StackPanel>
                     <CheckBox Content="CAT" IsChecked="{Binding Entry.UseCat}" VerticalAlignment="Center" Margin="0,15,12,0" ToolTip="Citeste frecventa statiei conectate; fara CAT, debifati si introduceti frecventa manual" />
                     <StackPanel><TextBlock Text="RST primit" /><TextBox Width="65" Text="{Binding Entry.Report, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Nr. primit" /><TextBox Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Schimb primit" /><TextBox Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Nr. primit" /><TextBox x:Name="SerialBox" Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Schimb primit" /><TextBox x:Name="ExchangeBox" Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     <StackPanel><TextBlock Text="Ora UTC (gol = acum)" /><TextBox Width="160" Text="{Binding Entry.TimeUtc, UpdateSourceTrigger=PropertyChanged}" ToolTip="yyyy-MM-dd HH:mm:ss" /></StackPanel>
                 </WrapPanel>
                 <Expander Header="Schimb suplimentar (dupa definitia UDC)" IsExpanded="True">
@@ -114,6 +114,8 @@
                     <Button Content="Verifica" Command="{Binding CheckCommand}" />
                     <CheckBox Content="S&amp;P" IsChecked="{Binding SearchAndPounce}" VerticalAlignment="Center"
                               Margin="6,0" ToolTip="Bifat: Search &amp; Pounce. Debifat: Run." />
+                    <CheckBox Content="ESM" IsChecked="{Binding EnterSendsMessages}" VerticalAlignment="Center" Margin="0,0,6,0"
+                              ToolTip="Enter trimite mesajul potrivit. Run: CQ, apoi raportul, apoi logheaza si TU. S&amp;P: indicativul tau, apoi schimbul, apoi logheaza. Debifat: Enter doar logheaza." />
                     <Border Background="Transparent" Tag="0" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
                         <Border.ToolTip><ToolTip Content="Macro F1" /></Border.ToolTip>
                         <Button Content="{Binding F1Label}" Command="{Binding CqCommand}" />
@@ -136,17 +138,29 @@
 
             <Grid Grid.Row="3">
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                <WrapPanel>
-                    <TextBlock Text="Jurnal · UTC" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0" />
-                    <Button Content="Corecteaza selectat" Command="{Binding EditCommand}" />
-                    <Button Content="Sterge selectat..." Click="OnDelete" IsEnabled="{Binding HasSession}" />
-                </WrapPanel>
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="Jurnal · UTC" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"
+                               ToolTip="Click dreapta pe un QSO: Look-up QRZ.com, corectare, stergere" />
+                    <TextBlock DockPanel.Dock="Left" x:Name="UtcClock" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Rtty.Accent}" Margin="8,0,16,0" ToolTip="Ora UTC (ora din jurnal)" />
+                    <TextBlock DockPanel.Dock="Left" x:Name="LocalClock" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14"
+                               Foreground="{DynamicResource Rtty.Muted}" ToolTip="Ora locala a calculatorului" />
+                </DockPanel>
                 <DataGrid x:Name="Journal" Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedQso}" IsReadOnly="True" AutoGenerateColumns="False"
                           CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column" Margin="0,4,0,0"
+                          PreviewMouseRightButtonDown="OnJournalRightButtonDown"
                           Background="#101820" Foreground="#E6E6E6" BorderBrush="#3C3C3C" HorizontalGridLinesBrush="#303A44" VerticalGridLinesBrush="#303A44">
                     <DataGrid.RowStyle><Style TargetType="DataGridRow"><Setter Property="Background" Value="#151C24" /><Setter Property="Foreground" Value="#E6E6E6" />
                         <Style.Triggers><DataTrigger Binding="{Binding IsDupe}" Value="True"><Setter Property="Foreground" Value="#FFD166" /></DataTrigger></Style.Triggers>
                     </Style></DataGrid.RowStyle>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu Opened="OnJournalMenuOpened">
+                            <MenuItem x:Name="QrzItem" Header="_Look-up QRZ.com" Click="OnJournalQrz" />
+                            <Separator />
+                            <MenuItem x:Name="EditItem" Header="_Corecteaza selectat..." Command="{Binding EditCommand}" />
+                            <MenuItem x:Name="DeleteItem" Header="_Sterge selectat..." Click="OnDelete" />
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="UTC" Binding="{Binding Utc}" Width="135" /><DataGridTextColumn Header="Indicativ" Binding="{Binding Call}" Width="100" />
                         <DataGridTextColumn Header="Banda" Binding="{Binding Band}" Width="50" /><DataGridTextColumn Header="kHz" Binding="{Binding FrequencyKhz}" Width="80" />

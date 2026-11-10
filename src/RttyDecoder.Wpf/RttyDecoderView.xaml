@@ -247,7 +247,7 @@
                                  BorderThickness="0" FontFamily="Consolas" FontSize="15" VerticalScrollBarVisibility="Auto"
                                  Padding="4" AcceptsReturn="True"
                                  PreviewMouseLeftButtonUp="OnTerminalClick" PreviewMouseDoubleClick="OnTerminalDoubleClick"
-                                 MouseMove="OnTerminalMouseMove">
+                                 MouseMove="OnTerminalMouseMove" MouseLeave="OnTerminalMouseLeave" ScrollViewer.ScrollChanged="OnTerminalScrolled">
                         <FlowDocument PagePadding="0">
                             <Paragraph x:Name="TerminalParagraph" Margin="0" />
                         </FlowDocument>
@@ -280,6 +280,11 @@
                         <Style TargetType="DataGridRow">
                             <Setter Property="ToolTip" Value="{Binding ToolTip}" />
                             <Setter Property="Cursor" Value="Hand" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ContestState}" Value="NewMultiplier">
+                                    <Setter Property="Background" Value="{StaticResource Call.NewMult.Back}" />
+                                </DataTrigger>
+                            </Style.Triggers>
                         </Style>
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
@@ -291,6 +296,13 @@
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsConfirmed}" Value="True">
                                             <Setter Property="Foreground" Value="{StaticResource Call.Known}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ContestState}" Value="NewMultiplier">
+                                            <Setter Property="Foreground" Value="{StaticResource Call.NewMult}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ContestState}" Value="Dupe">
+                                            <Setter Property="Foreground" Value="{StaticResource Call.Dupe}" />
+                                            <Setter Property="TextDecorations" Value="Strikethrough" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

@@ -105,6 +105,8 @@ public sealed class ContestViewModel : ObservableObject
     public ICommand StopCommand { get; }
     public ICommand CheckCommand { get; }
     public ICommand ApplyHistoryCommand { get; }
+    /// <summary>Enter in formular: ESM (trimite / logheaza dupa stare) sau doar logare.</summary>
+    public ICommand EnterCommand { get; }
 
     public ContestViewModel(ContestFiles files, ContestStationResolver resolver, IContestHost host)
     {
@@ -122,6 +124,7 @@ public sealed class ContestViewModel : ObservableObject
         StopCommand = new RelayCommand(host.Stop);
         CheckCommand = new RelayCommand(RefreshPreview);
         ApplyHistoryCommand = Command(ApplyHistorySuggestion, () => HasHistorySuggestion && !_host.IsBusy);
+        EnterCommand = Command(EnterPressed, () => HasSession && !_host.IsBusy);
         Entry.PropertyChanged += (_, e) => { if (!_updating) { if (e.PropertyName == nameof(ContestEntry.UseCat)) SyncFrequency(); RefreshPreview(); } };
         RefreshDefinitions(); SyncFrequency();
     }
@@ -153,6 +156,8 @@ public sealed class ContestViewModel : ObservableObject
             string text = (frequency / 1000m).ToString("0.###", CultureInfo.InvariantCulture);
             if (text == Entry.FrequencyKhz) return;
             _updating = true; Entry.FrequencyKhz = text; _updating = false; RefreshPreview();
+            // banda noua: dublele si multiplicatorii se judeca pe ea
+            if ((Bands.FromFrequency(frequency) ?? "") != _callStatesBand) InvalidateCallStates();
         }
     }
     public void SelectCallsign(string call)
@@ -215,6 +220,7 @@ public sealed class ContestViewModel : ObservableObject
         _session = null; _pending = null; _editing = null; _beforeEdit = null; SessionPath = ""; Contacts.Clear(); Summary = "";
         _sentReport = "599"; _sentExchange = ""; FirstSerial = "1"; CabrilloHeaders = EmptyHeaders;
         _updating = true; Entry.Apply(new()); _updating = false; RefreshDefinitions(); NotifyState(); RefreshHistorySuggestion();
+        InvalidateCallStates();
     }
 
     private ContestSession Clone() => ContestSession.Restore(_session!.Rules, _session.CaptureState());
@@ -480,6 +486,155 @@ public sealed class ContestViewModel : ObservableObject
         Entry.Exchange = year;
     }
 
+    // ------------------------------------------------------------------
+    // Decodor: culorile indicativelor (dublu / multiplicator nou)
+    // ------------------------------------------------------------------
+
+    /// <summary>Jurnalul, sesiunea sau banda s-au schimbat: culorile din decodor trebuie refacute.</summary>
+    public event Action? JournalChanged;
+
+    private readonly Dictionary<string, ContestCallState> _callStates = new(StringComparer.OrdinalIgnoreCase);
+    private string _callStatesBand = "";
+
+    private void InvalidateCallStates()
+    {
+        _callStates.Clear();
+        JournalChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Starea unui indicativ auzit, pe banda curenta: dublu, multiplicator nou sau QSO valid
+    /// (HamContest <c>UdcContestRules.Preview</c>). Multiplicatorii care vin din indicativ (tara, prefix
+    /// WPX, zona din cty.dat) se vad inainte de QSO; cei din schimb (sectiune, numar) abia la logare.
+    /// "Dublu" = lucrat deja pe banda/modul cerut de regulament. Fara sesiune sau frecventa cunoscuta:
+    /// None. Rezultatele se pastreaza pana la urmatoarea schimbare a jurnalului sau a benzii.
+    /// </summary>
+    public ContestCallState CallState(string call)
+    {
+        if (_session == null || CurrentFrequencyHz() is not { } hz) return ContestCallState.None;
+        string band = Bands.FromFrequency(hz) ?? "";
+        if (band != _callStatesBand) { _callStates.Clear(); _callStatesBand = band; }
+        call = call.Trim().ToUpperInvariant();
+        if (_callStates.TryGetValue(call, out var cached)) return cached;
+        var state = ComputeCallState(call, hz);
+        _callStates[call] = state;
+        return state;
+    }
+
+    private long? CurrentFrequencyHz()
+    {
+        if (Entry.UseCat && _host.FrequencyHz is { } cat) return cat;
+        return decimal.TryParse(Entry.FrequencyKhz.Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal khz)
+               && khz > 0 && khz <= 30_000 ? (long)(khz * 1000) : null;
+    }
+
+    private ContestCallState ComputeCallState(string call, long frequencyHz)
+    {
+        try
+        {
+            var rules = (UdcContestRules)_session!.Rules;
+            var station = _resolver.Resolve(call, rules.RequiredCountryIdentityKind);
+            // HamContest evalueaza statia fara schimbul primit (Score cere un QSO complet)
+            var preview = rules.Preview(_session.Contacts, _session.OwnStation, station, frequencyHz, ContactMode.RTTY);
+            if (preview.IsWorked) return ContestCallState.Dupe;
+            return preview.NewMultipliers.Any(m => m.CountsForScore) ? ContestCallState.NewMultiplier : ContestCallState.Needed;
+        }
+        catch (ArgumentException) { return ContestCallState.None; }   // indicativ nerezolvat: fara culoare de concurs
+    }
+
+    // ------------------------------------------------------------------
+    // Click pe text in decodor: preluarea schimbului
+    // ------------------------------------------------------------------
+
+    /// <summary>Cuvinte uzuale in RTTY care nu sunt schimb: click pe ele nu completeaza nimic.</summary>
+    private static readonly HashSet<string> CommonWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CQ", "DE", "K", "KN", "BK", "TU", "TNX", "TKS", "QRZ", "TEST", "NR", "UR", "RST", "AGN", "PSE", "ES", "GL", "SK",
+        "QSL", "QSO", "FB", "OK", "R", "CFM", "HW", "CPY", "ALL", "MY", "AR", "73", "88", "BEST", "LUCK", "CONTEST", "WW", "DX",
+    };
+
+    /// <summary>
+    /// Click pe un cuvant din terminal (nu indicativ): "599"/"5NN" = RST primit; un numar = Nr. primit
+    /// daca concursul are seriale si campul e gol, altfel schimbul primit; un cuvant = schimbul primit.
+    /// Cuvintele uzuale (DE, TU, K, CQ...) sunt ignorate.
+    /// </summary>
+    public void GrabWord(string word)
+    {
+        if (_session == null) return;
+        if (IsEditing) { Status = "Terminati corectia inainte de a prelua din text."; return; }
+        string w = GrabText(word);
+        if (w.Length == 0 || CommonWords.Contains(w)) return;
+        if (w is "599" or "5NN") { Entry.Report = "599"; Status = "Preluat din text: RST 599"; return; }
+        if (w.All(char.IsDigit) && _session.Rules.UsesSerialNumbers && Entry.Serial.Trim().Length == 0)
+        {
+            Entry.Serial = w; Status = "Preluat din text: Nr. " + w;
+            return;
+        }
+        Entry.Exchange = w; Status = "Preluat din text: schimb " + w;
+    }
+
+    private static string GrabText(string word) => word.Trim().Trim('/').ToUpperInvariant();
+
+    /// <summary>
+    /// Cuvantul s-ar prelua la click (pentru evidentierea din terminal): sesiune activa, fara corectie
+    /// in lucru, nu e un cuvant uzual si are cel mult 12 caractere.
+    /// </summary>
+    public bool CanGrab(string word)
+    {
+        if (_session == null || IsEditing) return false;
+        string w = GrabText(word);
+        return w.Length is > 0 and <= 12 && w.All(c => char.IsLetterOrDigit(c) || c == '/') && !CommonWords.Contains(w);
+    }
+
+    // ------------------------------------------------------------------
+    // ESM: Enter trimite mesajul potrivit starii
+    // ------------------------------------------------------------------
+
+    private bool _enterSendsMessages = true;
+    /// <summary>ESM: Enter trimite mesajul potrivit starii QSO-ului (vezi <see cref="EnterPressed"/>); oprit = Enter doar logheaza.</summary>
+    public bool EnterSendsMessages { get => _enterSendsMessages; set => Set(ref _enterSendsMessages, value); }
+
+    /// <summary>Fereastra muta cursorul: "call" (indicativ) sau "received" (numarul/schimbul primit).</summary>
+    public event Action<string>? FocusRequested;
+
+    /// <summary>Concursul cere un numar de la corespondent (pentru focus).</summary>
+    public bool ReceivesSerial => _session?.Rules.UsesSerialNumbers == true;
+
+    private bool HasReceived => Entry.Serial.Trim().Length != 0 || Entry.Exchange.Trim().Length != 0;
+
+    /// <summary>
+    /// Enter in formular. Cu ESM:
+    /// Run - fara indicativ: CQ (F1); cu indicativ, pana primesti schimbul: raportul (F2, fixeaza serialul;
+    /// repetat = acelasi serial); cu schimbul primit: logheaza, apoi TU (F4).
+    /// S&amp;P - fara schimb primit: indicativul propriu (F1); cu schimbul primit: schimbul tau (F2); apoi
+    /// logheaza. Fara ESM sau la o corectie: doar logheaza.
+    /// </summary>
+    public void EnterPressed()
+    {
+        if (!EnterSendsMessages || IsEditing)
+        {
+            LogContact(); FocusRequested?.Invoke("call");
+            return;
+        }
+        EnsureSession();
+        bool hasCall = Entry.Callsign.Trim().Length != 0;
+        if (!SearchAndPounce)
+        {
+            if (!hasCall) { Send("CQ"); return; }
+            if (!IsReserved || !HasReceived) { Send("REPORT"); FocusRequested?.Invoke("received"); return; }
+            // textul TU se pregateste cat QSO-ul e inca fixat ({CALL}), apoi se logheaza si se trimite
+            string tu = RenderMacro(GetMacro(3), preview: false);
+            LogContact();
+            FocusRequested?.Invoke("call");
+            Status = _host.TryTransmit(tu, allowAutoQsy: false) ? "QSO salvat, TU trimis." : "QSO salvat; TU nu a putut fi transmis.";
+            return;
+        }
+        if (!hasCall) throw new InvalidOperationException("Completati indicativul statiei chemate.");
+        if (!HasReceived) { Send("CQ"); FocusRequested?.Invoke("received"); return; }   // S&P: F1 = indicativul propriu
+        if (!IsReserved) { Send("REPORT"); return; }                                     // schimbul tau
+        LogContact(); FocusRequested?.Invoke("call");
+    }
+
     public void RefreshPreview()
     {
         if (_updating) return;
@@ -508,7 +663,7 @@ public sealed class ContestViewModel : ObservableObject
             foreach (var item in score.Contacts.Reverse()) Contacts.Add(new(item.Qso, item.IsDupe, item.Points, item.NewMultipliers));
             Summary = $"{Contacts.Count} QSO · {score.Contacts.Count(q => q.IsDupe)} duble · {score.QsoPoints} puncte · {score.ScoringMultipliers} mult. · SCOR {score.Total}";
         }
-        NotifyState(); RefreshPreview();
+        NotifyState(); RefreshPreview(); InvalidateCallStates();
     }
     private void NotifyState()
     {
