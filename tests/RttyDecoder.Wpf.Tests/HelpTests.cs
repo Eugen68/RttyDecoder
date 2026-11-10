@@ -17,6 +17,13 @@ public class HelpTests
         if (error != null) throw new Exception("STA", error);
     }
 
+    private static string Text(InlineCollection inlines) => string.Concat(inlines.Select(i => i switch
+    {
+        Run run => run.Text,
+        Span span => Text(span.Inlines),
+        _ => "",
+    }));
+
     [Fact]
     public void SubiecteleSuntIncluseInOrdineCuTitluri()
     {
@@ -65,8 +72,8 @@ public class HelpTests
         Assert.Equal("Un ingrosat si cod continuat.", new TextRange(paragraph.ContentStart, paragraph.ContentEnd).Text);
         var bullets = (List)blocks[2];
         Assert.Equal(2, bullets.ListItems.Count);
-        var lastItem = (Paragraph)bullets.ListItems.LastListItem!.Blocks.FirstBlock!;   // fara bulina
-        Assert.Equal("doi continuare", new TextRange(lastItem.ContentStart, lastItem.ContentEnd).Text);
+        var lastItem = (Paragraph)bullets.ListItems.LastListItem!.Blocks.FirstBlock!;
+        Assert.Equal("doi continuare", Text(lastItem.Inlines));   // din text, fara bulina listei
         Assert.Equal(TextMarkerStyle.Decimal, ((List)blocks[3]).MarkerStyle);
         var table = (Table)blocks[4];
         Assert.Equal(2, table.Columns.Count);
