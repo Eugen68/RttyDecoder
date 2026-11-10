@@ -104,6 +104,10 @@
                         <StackPanel><TextBlock Text="Comentariu" /><TextBox Width="260" Text="{Binding Entry.Comment, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     </WrapPanel>
                 </Expander>
+                <WrapPanel Visibility="{Binding HasHistorySuggestion, Converter={StaticResource Visible}}" Margin="0,2,0,0">
+                    <TextBlock Text="{Binding HistorySuggestion}" VerticalAlignment="Center" Foreground="{StaticResource Rtty.Muted}" Margin="2,0,6,0" />
+                    <Button Content="Preia anul" Command="{Binding ApplyHistoryCommand}" />
+                </WrapPanel>
                 <TextBlock Text="{Binding Preview}" Foreground="#FFD166" TextWrapping="Wrap" Margin="0,4" MaxHeight="52" />
                 <WrapPanel Margin="0,2,0,8">
                     <Button Content="{Binding LogButtonText}" Command="{Binding LogCommand}" Style="{StaticResource Rtty.PrimaryButton}" />

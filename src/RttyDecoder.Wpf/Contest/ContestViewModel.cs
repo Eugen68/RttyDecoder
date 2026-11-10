@@ -29,6 +29,8 @@ public sealed class ContestViewModel : ObservableObject
     public string F3Label => MacroLabel(2);
     public string F4Label => MacroLabel(3);
 
+    private Qso? _historySource;
+    private (string Call, string Year)? _appliedHistory;
     private PendingContestContact? _pending;
     private Guid? _editing;
     private (string Report, string Fixed)? _beforeEdit;
@@ -58,6 +60,10 @@ public sealed class ContestViewModel : ObservableObject
     public string Summary { get => _summary; private set => Set(ref _summary, value); }
     public string Status { get => _status; private set => Set(ref _status, value); }
     public string Preview { get => _preview; private set => Set(ref _preview, value); }
+    public bool HasHistorySuggestion => _historySource != null;
+    public string HistorySuggestion => _historySource is { } qso
+        ? $"Istoric: {qso.Station.Callsign} · {qso.Received.Value.Trim()} · {qso.Band} · {qso.Time.UtcDateTime:yyyy-MM-dd HH:mm} UTC"
+        : "";
     public string Diagnostics { get => _diagnostics; private set => Set(ref _diagnostics, value); }
     public string OwnCall { get => _ownCall; set => Set(ref _ownCall, value ?? ""); }
     public string OwnSection { get => _ownSection; set => Set(ref _ownSection, value ?? ""); }
@@ -98,6 +104,7 @@ public sealed class ContestViewModel : ObservableObject
     public ICommand TuCommand { get; }
     public ICommand StopCommand { get; }
     public ICommand CheckCommand { get; }
+    public ICommand ApplyHistoryCommand { get; }
 
     public ContestViewModel(ContestFiles files, ContestStationResolver resolver, IContestHost host)
     {
@@ -113,6 +120,7 @@ public sealed class ContestViewModel : ObservableObject
         TuCommand = Command(() => Send("TU"), () => HasSession && !IsEditing && !_host.IsBusy);
         StopCommand = new RelayCommand(host.Stop);
         CheckCommand = new RelayCommand(RefreshPreview);
+        ApplyHistoryCommand = Command(ApplyHistorySuggestion, () => HasHistorySuggestion && !_host.IsBusy);
         Entry.PropertyChanged += (_, e) => { if (!_updating) { if (e.PropertyName == nameof(ContestEntry.UseCat)) SyncFrequency(); RefreshPreview(); } };
         RefreshDefinitions(); SyncFrequency();
     }
@@ -188,6 +196,7 @@ public sealed class ContestViewModel : ObservableObject
             throw new InvalidDataException("Indicativul rezervarii nu corespunde formularului salvat.");
         session.Score();
         _definition = new(document.DefinitionFileName, document.DefinitionText, document.SectionTexts, imported);
+        _appliedHistory = null;
         _session = session; _pending = document.PendingContact; _editing = null; _beforeEdit = null; SessionPath = System.IO.Path.GetFullPath(path);
         OwnCall = session.OwnStation.Callsign; OwnSection = session.OwnStation.Section; OwnGrid = session.OwnStation.Grid; OwnWpx = session.OwnStation.WpxPrefix;
         _sentReport = _pending?.Report ?? document.SentReport; _sentExchange = _pending?.FixedExchange ?? document.FixedExchange;
@@ -204,7 +213,7 @@ public sealed class ContestViewModel : ObservableObject
         EnsureIdle(); if (!Flush()) throw new IOException("Sesiunea nu a putut fi salvata.");
         _session = null; _pending = null; _editing = null; _beforeEdit = null; SessionPath = ""; Contacts.Clear(); Summary = "";
         _sentReport = "599"; _sentExchange = ""; FirstSerial = "1"; CabrilloHeaders = EmptyHeaders;
-        _updating = true; Entry.Apply(new()); _updating = false; RefreshDefinitions(); NotifyState();
+        _updating = true; Entry.Apply(new()); _updating = false; RefreshDefinitions(); NotifyState(); RefreshHistorySuggestion();
     }
 
     private ContestSession Clone() => ContestSession.Restore(_session!.Rules, _session.CaptureState());
@@ -263,6 +272,7 @@ public sealed class ContestViewModel : ObservableObject
     public void EditSelected()
     {
         EnsureIdle(); EnsureSession(); if (IsReserved || SelectedQso == null) throw new InvalidOperationException("Selectati un QSO si finalizati rezervarea curenta.");
+        _appliedHistory = null;
         var qso = SelectedQso.Qso; _beforeEdit ??= (SentReport, SentExchange); _editing = qso.Id; _sentReport = qso.Sent.Report; _sentExchange = qso.Sent.Value;
         _updating = true;
         Entry.Apply(new(qso.Station.Callsign, (qso.FrequencyHz / 1000m).ToString(CultureInfo.InvariantCulture), qso.Received.Report,
@@ -422,9 +432,58 @@ public sealed class ContestViewModel : ObservableObject
         Status = "Mesaj acceptat pentru emisie. Logarea QSO-ului se face explicit.";
     }
 
+    private void RefreshHistorySuggestion()
+    {
+        string call = Entry.Callsign.Trim();
+        if (_appliedHistory is { } applied && !call.Equals(applied.Call, StringComparison.OrdinalIgnoreCase))
+        {
+            _appliedHistory = null;
+            if (Entry.Exchange == applied.Year) Entry.Exchange = "";
+        }
+
+        Qso? source = null;
+        // UDC's generic Value can contain a different exchange in each contest.
+        // Only reuse it for the known RTTYops birth-year exchange.
+        if (!IsEditing && call.Length > 0 && string.IsNullOrWhiteSpace(Entry.Exchange)
+            && _session?.Rules is UdcContestRules { UsesSerialNumbers: false } rules
+            && rules.Name.Equals("RY_OPSWWDX", StringComparison.OrdinalIgnoreCase)
+            && rules.CabrilloName.Equals("RTTY-OPS-WW-DX", StringComparison.OrdinalIgnoreCase))
+        {
+            var matches = _session.Contacts.Where(q => q.Station.Callsign.Equals(call, StringComparison.OrdinalIgnoreCase)
+                && q.Received.Serial == null && IsYear(q.Received.Value)).ToArray();
+            if (matches.Select(q => q.Received.Value.Trim()).Distinct().Count() == 1)
+                source = matches.MaxBy(q => q.Time);
+        }
+
+        if (_historySource == source) return;
+        _historySource = source;
+        OnPropertyChanged(nameof(HasHistorySuggestion));
+        OnPropertyChanged(nameof(HistorySuggestion));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private static bool IsYear(string value)
+    {
+        string year = value.Trim();
+        return year.Length == 4 && int.TryParse(year, NumberStyles.None, CultureInfo.InvariantCulture, out int number)
+            && number >= 1900 && number <= DateTime.UtcNow.Year;
+    }
+
+    private void ApplyHistorySuggestion()
+    {
+        EnsureIdle();
+        RefreshHistorySuggestion();
+        if (_historySource is not { } source) return;
+        string year = source.Received.Value.Trim();
+        _appliedHistory = (source.Station.Callsign, year);
+        Entry.Exchange = year;
+    }
+
     public void RefreshPreview()
     {
-        if (_updating || _session == null) return;
+        if (_updating) return;
+        RefreshHistorySuggestion();
+        if (_session == null) return;
         if (string.IsNullOrWhiteSpace(Entry.Callsign) && !IsReserved && !IsEditing)
         { Preview = "Selectati un indicativ din decodor sau completati formularul."; return; }
         try

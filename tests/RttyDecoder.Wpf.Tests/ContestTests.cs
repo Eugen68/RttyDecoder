@@ -61,6 +61,41 @@ public class ContestTests
     }
 
     [Fact]
+    public Task RttyopsSuggestsAnAgreedYearFromTheJournalAndRequiresConfirmation() => Sta(() =>
+    {
+        using var work = new Workspace();
+        string path = Path.Combine(work.Files.DefinitionsFolder, "Year.udc");
+        File.WriteAllText(path, "[Contest]\nName=RY_OPSWWDX\nCabrilloName=RTTY-OPS-WW-DX\nMode=RTTY\nNumMults=0\nDefaultContestExchange=SeeRules\nCabrilloFormat=0\n");
+        work.Model.RefreshDefinitions(path);
+        work.Model.CreateSession();
+        work.Model.SentExchange = "1999";
+        work.Model.SelectCallsign("SM7ABC");
+        work.Model.Entry.Exchange = "1984";
+        work.Model.LogContact();
+
+        var reopened = new ContestViewModel(work.Files, ContestStationResolver.Load(), work.Host);
+        reopened.LoadSession(work.Model.SessionPath);
+        work.Host.FrequencyHz = 7_080_000;
+        reopened.SelectCallsign("SM7ABC");
+        Assert.Contains("1984 · 20m", reopened.HistorySuggestion);
+        Assert.Empty(reopened.Entry.Exchange);
+        Assert.Empty(reopened.Entry.Serial);
+
+        reopened.ApplyHistoryCommand.Execute(null);
+        Assert.Equal("1984", reopened.Entry.Exchange);
+        Assert.Empty(reopened.Entry.Serial);
+        reopened.SelectCallsign("SM8ABC");
+        Assert.Empty(reopened.Entry.Exchange);
+        reopened.SelectCallsign("SM7ABC");
+        reopened.Entry.Exchange = "1985";
+        Assert.False(reopened.HasHistorySuggestion);
+        reopened.LogContact();
+        reopened.SelectCallsign("SM7ABC");
+        Assert.False(reopened.HasHistorySuggestion);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task MacrosAreCreatedPerUdcAndReloadedForAReopenedSession() => Sta(() =>
     {
         using var work = new Workspace();

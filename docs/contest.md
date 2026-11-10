@@ -59,6 +59,10 @@ unei sesiuni incepute. Schimbarile incompatibile ale versiunii HamContest necesi
 - Completati RST, numarul si schimbul primit. Campurile suplimentare se mapeaza explicit pe
   Name, Misc, Section, Grid si Comment ale definitiei. Pentru portabile, WPX se introduce explicit;
   prefixul simplu poate fi calculat pentru indicative fara bara.
+- Pentru RTTYops WW DX, dacă indicativul are același an în toate contactele anterioare cu
+  an valid din sesiunea curentă, formularul arată anul și contactul sursă. **Preia anul**
+  îl copiază în **Schimb primit** numai dacă acel câmp este gol. Verificați anul recepționat
+  înainte de logare. Dacă anii diferă, nu se propune o valoare. Numărul primit se introduce manual.
 - **Verifica** si mesajul de sub formular indica erorile, dublele si multiplicatorii noi.
 - **Logheaza QSO**, sau Enter cand cursorul este in formular, salveaza QSO-ul. Un dupe ramane
   in jurnal, cu zero puncte; nu este sters automat. Ora UTC poate ramane goala pentru momentul
