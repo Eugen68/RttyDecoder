@@ -13,7 +13,7 @@ namespace RttyDecoder.App;
 /// </summary>
 public partial class RigSettingsWindow : Window
 {
-    private static readonly int[] Bauds = { 4800, 9600, 19200, 38400, 115200 };
+    private static readonly int[] Bauds = { 4800, 9600, 19200, 38400, 57600, 115200 };
 
     private static readonly (SerialPin Pin, string Text)[] Pins =
     {
@@ -33,6 +33,7 @@ public partial class RigSettingsWindow : Window
         {
             BaudBox.Items.Add(b);
             KeyBaudBox.Items.Add(b);
+            HamlibBaudBox.Items.Add(b);
         }
         foreach (var (_, text) in Pins)
         {
@@ -52,7 +53,16 @@ public partial class RigSettingsWindow : Window
         KeyBaudBox.SelectedItem = Bauds.Contains(settings.KeyBaud) ? settings.KeyBaud : 4800;
         KeyPttBox.SelectedIndex = Index(settings.KeyPortPttPin);
         KeyPinBox.SelectedIndex = Index(settings.KeyPin);
-        (settings.Kind switch { RigKind.YaesuCat => KindDirect, RigKind.OmniRig => KindOmni, _ => KindNone }).IsChecked = true;
+        // Hamlib: portul si viteza statiei sunt CatPort / CatBaud (rigctld le foloseste)
+        HamlibPortBox.Text = settings.CatPort ?? "";
+        HamlibBaudBox.SelectedItem = Bauds.Contains(settings.CatBaud) ? settings.CatBaud : 38400;
+        HamlibStartBox.IsChecked = settings.HamlibStartDaemon;
+        HamlibPathBox.Text = settings.HamlibPath ?? "";
+        HamlibModelBox.Text = settings.HamlibModel > 0 ? settings.HamlibModel.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+        HamlibHostBox.Text = settings.HamlibHost;
+        HamlibTcpPortBox.Text = settings.HamlibPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        HamlibArgsBox.Text = settings.HamlibExtraArgs ?? "";
+        (settings.Kind switch { RigKind.YaesuCat => KindDirect, RigKind.OmniRig => KindOmni, RigKind.Hamlib => KindHamlib, _ => KindNone }).IsChecked = true;
         _updating = false;
         UpdatePanels();
     }
@@ -69,26 +79,44 @@ public partial class RigSettingsWindow : Window
 
     private void FillPorts()
     {
-        string cat = CatPortBox.Text, key = KeyPortBox.Text;
+        string cat = CatPortBox.Text, key = KeyPortBox.Text, ham = HamlibPortBox.Text;
         CatPortBox.Items.Clear();
         KeyPortBox.Items.Clear();
+        HamlibPortBox.Items.Clear();
         KeyPortBox.Items.Add("");
         foreach (string p in RigSettings.GetPortNames())
         {
             CatPortBox.Items.Add(p);
             KeyPortBox.Items.Add(p);
+            HamlibPortBox.Items.Add(p);
         }
         CatPortBox.Text = cat;
         KeyPortBox.Text = key;
+        HamlibPortBox.Text = ham;
     }
 
-    private RigKind Kind => KindDirect.IsChecked == true ? RigKind.YaesuCat : KindOmni.IsChecked == true ? RigKind.OmniRig : RigKind.None;
+    private RigKind Kind => KindDirect.IsChecked == true ? RigKind.YaesuCat : KindOmni.IsChecked == true ? RigKind.OmniRig
+        : KindHamlib.IsChecked == true ? RigKind.Hamlib : RigKind.None;
+
+    /// <summary>Numarul modelului: inceputul textului ("1042 · Yaesu FTDX-10" sau doar "1042").</summary>
+    private int HamlibModelId()
+    {
+        if (HamlibModelBox.SelectedItem is HamlibModel m && HamlibModelBox.Text == m.ToString()) return m.Id;
+        string digits = new(HamlibModelBox.Text.Trim().TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(digits, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int id) ? id : 0;
+    }
 
     private RigSettings Read() => new()
     {
         Kind = Kind,
-        CatPort = Port(CatPortBox),
-        CatBaud = BaudBox.SelectedItem is int b ? b : 38400,
+        CatPort = Kind == RigKind.Hamlib ? Port(HamlibPortBox) : Port(CatPortBox),
+        CatBaud = Kind == RigKind.Hamlib ? (HamlibBaudBox.SelectedItem is int hb ? hb : 38400) : BaudBox.SelectedItem is int b ? b : 38400,
+        HamlibStartDaemon = HamlibStartBox.IsChecked == true,
+        HamlibPath = string.IsNullOrWhiteSpace(HamlibPathBox.Text) ? null : HamlibPathBox.Text.Trim(),
+        HamlibModel = HamlibModelId(),
+        HamlibHost = string.IsNullOrWhiteSpace(HamlibHostBox.Text) ? "127.0.0.1" : HamlibHostBox.Text.Trim(),
+        HamlibPort = int.TryParse(HamlibTcpPortBox.Text.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int tcp) ? tcp : 0,
+        HamlibExtraArgs = string.IsNullOrWhiteSpace(HamlibArgsBox.Text) ? null : HamlibArgsBox.Text.Trim(),
         // la OmniRig portul CAT e al lui OmniRig: pinul lui nu se foloseste
         CatPttPin = Kind == RigKind.YaesuCat ? Pin(CatPttBox) : SerialPin.None,
         OmniRigNumber = OmniRigBox.SelectedIndex == 1 ? 2 : 1,
@@ -104,10 +132,15 @@ public partial class RigSettingsWindow : Window
         _updating = true;
         try
         {
-            bool direct = Kind == RigKind.YaesuCat, omni = Kind == RigKind.OmniRig, any = Kind != RigKind.None;
+            bool direct = Kind == RigKind.YaesuCat, omni = Kind == RigKind.OmniRig, hamlib = Kind == RigKind.Hamlib, any = Kind != RigKind.None;
             SetEnabled(DirectPanel, direct);
             SetEnabled(OmniPanel, omni);
+            SetEnabled(HamlibPanel, hamlib);
             SetEnabled(KeyPanel, any);
+            // rigctld deja pornit: modelul, portul si viteza sunt ale lui
+            bool start = HamlibStartBox.IsChecked == true;
+            HamlibPathBox.IsEnabled = HamlibModelBox.IsEnabled = HamlibPortBox.IsEnabled = HamlibBaudBox.IsEnabled = HamlibArgsBox.IsEnabled = start;
+            if (hamlib && start && HamlibModelBox.Items.Count == 0 && !_modelsTried) _ = LoadHamlibModels(quiet: true);
 
             // PTT intr-un singur loc: daca e ales un pin intr-o parte, cealalta trece pe Fara si nu se mai poate alege
             bool catPtt = direct && Pin(CatPttBox) != SerialPin.None;
@@ -119,8 +152,8 @@ public partial class RigSettingsWindow : Window
 
             var s = Read();
             TestButton.IsEnabled = any && !_busy;
-            // fara pin: la conexiunea directa PTT prin CAT; la OmniRig nu exista PTT
-            PttTestButton.IsEnabled = any && !_busy && (direct || s.PttLine.Pin != SerialPin.None);
+            // fara pin: la conexiunea directa PTT prin CAT, la Hamlib prin rigctld; la OmniRig nu exista PTT
+            PttTestButton.IsEnabled = any && !_busy && (direct || hamlib || s.PttLine.Pin != SerialPin.None);
             KeyTestButton.IsEnabled = any && !_busy && s.HasKeying;
         }
         finally
@@ -136,6 +169,53 @@ public partial class RigSettingsWindow : Window
     }
 
     private void OnKindChanged(object sender, RoutedEventArgs e) => UpdatePanels();
+
+    private void OnHamlibStartChanged(object sender, RoutedEventArgs e) => UpdatePanels();
+
+    private bool _modelsTried;
+
+    /// <summary>Lista modelelor Hamlib (rigctl -l), in fundal; numarul deja ales ramane selectat.</summary>
+    private async Task LoadHamlibModels(bool quiet)
+    {
+        _modelsTried = true;
+        string? path = string.IsNullOrWhiteSpace(HamlibPathBox.Text) ? Hamlib.FindRigctld() : HamlibPathBox.Text.Trim();
+        if (path == null)
+        {
+            if (!quiet) Status("Nu gasesc rigctld: instaleaza Hamlib sau alege calea catre rigctld.exe.", false);
+            return;
+        }
+        try
+        {
+            var models = await Task.Run(() => Hamlib.ListModels(path));
+            int current = HamlibModelId();
+            HamlibModelBox.Items.Clear();
+            foreach (var m in models.OrderBy(m => m.Manufacturer, StringComparer.OrdinalIgnoreCase).ThenBy(m => m.Model, StringComparer.OrdinalIgnoreCase))
+                HamlibModelBox.Items.Add(m);
+            if (models.FirstOrDefault(m => m.Id == current) is { } selected) HamlibModelBox.SelectedItem = selected;
+            if (string.IsNullOrWhiteSpace(HamlibPathBox.Text)) HamlibPathBox.Text = path;
+            if (!quiet) Status($"{models.Count} modele Hamlib.", true);
+        }
+        catch (RigException ex)
+        {
+            if (!quiet) Status("✘ " + ex.Message, false);
+        }
+    }
+
+    private void OnHamlibModels(object sender, RoutedEventArgs e) => _ = LoadHamlibModels(quiet: false);
+
+    private void OnHamlibPathChanged(object sender, RoutedEventArgs e) => _modelsTried = false;
+
+    private void OnHamlibBrowse(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "rigctld.exe (Hamlib)", Filter = "rigctld|rigctld.exe|Programe|*.exe",
+            FileName = HamlibPathBox.Text,
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        HamlibPathBox.Text = dialog.FileName;
+        _ = LoadHamlibModels(quiet: false);
+    }
 
     private void OnPinChanged(object sender, SelectionChangedEventArgs e) => UpdatePanels();
 
@@ -186,9 +266,9 @@ public partial class RigSettingsWindow : Window
                 await Task.Delay(500);
                 rig.SetPtt(false);
                 var (port, pin) = s.PttLine;
-                read += pin == SerialPin.None
-                    ? "  |  PTT prin CAT (TX1;) 0.5 s"
-                    : $"  |  PTT: {pin} pe {port} 0.5 s";
+                read += pin != SerialPin.None ? $"  |  PTT: {pin} pe {port} 0.5 s"
+                    : s.Kind == RigKind.Hamlib ? "  |  PTT prin Hamlib (T 1) 0.5 s"
+                    : "  |  PTT prin CAT (TX1;) 0.5 s";
             }
             if (test == Test.Key && st.Connected)
             {

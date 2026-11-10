@@ -172,6 +172,11 @@ din **Setari > Conexiune statie**:
   portului CAT (Fara / RTS / DTR). Statia anunta singura schimbarile (AI1).
 - **Prin OmniRig**: Rig 1 / Rig 2; statia poate fi folosita in acelasi timp si de alte programe.
   OmniRig doar citeste si schimba frecventa si modul, fara PTT.
+- **Prin Hamlib** (rigctld, TCP): ~280 de modele (Icom, Kenwood, Elecraft, Yaesu...). Cu bifa *Porneste
+  rigctld*, programul il porneste cu modelul (lista din `rigctl -l`), portul si viteza alese si il
+  opreste la iesire; fara bifa, se leaga la un rigctld deja pornit (de ex. si de WSJT-X). Hamlib se
+  instaleaza separat ([releases](https://github.com/Hamlib/Hamlib/releases)). PTT prin Hamlib sau pe
+  portul de manipulare; FSK pe portul de manipulare. Detalii: README-ul HamRig.
 - **Port manipulare si PTT**: port, viteza, PTT (Fara / RTS / DTR) si manipulare (Fara / RTS / DTR,
   FSK pentru RTTY, keying CW). La FTX-1 de obicei al doilea port ("Standard"): ex. PTT pe RTS, FSK
   pe DTR; portul se deschide o singura data.

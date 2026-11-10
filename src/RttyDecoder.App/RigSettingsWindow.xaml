@@ -30,6 +30,7 @@
         <RadioButton x:Name="KindNone" Content="Fara statie" Checked="OnKindChanged" />
         <RadioButton x:Name="KindDirect" Content="Direct pe portul serial (CAT Yaesu: FTX-1, FTDX10, FT-710, FT-991A...)" Checked="OnKindChanged" />
         <RadioButton x:Name="KindOmni" Content="Prin OmniRig (statia poate fi folosita si de alte programe)" Checked="OnKindChanged" />
+        <RadioButton x:Name="KindHamlib" Content="Prin Hamlib (rigctld: Icom, Kenwood, Elecraft, Yaesu... ~280 de modele)" Checked="OnKindChanged" />
 
         <!-- DIRECT -->
         <Border x:Name="DirectPanel" Margin="0,10,0,0" Padding="10" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
@@ -72,6 +73,53 @@
                 </Grid>
                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
                            Text="OmniRig trebuie instalat si configurat pentru statie (tipul statiei, portul, viteza). Prin OmniRig se citesc si se schimba frecventa si modul; PTT-ul si manipularea se fac doar pe portul de mai jos." />
+            </StackPanel>
+        </Border>
+
+        <!-- HAMLIB -->
+        <Border x:Name="HamlibPanel" Margin="0,10,0,0" Padding="10" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
+            <StackPanel>
+                <CheckBox x:Name="HamlibStartBox" Content="Porneste rigctld din program (cu modelul, portul si viteza de mai jos)"
+                          Foreground="{StaticResource Rtty.Foreground}" Checked="OnHamlibStartChanged" Unchecked="OnHamlibStartChanged" Margin="0,0,0,6" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="rigctld.exe:" VerticalAlignment="Center" />
+                    <TextBox x:Name="HamlibPathBox" Grid.Row="0" Grid.Column="1" Style="{StaticResource Rtty.Input}" Height="24" Margin="0,2"
+                             ToolTip="Gol = cautat automat (PATH si Program Files\hamlib*\bin)" LostFocus="OnHamlibPathChanged" />
+                    <Button Grid.Row="0" Grid.Column="2" Content="..." Width="28" Click="OnHamlibBrowse" ToolTip="Alege rigctld.exe" />
+
+                    <TextBlock Grid.Row="1" Text="Model:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="HamlibModelBox" Grid.Row="1" Grid.Column="1" IsEditable="True" IsTextSearchEnabled="True"
+                              ToolTip="Modelul statiei din lista Hamlib; se poate scrie si numarul (de ex. 1042 = FTDX-10)" />
+                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource Refresh}" Click="OnHamlibModels" ToolTip="Reciteste lista modelelor (rigctl -l)" />
+
+                    <TextBlock Grid.Row="2" Text="Port statie:" VerticalAlignment="Center" />
+                    <ComboBox x:Name="HamlibPortBox" Grid.Row="2" Grid.Column="1" IsEditable="True" Width="140" HorizontalAlignment="Left" />
+                    <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource Refresh}" Click="OnRefreshPorts" />
+
+                    <TextBlock Grid.Row="3" Text="Viteza (baud):" VerticalAlignment="Center" />
+                    <ComboBox x:Name="HamlibBaudBox" Grid.Row="3" Grid.Column="1" Width="140" HorizontalAlignment="Left" />
+
+                    <TextBlock Grid.Row="4" Text="Adresa rigctld:" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                        <TextBox x:Name="HamlibHostBox" Width="120" Style="{StaticResource Rtty.Input}" Height="24" />
+                        <TextBlock Text=" : " VerticalAlignment="Center" />
+                        <TextBox x:Name="HamlibTcpPortBox" Width="60" Style="{StaticResource Rtty.Input}" Height="24" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="5" Text="Argumente:" VerticalAlignment="Center" />
+                    <TextBox x:Name="HamlibArgsBox" Grid.Row="5" Grid.Column="1" Style="{StaticResource Rtty.Input}" Height="24" Margin="0,2"
+                             ToolTip="Argumente suplimentare pentru rigctld (de ex. --set-conf=serial_handshake=None). De obicei gol." />
+                </Grid>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                           Text="Hamlib se instaleaza separat (https://github.com/Hamlib/Hamlib/releases). Cu bifa, programul porneste rigctld si il opreste la iesire; fara bifa, se leaga la un rigctld deja pornit (de ex. folosit si de WSJT-X). Viteza trebuie sa fie ca in meniul statiei. PTT-ul prin Hamlib, sau pe un pin al portului de mai jos; manipularea FSK doar pe portul de mai jos." />
             </StackPanel>
         </Border>
 
