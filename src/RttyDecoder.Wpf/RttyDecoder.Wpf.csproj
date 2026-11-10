@@ -13,9 +13,14 @@
     <ProjectReference Include="..\..\external\HamCallsign\src\HamCallsign\HamCallsign.csproj" />
     <ProjectReference Include="..\..\external\HamCallsign\src\HamCallsign.Online\HamCallsign.Online.csproj" />
     <ProjectReference Include="..\..\external\HamRig\src\HamRig\HamRig.csproj" />
+    <ProjectReference Include="../../external/HamContest/src/HamContest/HamContest.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="RttyDecoder.Wpf.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../external/HamContest/samples/DEMO-RTTY.udc" LogicalName="RttyDecoder.Contest.DEMO-RTTY.udc" />
+    <EmbeddedResource Include="../../external/HamContest/samples/DEMO.sec" LogicalName="RttyDecoder.Contest.DEMO.sec" />
   </ItemGroup>
 </Project>

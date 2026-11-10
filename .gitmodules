@@ -4,3 +4,6 @@
 [submodule "external/HamRig"]
 	path = external/HamRig
 	url = https://github.com/Eugen68/HamRig.git
+[submodule "external/HamContest"]
+	path = external/HamContest
+	url = https://github.com/Eugen68/HamContest.git

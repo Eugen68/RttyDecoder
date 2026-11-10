@@ -20,6 +20,8 @@ aplicatie mai mare.
   inceputul mesajului, iar la pauzele de tastare nu se pierde nimic. Afecteaza doar textul afisat,
   nu decodarea; pragul (implicit 35%) in Reglaje. Decodoarele clasice; DeepRTTY are filtrul lui.
 - **emisie RTTY prin FSK**: 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
+- **Contest** intr-o fereastra separata (Ctrl+Shift+C): UDC/SEC prin HamContest, seriale persistente,
+  jurnal, duble, punctaj si export ADIF/Cabrillo; [instructiuni](docs/contest.md)
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
 - **indicative** evidentiate in terminal si **lista statiilor auzite** (tara, continent, CQ, de cate
   ori, prima/ultima data), cu biblioteca [HamCallsign](https://github.com/Eugen68/HamCallsign)

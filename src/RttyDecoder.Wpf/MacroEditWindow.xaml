@@ -26,7 +26,7 @@
         <TextBox x:Name="TextBox" Style="{StaticResource Rtty.Input}" Height="90" FontFamily="Consolas" FontSize="14"
                  AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" CharacterCasing="Upper"
                  VerticalScrollBarVisibility="Auto" />
-        <TextBlock Foreground="{StaticResource Rtty.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+        <TextBlock x:Name="VariableHelp" Foreground="{StaticResource Rtty.Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
                    Text="Variabile: {MYCALL} indicativul tau (campul din lista statiilor), {CALL} ultimul indicativ pe care ai dat click (terminal sau lista), {RST} 599. Enter in text = rand nou. CR/LF automat la inceputul si sfarsitul emisiei se alege in Setari transmisie." />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Implicit" Width="90" Click="OnDefault" ToolTip="Textul implicit al acestui macro" />

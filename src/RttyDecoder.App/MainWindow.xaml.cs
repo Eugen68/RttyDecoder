@@ -31,7 +31,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            string? cache = _smoke != null ? null : CallsignCache;
+            string? cache = _smoke != null || _contestSmoke != null ? null : CallsignCache;
             var data = await Task.Run(() => ReferenceData.Load(cache));
             _vm.UseReferenceData(data);
             if (cache != null) await ReferenceData.UpdateAsync(cache);
@@ -46,9 +46,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         var args = Environment.GetCommandLineArgs();
+        int contestSmoke = Array.IndexOf(args, "--contest-smoke");
+        if (contestSmoke >= 0 && contestSmoke + 1 < args.Length) _contestSmoke = args[contestSmoke + 1];
         int i = Array.IndexOf(args, "--smoke");
         if (i >= 0 && i + 2 < args.Length) _smoke = args[(i + 1)..];
-        _settings = _smoke != null ? new AppSettings() : AppSettings.Load();
+        _settings = _smoke != null || _contestSmoke != null ? new AppSettings() : AppSettings.Load();
         _vm = new RttyDecoderViewModel();
         if (_settings.Rtty != null) _vm.ImportSettings(_settings.Rtty);
         _vm.SelectDevice(_settings.DeviceId);
@@ -67,8 +69,9 @@ public partial class MainWindow : Window
         };
         _vm.SetOnlineCredentials(_settings.QrzUsername, _settings.GetQrzPassword(), _settings.HamQthUsername, _settings.GetHamQthPassword());
         Decoder.DataContext = _vm;
+        InitializeContest();
         _callsignData = LoadCallsignDataAsync();
-        if (_smoke == null) Loaded += async (_, _) => await ConnectRigAsync();
+        if (_smoke == null && _contestSmoke == null) Loaded += async (_, _) => await ConnectRigAsync();
 
         if (_settings.Width > 0 && _settings.Height > 0)
         {
@@ -87,6 +90,7 @@ public partial class MainWindow : Window
         }
         if (_settings.Maximized) WindowState = WindowState.Maximized;
         if (_smoke != null) Loaded += async (_, _) => await RunSmokeTest(_smoke);
+        if (_contestSmoke != null) Loaded += async (_, _) => await RunContestSmoke(_contestSmoke);
     }
 
     /// <summary>
@@ -280,8 +284,7 @@ public partial class MainWindow : Window
     private void OnAbout(object sender, RoutedEventArgs e)
     {
         var a = Assembly.GetExecutingAssembly();
-        string version = a.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
-                         ?? a.GetName().Version?.ToString() ?? "";
+        string version = ApplicationVersion(a);
         MessageBox.Show(this,
             $"RTTY Decoder {version}\n" +
             "Copyright (c) 2026 Eugen Trifu, YO9VA - licenta MIT\n\n" +
@@ -291,6 +294,10 @@ public partial class MainWindow : Window
             (BuildInfo(a) is { Length: > 0 } build ? "\n\n" + build : ""),
             "Despre RTTY Decoder", MessageBoxButton.OK, MessageBoxImage.Information);
     }
+
+    private static string ApplicationVersion(Assembly assembly) =>
+        assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+        ?? assembly.GetName().Version?.ToString() ?? "";
 
     /// <summary>
     /// "Build #57 · commit 82e01be · 06.11.2026 14:32" (ora locala), din metadatele puse la compilare
@@ -311,7 +318,13 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (_smoke != null)
+        if (_contestModel != null && !_contestModel.Flush())
+        {
+            _vm.Message = _contestModel.Status; e.Cancel = true;
+            MessageBox.Show(this, _contestModel.Status, "Salvare concurs", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        if (_smoke != null || _contestSmoke != null)
         {
             _vm.Dispose();
             base.OnClosing(e);
