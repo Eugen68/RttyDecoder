@@ -11,7 +11,7 @@ aplicația rămâne pornită. **Poziția și mărimea** ferestrei Contest se sal
 și se refac la următoarea deschidere. Deasupra jurnalului sunt ceasurile **UTC** și **LOCAL**.
 
 Biblioteca [HamContest](https://github.com/Eugen68/HamContest) este un submodul fixat la commit-ul
-`86b76b4` (ramura `station-preview`: preview.2 din PR #1 al bibliotecii, plus `UdcContestRules.Preview`
+`86b76b4` (ramura `feature/initial-library`, PR #1 al bibliotecii: preview.2 plus `UdcContestRules.Preview`
 pentru culorile din decodor). Clonati cu submodule:
 
 ```sh
