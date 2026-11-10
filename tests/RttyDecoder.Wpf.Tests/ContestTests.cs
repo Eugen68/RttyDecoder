@@ -101,6 +101,112 @@ public class ContestTests
     });
 
     [Fact]
+    public Task ClickOnDecodedTextFillsTheReceivedExchange() => Sta(() =>
+    {
+        using var work = new Workspace();
+        work.Model.GrabWord("014");   // fara sesiune: nimic
+        Assert.Equal("", work.Model.Entry.Serial);
+        work.Model.CreateSession();
+        work.Model.SelectCallsign("YO3ABC");
+        work.Model.Entry.Report = "";
+        work.Model.GrabWord("5NN");
+        Assert.Equal("599", work.Model.Entry.Report);
+        work.Model.GrabWord("TU");    // cuvant uzual: ignorat
+        work.Model.GrabWord("014");   // primul numar: Nr. primit
+        Assert.Equal("014", work.Model.Entry.Serial);
+        work.Model.GrabWord("BU");    // cuvant: schimbul primit
+        Assert.Equal("BU", work.Model.Entry.Exchange);
+        work.Model.GrabWord("15");    // Nr. completat: numarul merge in schimb
+        Assert.Equal("014", work.Model.Entry.Serial);
+        Assert.Equal("15", work.Model.Entry.Exchange);
+        Assert.Equal("", string.Join(",", work.Host.Sent));   // preluarea nu transmite nimic
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task DecodedCallsignsAreColoredByContestState() => Sta(() =>
+    {
+        using var work = new Workspace();
+        Assert.Equal(ContestCallState.None, work.Model.CallState("YO3ABC"));   // fara sesiune
+        int changes = 0;
+        work.Model.JournalChanged += () => changes++;
+        work.Start();
+        Assert.Equal(ContestCallState.Needed, work.Model.CallState("YO3ABC"));
+        work.Model.ReserveSerial(); work.Model.LogContact();
+        Assert.True(changes > 0);
+        Assert.Equal(ContestCallState.Dupe, work.Model.CallState("yo3abc"));
+        Assert.Equal(ContestCallState.Needed, work.Model.CallState("YO3ABD"));
+        // DupeType=2 (pe banda): pe 40 m acelasi indicativ nu mai e dublu
+        int before = changes;
+        work.Host.FrequencyHz = 7_030_000; work.Model.SyncFrequency();
+        Assert.True(changes > before);
+        Assert.Equal(ContestCallState.Needed, work.Model.CallState("YO3ABC"));
+        // indicativ care nu se poate rezolva: fara culoare de concurs
+        Assert.Equal(ContestCallState.None, work.Model.CallState("NUEXISTA"));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task EsmRunSendsCqReportThenLogsWithTu() => Sta(() =>
+    {
+        using var work = new Workspace();
+        var focus = new List<string>();
+        work.Model.FocusRequested += focus.Add;
+        work.Model.CreateSession();
+        work.Model.EnterPressed();                         // fara indicativ: CQ
+        Assert.StartsWith("CQ TEST DE YO9VA", work.Host.Sent.Last());
+        work.Model.SelectCallsign("YO3ABC");
+        work.Model.EnterPressed();                         // raportul, serialul fixat
+        Assert.StartsWith("YO3ABC 599 001", work.Host.Sent.Last());
+        Assert.True(work.Model.IsReserved);
+        Assert.Equal("received", focus.Last());
+        work.Model.EnterPressed();                         // nimic primit inca: repeta raportul, acelasi serial
+        Assert.Equal(work.Host.Sent[^2], work.Host.Sent[^1]);
+        work.Model.Entry.Serial = "12"; work.Model.Entry.Exchange = "BU";
+        work.Model.EnterPressed();                         // logheaza, apoi TU
+        Assert.Single(work.Model.Contacts);
+        Assert.False(work.Model.IsReserved);
+        Assert.Equal("YO3ABC TU DE YO9VA K", work.Host.Sent.Last());
+        Assert.All(work.Host.AutoQsy, Assert.False);       // Run: fara QSY automat
+        Assert.Equal("call", focus.Last());
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task EsmSearchAndPounceSendsOwnCallExchangeThenLogs() => Sta(() =>
+    {
+        using var work = new Workspace();
+        work.Model.CreateSession();
+        work.Model.SearchAndPounce = true;
+        Assert.Throws<InvalidOperationException>(work.Model.EnterPressed);   // fara indicativ
+        work.Model.SelectCallsign("YO3ABD");
+        work.Model.EnterPressed();                         // indicativul propriu
+        Assert.Equal("YO9VA YO9VA", work.Host.Sent.Last());
+        Assert.False(work.Model.IsReserved);
+        work.Model.Entry.Serial = "7"; work.Model.Entry.Exchange = "BU";
+        work.Model.EnterPressed();                         // schimbul tau, serialul fixat
+        Assert.Equal("599 001", work.Host.Sent.Last());
+        Assert.True(work.Model.IsReserved);
+        int sent = work.Host.Sent.Count;
+        work.Model.EnterPressed();                         // logheaza, fara emisie
+        Assert.Single(work.Model.Contacts);
+        Assert.Equal(sent, work.Host.Sent.Count);
+        Assert.All(work.Host.AutoQsy, Assert.True);        // S&P: QSY automat permis
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task WithoutEsmEnterOnlyLogs() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start();
+        work.Model.EnterSendsMessages = false;
+        work.Model.EnterPressed();
+        Assert.Single(work.Model.Contacts);
+        Assert.Empty(work.Host.Sent);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task AutoQsyOnlyInSearchAndPounce() => Sta(() =>
     {
         // Run: raportul pleaca fara QSY automat - frecventa de Run nu aluneca spre corespondent

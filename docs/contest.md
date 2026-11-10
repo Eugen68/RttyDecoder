@@ -54,6 +54,17 @@ unei sesiuni incepute. Schimbarile incompatibile ale versiunii HamContest necesi
 
 - Click pe un indicativ in terminal sau lista statiilor il trimite si formularului Contest,
   daca fereastra este vizibila si nu exista un QSO fixat/corectie in lucru.
+- **Click pe un numar sau un cuvant** din terminal (care nu e indicativ) il preia in formular:
+  `599`/`5NN` = RST primit; un numar = **Nr. primit** (daca concursul are seriale si campul e gol),
+  altfel **Schimb primit**; un cuvant (sectiune, nume, zona) = **Schimb primit**. Cuvintele uzuale
+  (DE, TU, K, CQ, TEST, 73...) sunt ignorate. Preluarea nu transmite nimic. Limita: un serial chiar
+  egal cu 599 se introduce de mana.
+- Cat e deschisa fereastra Contest, **indicativele din terminal si din lista statiilor sunt colorate**
+  dupa starea lor in sesiune, pe banda curenta: **gri taiat = dublu**, **roz = multiplicator nou**,
+  culorile obisnuite = QSO valid. Tooltip-ul o spune si in cuvinte. Se calculeaza ca un QSO fara schimb
+  primit: multiplicatorii care vin din indicativ (tara, prefix, continent) se vad inainte; cei care vin
+  din schimb (sectiune, zona primita) abia la logare. Culorile se refac la fiecare QSO si la schimbarea
+  benzii (prin CAT).
 - **CAT** preia frecventa RF afisata de statie, in kHz. La pierderea conexiunii, logarea cere
   debifarea CAT si completarea manuala. Nu se foloseste frecventa audio Mark/Space.
 - Completati RST, numarul si schimbul primit. Campurile suplimentare se mapeaza explicit pe
@@ -64,7 +75,20 @@ unei sesiuni incepute. Schimbarile incompatibile ale versiunii HamContest necesi
   îl copiază în **Schimb primit** numai dacă acel câmp este gol. Verificați anul recepționat
   înainte de logare. Dacă anii diferă, nu se propune o valoare. Numărul primit se introduce manual.
 - **Verifica** si mesajul de sub formular indica erorile, dublele si multiplicatorii noi.
-- **Logheaza QSO**, sau Enter cand cursorul este in formular, salveaza QSO-ul. Un dupe ramane
+- **Enter** in formular, cu **ESM** bifat (implicit), trimite mesajul potrivit starii:
+
+  | Mod | Starea | Enter |
+  | --- | --- | --- |
+  | Run | fara indicativ | CQ (F1) |
+  | Run | indicativ, fara schimb primit | raportul (F2, fixeaza serialul; repetat = acelasi serial) |
+  | Run | schimbul primit completat | logheaza QSO-ul, apoi TU (F4) |
+  | S&P | fara schimb primit | indicativul tau (F1) |
+  | S&P | schimbul primit completat | schimbul tau (F2) |
+  | S&P | schimbul trimis | logheaza QSO-ul (fara emisie) |
+
+  Dupa raport cursorul trece la numarul/schimbul primit, dupa logare la indicativ. Cu ESM debifat,
+  Enter doar logheaza.
+- **Logheaza QSO** salveaza QSO-ul. Un dupe ramane
   in jurnal, cu zero puncte; nu este sters automat. Ora UTC poate ramane goala pentru momentul
   curent sau poate fi introdusa ca `yyyy-MM-dd HH:mm:ss`.
 - Corectarea se face pe randul selectat, apoi **Salveaza corectia**. Serialul deja transmis

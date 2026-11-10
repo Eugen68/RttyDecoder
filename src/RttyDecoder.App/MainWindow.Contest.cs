@@ -21,12 +21,30 @@ public partial class MainWindow
     {
         InputBindings.Add(new KeyBinding(new RelayCommand(ShowContestWindow), Key.C, ModifierKeys.Control | ModifierKeys.Shift));
         _vm.CallsignSelected += call => { if (_contestWindow?.IsVisible == true) _contestModel?.SelectCallsign(call.Full); };
+        // click pe un numar / cuvant din terminal: preluat in schimbul primit
+        _vm.WordSelected += word => { if (_contestWindow?.IsVisible == true) _contestModel?.Run(() => _contestModel.GrabWord(word)); };
         _vm.PropertyChanged += (_, e) =>
         {
             if (_contestWindow?.IsVisible == true && e.PropertyName == nameof(RttyDecoderViewModel.RigText)) _contestModel?.SyncFrequency();
         };
     }
     private void OnOpenContest(object sender, RoutedEventArgs e) => ShowContestWindow();
+
+    private ContestViewModel? _colorsHooked;
+
+    /// <summary>Cat e deschisa fereastra Contest: indicativele din decodor colorate dupa dublu / multiplicator nou.</summary>
+    private void HookContestColors()
+    {
+        if (_contestModel == null) return;
+        if (!ReferenceEquals(_colorsHooked, _contestModel))
+        {
+            var model = _contestModel;
+            model.JournalChanged += () => { if (_contestWindow != null && ReferenceEquals(_contestModel, model)) _vm.RefreshContestColors(); };
+            _colorsHooked = model;
+        }
+        var current = _contestModel;
+        _vm.ContestCallStatus = call => current.CallState(call);
+    }
     private void ShowContestWindow()
     {
         try
@@ -49,8 +67,9 @@ public partial class MainWindow
                 window.Owner = _contestAboveDecoder ? this : null;
                 if (!_contestAboveDecoder) Activate();
             };
-            window.Closed += (_, _) => _contestWindow = null;
+            window.Closed += (_, _) => { _contestWindow = null; _vm.ContestCallStatus = null; };
             _contestWindow = window;
+            HookContestColors();
             window.Show(); // deliberately modeless: the decoder remains interactive
         }
         catch (Exception error) { _vm.Message = "Contest: " + error.Message; }

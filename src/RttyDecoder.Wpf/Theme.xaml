@@ -18,6 +18,11 @@
     <SolidColorBrush x:Key="Call.Known.Back" Color="#123826" />
     <SolidColorBrush x:Key="Call.Own" Color="#FF8A65" />
     <SolidColorBrush x:Key="Call.Own.Back" Color="#3A1F15" />
+    <!-- Contest: dublu (gri, taiat) si multiplicator nou (roz) -->
+    <SolidColorBrush x:Key="Call.Dupe" Color="#7A7A7A" />
+    <SolidColorBrush x:Key="Call.Dupe.Back" Color="#00000000" />
+    <SolidColorBrush x:Key="Call.NewMult" Color="#FF80C0" />
+    <SolidColorBrush x:Key="Call.NewMult.Back" Color="#4A1035" />
 
     <Style TargetType="ButtonBase" x:Key="Rtty.ButtonBase">
         <Setter Property="Foreground" Value="White" />

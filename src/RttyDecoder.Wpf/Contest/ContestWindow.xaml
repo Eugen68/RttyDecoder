@@ -90,8 +90,8 @@
                         IsReadOnly="{Binding Entry.UseCat}" ToolTip="Frecventa RF a statiei, nu frecventa audio Mark/Space" /></StackPanel>
                     <CheckBox Content="CAT" IsChecked="{Binding Entry.UseCat}" VerticalAlignment="Center" Margin="0,15,12,0" ToolTip="Citeste frecventa statiei conectate; fara CAT, debifati si introduceti frecventa manual" />
                     <StackPanel><TextBlock Text="RST primit" /><TextBox Width="65" Text="{Binding Entry.Report, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Nr. primit" /><TextBox Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Schimb primit" /><TextBox Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Nr. primit" /><TextBox x:Name="SerialBox" Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Schimb primit" /><TextBox x:Name="ExchangeBox" Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     <StackPanel><TextBlock Text="Ora UTC (gol = acum)" /><TextBox Width="160" Text="{Binding Entry.TimeUtc, UpdateSourceTrigger=PropertyChanged}" ToolTip="yyyy-MM-dd HH:mm:ss" /></StackPanel>
                 </WrapPanel>
                 <Expander Header="Schimb suplimentar (dupa definitia UDC)" IsExpanded="True">
@@ -114,6 +114,8 @@
                     <Button Content="Verifica" Command="{Binding CheckCommand}" />
                     <CheckBox Content="S&amp;P" IsChecked="{Binding SearchAndPounce}" VerticalAlignment="Center"
                               Margin="6,0" ToolTip="Bifat: Search &amp; Pounce. Debifat: Run." />
+                    <CheckBox Content="ESM" IsChecked="{Binding EnterSendsMessages}" VerticalAlignment="Center" Margin="0,0,6,0"
+                              ToolTip="Enter trimite mesajul potrivit. Run: CQ, apoi raportul, apoi logheaza si TU. S&amp;P: indicativul tau, apoi schimbul, apoi logheaza. Debifat: Enter doar logheaza." />
                     <Border Background="Transparent" Tag="0" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
                         <Border.ToolTip><ToolTip Content="Macro F1" /></Border.ToolTip>
                         <Button Content="{Binding F1Label}" Command="{Binding CqCommand}" />

@@ -462,6 +462,11 @@ public partial class RttyDecoderView : UserControl
             _ when online == HamCallsign.Online.CallsignVerificationState.Confirmed => "Call.Known",
             _ => "Call.FormatOnly",
         };
+        // concursul activ are prioritate: dublu = gri taiat, multiplicator nou = roz (indicativul propriu ramane)
+        var contest = m.Status == CallsignStatus.Own ? ContestCallState.None : _vm?.ContestStateOf(m.Callsign.Full) ?? ContestCallState.None;
+        if (contest == ContestCallState.Dupe) key = "Call.Dupe";
+        else if (contest == ContestCallState.NewMultiplier) key = "Call.NewMult";
+        run.TextDecorations = contest == ContestCallState.Dupe ? TextDecorations.Strikethrough : null;
         run.Tag = m;
         run.Foreground = (Brush)FindResource(key);
         run.Background = (Brush)FindResource(key + ".Back");
@@ -472,6 +477,7 @@ public partial class RttyDecoderView : UserControl
                           CallsignStatus.Own => "\nindicativul propriu",
                           _ => "\n" + HeardStationRow.KnownText(m.KnownIn) + HeardStationRow.OnlineText(online, result),
                       } +
+                      HeardStationRow.ContestText(contest) +
                       "\nClick: copiaza   Dublu click: QRZ.com";
     }
 
@@ -520,6 +526,22 @@ public partial class RttyDecoderView : UserControl
     {
         if (!Terminal.Selection.IsEmpty) return; // utilizatorul selecteaza text
         if (CallsignAt(e) is { } m) _vm?.SelectCallsign(m.Callsign);
+        else if (WordAt(e) is { } word) _vm?.SelectWord(word);   // Contest: numar / schimb
+    }
+
+    /// <summary>Cuvantul (litere, cifre, '/') de sub mouse in terminal, sau null.</summary>
+    private string? WordAt(MouseEventArgs e)
+    {
+        var pos = Terminal.GetPositionFromPoint(e.GetPosition(Terminal), false);
+        if (pos?.Parent is not Run run) return null;
+        string text = run.Text;
+        int i = run.ContentStart.GetOffsetToPosition(pos);
+        if (i < 0 || i > text.Length) return null;
+        static bool Part(char c) => char.IsLetterOrDigit(c) || c == '/';
+        int start = i, end = i;
+        while (start > 0 && Part(text[start - 1])) start--;
+        while (end < text.Length && Part(text[end])) end++;
+        return end > start ? text[start..end] : null;
     }
 
     private void OnTerminalDoubleClick(object sender, MouseButtonEventArgs e)

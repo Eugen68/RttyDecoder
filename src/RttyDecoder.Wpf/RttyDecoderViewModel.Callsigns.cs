@@ -107,6 +107,46 @@ public sealed partial class RttyDecoderViewModel
     /// <summary>Indicativul propriu s-a schimbat: textul deja afisat trebuie re-evidentiat (pe firul UI).</summary>
     internal event Action? CallsignSettingsChanged;
 
+    // ------------------------------------------------------------------
+    // Contest: culorile indicativelor si preluarea schimbului din text
+    // ------------------------------------------------------------------
+
+    private Func<string, ContestCallState>? _contestCallStatus;
+
+    /// <summary>
+    /// Gazda (fereastra Contest) spune starea unui indicativ in concursul activ: dublu, multiplicator
+    /// nou sau valid. Null = fara concurs (culorile obisnuite). Setarea recoloreaza terminalul si lista.
+    /// </summary>
+    public Func<string, ContestCallState>? ContestCallStatus
+    {
+        get => _contestCallStatus;
+        set { _contestCallStatus = value; RefreshContestColors(); }
+    }
+
+    /// <summary>Starea in concurs a unui indicativ (None fara concurs activ).</summary>
+    public ContestCallState ContestStateOf(string call)
+    {
+        if (_contestCallStatus == null || string.IsNullOrWhiteSpace(call)) return ContestCallState.None;
+        try { return _contestCallStatus(call); }
+        catch (Exception) { return ContestCallState.None; }   // culorile nu trebuie sa opreasca decodorul
+    }
+
+    /// <summary>Jurnalul de concurs s-a schimbat (QSO logat, banda noua): refacem culorile.</summary>
+    public void RefreshContestColors()
+    {
+        foreach (var row in HeardStations) row.ContestState = ContestStateOf(row.Call);
+        CallsignSettingsChanged?.Invoke();
+    }
+
+    /// <summary>Click pe un cuvant din terminal care nu e indicativ (numar, sectiune, nume...).</summary>
+    public event Action<string>? WordSelected;
+
+    /// <summary>Din terminal: cuvantul pe care s-a dat click (pentru preluarea schimbului in Contest).</summary>
+    public void SelectWord(string word)
+    {
+        if (!string.IsNullOrWhiteSpace(word)) WordSelected?.Invoke(word.Trim());
+    }
+
     /// <summary>
     /// Bazele cty.dat / MASTER.SCP / LoTW (de obicei <see cref="ReferenceData.Load"/> facut in fundal la
     /// pornire, apoi din nou dupa o actualizare). Pana atunci se recunoaste doar forma. Lista statiilor
@@ -182,7 +222,7 @@ public sealed partial class RttyDecoderViewModel
             row.Update(s);
             return;
         }
-        row = new HeardStationRow(s);
+        row = new HeardStationRow(s) { ContestState = ContestStateOf(s.Callsign.Full) };
         row.SetOnline(Verifier.GetState(row.Callsign), Verifier.GetResult(row.Callsign));
         _rows[s.Callsign.Full] = row;
         HeardStations.Add(row);
@@ -234,6 +274,22 @@ public sealed class HeardStationRow : ObservableObject
     /// <summary>Cunoscut local sau confirmat online: verde in lista.</summary>
     public bool IsConfirmed => IsKnown || OnlineState == CallsignVerificationState.Confirmed;
 
+    private ContestCallState _contestState;
+    /// <summary>Starea in concursul activ (culoarea randului in lista).</summary>
+    public ContestCallState ContestState
+    {
+        get => _contestState;
+        internal set { if (Set(ref _contestState, value)) OnPropertyChanged(nameof(ToolTip)); }
+    }
+
+    internal static string ContestText(ContestCallState state) => state switch
+    {
+        ContestCallState.Dupe => "\nContest: DUBLU (zero puncte)",
+        ContestCallState.NewMultiplier => "\nContest: multiplicator nou",
+        ContestCallState.Needed => "\nContest: QSO valid",
+        _ => "",
+    };
+
     internal void SetOnline(CallsignVerificationState state, CallsignLookupResult? result)
     {
         if (state == OnlineState && result == OnlineResult) return;
@@ -265,7 +321,7 @@ public sealed class HeardStationRow : ObservableObject
 
     public string ToolTip =>
         Entity == null ? Call : $"{Call} - {Entity.Name} ({Entity.Continent}), CQ {Entity.CqZone}, ITU {Entity.ItuZone}" +
-                                "\n" + KnownText(KnownIn) + OnlineText(OnlineState, OnlineResult);
+                                "\n" + KnownText(KnownIn) + OnlineText(OnlineState, OnlineResult) + ContestText(ContestState);
 
     /// <summary>Randul din tooltip pentru verificarea online ("" daca nu s-a verificat).</summary>
     internal static string OnlineText(CallsignVerificationState state, CallsignLookupResult? r) => state switch

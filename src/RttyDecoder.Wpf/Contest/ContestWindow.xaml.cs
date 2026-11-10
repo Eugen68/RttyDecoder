@@ -33,6 +33,15 @@ public partial class ContestWindow : Window
         InitializeComponent(); Model = model; DataContext = model;
         Loaded += (_, _) => { Model.SyncFrequency(); CallBox.Focus(); };
         Closing += OnClosing;
+        Model.FocusRequested += OnFocusRequested;
+        Closed += (_, _) => Model.FocusRequested -= OnFocusRequested;
+    }
+
+    /// <summary>ESM: dupe raport cursorul trece la numarul/schimbul primit, dupa logare la indicativ.</summary>
+    private void OnFocusRequested(string target)
+    {
+        var box = target == "received" ? (Model.ReceivesSerial && string.IsNullOrEmpty(SerialBox.Text) ? SerialBox : ExchangeBox) : CallBox;
+        Dispatcher.BeginInvoke(() => { box.Focus(); box.SelectAll(); }, System.Windows.Threading.DispatcherPriority.Input);
     }
     private void OnClosing(object? sender, CancelEventArgs e)
     {
@@ -157,7 +166,7 @@ public partial class ContestWindow : Window
         {
             Key.Escape => Model.StopCommand, Key.F1 => Model.CqCommand, Key.F2 => Model.ReportCommand,
             Key.F3 => Model.AgnCommand, Key.F4 => Model.TuCommand,
-            Key.Enter when EntryArea.IsKeyboardFocusWithin && Keyboard.FocusedElement is not TextBox { AcceptsReturn: true } => Model.LogCommand,
+            Key.Enter when EntryArea.IsKeyboardFocusWithin && Keyboard.FocusedElement is not TextBox { AcceptsReturn: true } => Model.EnterCommand,
             _ => null
         };
         if (command?.CanExecute(null) == true) { command.Execute(null); e.Handled = true; }
