@@ -124,6 +124,22 @@ public class ContestTests
     });
 
     [Fact]
+    public Task OnlyGrabbableWordsAreHighlighted() => Sta(() =>
+    {
+        using var work = new Workspace();
+        Assert.False(work.Model.CanGrab("014"));           // fara sesiune
+        work.Model.CreateSession();
+        Assert.True(work.Model.CanGrab("014"));
+        Assert.True(work.Model.CanGrab("5NN"));
+        Assert.True(work.Model.CanGrab("bu"));
+        Assert.False(work.Model.CanGrab("TU"));            // cuvant uzual
+        Assert.False(work.Model.CanGrab("DE"));
+        Assert.False(work.Model.CanGrab("ABCDEFGHIJKLMN")); // prea lung pentru un schimb
+        Assert.False(work.Model.CanGrab("  "));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task DecodedCallsignsAreColoredByContestState() => Sta(() =>
     {
         using var work = new Workspace();

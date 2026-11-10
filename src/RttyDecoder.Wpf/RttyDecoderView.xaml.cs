@@ -319,6 +319,9 @@ public partial class RttyDecoderView : UserControl
     /// spatiile / randurile goale de la inceputul mesajului se sar. Un text doar din spatii nu conteaza
     /// ca activitate. <paramref name="beforeStamp"/> incheie ce era inceput (cuvantul neterminat).
     /// </summary>
+    /// <summary>Tag-ul randurilor cu ora (<c>[HH:mm:ss]: </c>), ca sa nu fie luate drept text decodat.</summary>
+    private static readonly object StampMarker = new();
+
     private string MaybeStamp(string text, Speaker who, Action beforeStamp)
     {
         int first = 0;
@@ -349,7 +352,8 @@ public partial class RttyDecoderView : UserControl
             inlines.Add(new LineBreak());
             _text.Append('\n');
         }
-        var run = new Run(stamp);
+        // marcata: cifrele orei nu se preiau in Contest (click / evidentiere)
+        var run = new Run(stamp) { Tag = StampMarker };
         if (who == Speaker.Tx) run.Foreground = StampTxBrush;   // la receptie: verdele textului
         inlines.Add(run);
         _text.Append(stamp);
@@ -526,14 +530,18 @@ public partial class RttyDecoderView : UserControl
     {
         if (!Terminal.Selection.IsEmpty) return; // utilizatorul selecteaza text
         if (CallsignAt(e) is { } m) _vm?.SelectCallsign(m.Callsign);
-        else if (WordAt(e) is { } word) _vm?.SelectWord(word);   // Contest: numar / schimb
+        else if (WordAt(e) is { } word) _vm?.SelectWord(word.Text);   // Contest: numar / schimb
     }
 
-    /// <summary>Cuvantul (litere, cifre, '/') de sub mouse in terminal, sau null.</summary>
-    private string? WordAt(MouseEventArgs e)
+    /// <summary>
+    /// Cuvantul (litere, cifre, '/') de sub mouse, doar din textul decodat simplu: nu din indicative,
+    /// ora, textul trimis (au culoare proprie) si nici din cuvantul inca in curs de decodare.
+    /// </summary>
+    private (string Text, TextPointer Start, TextPointer End)? WordAt(MouseEventArgs e)
     {
         var pos = Terminal.GetPositionFromPoint(e.GetPosition(Terminal), false);
-        if (pos?.Parent is not Run run) return null;
+        if (pos?.Parent is not Run run || run == _pendingRun || run.Tag != null
+            || run.ReadLocalValue(TextElement.ForegroundProperty) != DependencyProperty.UnsetValue) return null;
         string text = run.Text;
         int i = run.ContentStart.GetOffsetToPosition(pos);
         if (i < 0 || i > text.Length) return null;
@@ -541,8 +549,35 @@ public partial class RttyDecoderView : UserControl
         int start = i, end = i;
         while (start > 0 && Part(text[start - 1])) start--;
         while (end < text.Length && Part(text[end])) end++;
-        return end > start ? text[start..end] : null;
+        if (end <= start) return null;
+        return (text[start..end], run.ContentStart.GetPositionAtOffset(start)!, run.ContentStart.GetPositionAtOffset(end)!);
     }
+
+    private WordHighlightAdorner? _grabHighlight;
+
+    /// <summary>Contest: cuvantul de sub mouse care se poate prelua - mana si evidentiere, ca la indicative.</summary>
+    private bool ShowGrabHighlight(MouseEventArgs e)
+    {
+        if (_vm == null || WordAt(e) is not { } word || !_vm.CanGrabWord(word.Text)) { HideGrabHighlight(); return false; }
+        var rect = Rect.Union(word.Start.GetCharacterRect(LogicalDirection.Forward), word.End.GetCharacterRect(LogicalDirection.Backward));
+        if (_grabHighlight == null && AdornerLayer.GetAdornerLayer(Terminal) is { } layer)
+        {
+            _grabHighlight = new WordHighlightAdorner(Terminal);
+            layer.Add(_grabHighlight);
+        }
+        if (_grabHighlight != null) _grabHighlight.Rect = rect;
+        return true;
+    }
+
+    private void HideGrabHighlight()
+    {
+        if (_grabHighlight != null) _grabHighlight.Rect = null;
+    }
+
+    private void OnTerminalMouseLeave(object sender, MouseEventArgs e) => HideGrabHighlight();
+
+    /// <summary>Textul s-a mutat sub mouse: evidentierea veche nu mai e pe cuvant.</summary>
+    private void OnTerminalScrolled(object sender, ScrollChangedEventArgs e) => HideGrabHighlight();
 
     private void OnTerminalDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -554,7 +589,11 @@ public partial class RttyDecoderView : UserControl
     private void OnTerminalMouseMove(object sender, MouseEventArgs e)
     {
         // RichTextBox arata mereu cursorul de text: mana doar deasupra indicativelor
-        Terminal.Cursor = CallsignAt(e) != null ? Cursors.Hand : null;
+        // si (cu fereastra Contest deschisa) deasupra numerelor / schimbului care se pot prelua
+        bool call = CallsignAt(e) != null;
+        bool grab = !call && ShowGrabHighlight(e);
+        if (call) HideGrabHighlight();
+        Terminal.Cursor = call || grab ? Cursors.Hand : null;
     }
 
     // ------------------------------------------------------------------

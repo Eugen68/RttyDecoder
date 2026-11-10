@@ -562,7 +562,7 @@ public sealed class ContestViewModel : ObservableObject
     {
         if (_session == null) return;
         if (IsEditing) { Status = "Terminati corectia inainte de a prelua din text."; return; }
-        string w = word.Trim().Trim('/').ToUpperInvariant();
+        string w = GrabText(word);
         if (w.Length == 0 || CommonWords.Contains(w)) return;
         if (w is "599" or "5NN") { Entry.Report = "599"; Status = "Preluat din text: RST 599"; return; }
         if (w.All(char.IsDigit) && _session.Rules.UsesSerialNumbers && Entry.Serial.Trim().Length == 0)
@@ -571,6 +571,19 @@ public sealed class ContestViewModel : ObservableObject
             return;
         }
         Entry.Exchange = w; Status = "Preluat din text: schimb " + w;
+    }
+
+    private static string GrabText(string word) => word.Trim().Trim('/').ToUpperInvariant();
+
+    /// <summary>
+    /// Cuvantul s-ar prelua la click (pentru evidentierea din terminal): sesiune activa, fara corectie
+    /// in lucru, nu e un cuvant uzual si are cel mult 12 caractere.
+    /// </summary>
+    public bool CanGrab(string word)
+    {
+        if (_session == null || IsEditing) return false;
+        string w = GrabText(word);
+        return w.Length is > 0 and <= 12 && w.All(c => char.IsLetterOrDigit(c) || c == '/') && !CommonWords.Contains(w);
     }
 
     // ------------------------------------------------------------------

@@ -138,17 +138,29 @@
 
             <Grid Grid.Row="3">
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                <WrapPanel>
-                    <TextBlock Text="Jurnal · UTC" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0" />
-                    <Button Content="Corecteaza selectat" Command="{Binding EditCommand}" />
-                    <Button Content="Sterge selectat..." Click="OnDelete" IsEnabled="{Binding HasSession}" />
-                </WrapPanel>
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="Jurnal · UTC" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"
+                               ToolTip="Click dreapta pe un QSO: Look-up QRZ.com, corectare, stergere" />
+                    <TextBlock DockPanel.Dock="Left" x:Name="UtcClock" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Rtty.Accent}" Margin="8,0,16,0" ToolTip="Ora UTC (ora din jurnal)" />
+                    <TextBlock DockPanel.Dock="Left" x:Name="LocalClock" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14"
+                               Foreground="{DynamicResource Rtty.Muted}" ToolTip="Ora locala a calculatorului" />
+                </DockPanel>
                 <DataGrid x:Name="Journal" Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedQso}" IsReadOnly="True" AutoGenerateColumns="False"
                           CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column" Margin="0,4,0,0"
+                          PreviewMouseRightButtonDown="OnJournalRightButtonDown"
                           Background="#101820" Foreground="#E6E6E6" BorderBrush="#3C3C3C" HorizontalGridLinesBrush="#303A44" VerticalGridLinesBrush="#303A44">
                     <DataGrid.RowStyle><Style TargetType="DataGridRow"><Setter Property="Background" Value="#151C24" /><Setter Property="Foreground" Value="#E6E6E6" />
                         <Style.Triggers><DataTrigger Binding="{Binding IsDupe}" Value="True"><Setter Property="Foreground" Value="#FFD166" /></DataTrigger></Style.Triggers>
                     </Style></DataGrid.RowStyle>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu Opened="OnJournalMenuOpened">
+                            <MenuItem x:Name="QrzItem" Header="_Look-up QRZ.com" Click="OnJournalQrz" />
+                            <Separator />
+                            <MenuItem x:Name="EditItem" Header="_Corecteaza selectat..." Command="{Binding EditCommand}" />
+                            <MenuItem x:Name="DeleteItem" Header="_Sterge selectat..." Click="OnDelete" />
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="UTC" Binding="{Binding Utc}" Width="135" /><DataGridTextColumn Header="Indicativ" Binding="{Binding Call}" Width="100" />
                         <DataGridTextColumn Header="Banda" Binding="{Binding Band}" Width="50" /><DataGridTextColumn Header="kHz" Binding="{Binding FrequencyKhz}" Width="80" />

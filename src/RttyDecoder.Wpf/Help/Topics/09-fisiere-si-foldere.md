@@ -25,7 +25,7 @@ De obicei `C:\Users\<nume>\AppData\Roaming\YO9VA\RttyDecoder`. Se deschide din *
 
 | Fisier / folder | Ce contine |
 |---|---|
-| `settings.json` | Toate setarile: audio, decodor, waterfall, statie, transmisie, macro-uri, pozitia ferestrei; parolele QRZ/HamQTH criptate |
+| `settings.json` | Toate setarile: audio, decodor, waterfall, statie, transmisie, macro-uri, pozitia ferestrei principale si a ferestrei Contest; parolele QRZ/HamQTH criptate |
 | `UserDefinedContests\` | Definitiile de concurs `.udc` si macro-urile lor `.macros.json` |
 | `SupportFiles\` | Listele de sectiuni `.sec` |
 | `Contests\Sessions\` | Jurnalele de concurs `.contest.json` |

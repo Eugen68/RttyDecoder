@@ -247,7 +247,7 @@
                                  BorderThickness="0" FontFamily="Consolas" FontSize="15" VerticalScrollBarVisibility="Auto"
                                  Padding="4" AcceptsReturn="True"
                                  PreviewMouseLeftButtonUp="OnTerminalClick" PreviewMouseDoubleClick="OnTerminalDoubleClick"
-                                 MouseMove="OnTerminalMouseMove">
+                                 MouseMove="OnTerminalMouseMove" MouseLeave="OnTerminalMouseLeave" ScrollViewer.ScrollChanged="OnTerminalScrolled">
                         <FlowDocument PagePadding="0">
                             <Paragraph x:Name="TerminalParagraph" Margin="0" />
                         </FlowDocument>

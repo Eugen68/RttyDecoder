@@ -30,6 +30,33 @@ public partial class MainWindow
     }
     private void OnOpenContest(object sender, RoutedEventArgs e) => ShowContestWindow();
 
+    /// <summary>Fereastra Contest se deschide unde si cat de mare a fost lasata ultima data.</summary>
+    private void RestoreContestPlacement(Window window)
+    {
+        if (_settings.ContestWindow is not { Width: > 0, Height: > 0 } b) return;
+        window.Width = Math.Max(window.MinWidth, b.Width);
+        window.Height = Math.Max(window.MinHeight, b.Height);
+        if (IsOnScreen(b.Left, b.Top, window.Width, window.Height))
+        {
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.Left = b.Left;
+            window.Top = b.Top;
+        }
+        if (b.Maximized) window.WindowState = WindowState.Maximized;
+    }
+
+    /// <summary>La inchiderea ferestrei Contest (si a aplicatiei, cand e deschisa): pozitia si marimea in setari.</summary>
+    private void SaveContestPlacement(Window window)
+    {
+        var r = window.WindowState == WindowState.Normal ? new Rect(window.Left, window.Top, window.Width, window.Height) : window.RestoreBounds;
+        if (r.IsEmpty || double.IsNaN(r.Left) || double.IsInfinity(r.Left) || r.Width <= 0) return;
+        _settings.ContestWindow = new WindowBounds
+        {
+            Left = r.Left, Top = r.Top, Width = r.Width, Height = r.Height,
+            Maximized = window.WindowState == WindowState.Maximized,
+        };
+    }
+
     private ContestViewModel? _colorsHooked;
 
     /// <summary>Cat e deschisa fereastra Contest: indicativele din decodor colorate dupa dublu / multiplicator nou.</summary>
@@ -44,6 +71,7 @@ public partial class MainWindow
         }
         var current = _contestModel;
         _vm.ContestCallStatus = call => current.CallState(call);
+        _vm.ContestCanGrab = word => current.CanGrab(word);
     }
     private void ShowContestWindow()
     {
@@ -67,7 +95,10 @@ public partial class MainWindow
                 window.Owner = _contestAboveDecoder ? this : null;
                 if (!_contestAboveDecoder) Activate();
             };
-            window.Closed += (_, _) => { _contestWindow = null; _vm.ContestCallStatus = null; };
+            RestoreContestPlacement(window);
+            window.HelpRequested += ShowHelp;
+            window.Closing += (_, _) => SaveContestPlacement(window);
+            window.Closed += (_, _) => { _contestWindow = null; _vm.ContestCallStatus = null; _vm.ContestCanGrab = null; };
             _contestWindow = window;
             HookContestColors();
             window.Show(); // deliberately modeless: the decoder remains interactive

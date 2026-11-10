@@ -138,6 +138,22 @@ public sealed partial class RttyDecoderViewModel
         CallsignSettingsChanged?.Invoke();
     }
 
+    private Func<string, bool>? _contestCanGrab;
+
+    /// <summary>
+    /// Gazda (fereastra Contest) spune ce cuvinte din terminal se pot prelua in formular (numar, RST,
+    /// schimb); peste ele cursorul devine mana si cuvantul se evidentiaza. Null = fara concurs.
+    /// </summary>
+    public Func<string, bool>? ContestCanGrab { get => _contestCanGrab; set => _contestCanGrab = value; }
+
+    /// <summary>Cuvantul se poate prelua acum in formularul Contest.</summary>
+    public bool CanGrabWord(string word)
+    {
+        if (_contestCanGrab == null || string.IsNullOrWhiteSpace(word)) return false;
+        try { return _contestCanGrab(word); }
+        catch (Exception) { return false; }
+    }
+
     /// <summary>Click pe un cuvant din terminal care nu e indicativ (numar, sectiune, nume...).</summary>
     public event Action<string>? WordSelected;
 
