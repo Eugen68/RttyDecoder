@@ -243,6 +243,23 @@
         </Setter>
     </Style>
 
+    <!-- Meniurile contextuale (click dreapta): acelasi fundal inchis ca submeniurile de sus. Fara el,
+         randurile (text deschis, din stilul MenuItem) aparea pe fundalul alb implicit din Windows. -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Foreground" Value="{StaticResource Rtty.Foreground}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{StaticResource Rtty.Panel}" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1" Padding="2" MinWidth="180">
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="#202020" />
     </Style>
