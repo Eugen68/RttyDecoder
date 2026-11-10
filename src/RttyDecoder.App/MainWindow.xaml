@@ -51,6 +51,8 @@
                           ToolTip="settings.json (%APPDATA%\YO9VA\RttyDecoder)" />
             </MenuItem>
             <MenuItem Header="_Ajutor">
+                <MenuItem Header="_Ajutor..." Click="OnHelp" ToolTip="Explicatii pe subiecte: decodoare, reglaje, waterfall, A-TUNE si QSY, emisie, statie, fisiere, contest" />
+                <Separator />
                 <MenuItem Header="_Despre RTTY Decoder..." Click="OnAbout" />
             </MenuItem>
         </Menu>

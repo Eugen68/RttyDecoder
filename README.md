@@ -162,7 +162,8 @@ Conexiune statie:
 - **Setari**: Conexiune statie (vezi mai jos), Reconecteaza statia; Verificare online (QRZ.com / HamQTH.com) - conturile pentru confirmarea indicativelor
   necunoscute local (parolele criptate cu Windows DPAPI in `settings.json`, ca in CwDecoder);
   Deschide folderul setarilor (`%APPDATA%\YO9VA\RttyDecoder`, `settings.json`)
-- **Ajutor**: Despre
+- **Ajutor**: Ajutor (explicatii pe subiecte, cu cautare - textele sunt in
+  `src/RttyDecoder.Wpf/Help/Topics/*.md`; un subiect nou = un fisier nou), Despre
 
 **Statia** (biblioteca [HamRig](https://github.com/Eugen68/HamRig), submodul `external/HamRig`),
 din **Setari > Conexiune statie**:
