@@ -88,7 +88,8 @@ Serialul din previzualizare este estimat pana la rezervare.
 La incarcarea unei definitii sau redeschiderea unei sesiuni, se incarca fisierul de macro-uri
 din folderul UDC. De exemplu, `RTTYops-WW-DX.udc` foloseste `RTTYops-WW-DX.macros.json`.
 Daca fisierul lipseste, se creeaza automat cu seturile generice Run si S&P. Pentru a muta
-configuratia pe alt calculator, copiati ambele fisiere in folderul UDC de pe acel calculator.
+configuratia pe alt calculator, pastrati fisierele impreuna si importati UDC-ul. Importul
+preia si fisierul de macro-uri alaturat daca destinatia nu are deja unul.
 Un fisier invalid este pastrat si eroarea este afisata.
 
 Emisia foloseste configuratia FSK/CAT a aplicatiei, numai cu statia conectata in RTTY-L/U.

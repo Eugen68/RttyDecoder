@@ -80,6 +80,16 @@ public sealed class ContestFiles
             target = System.IO.Path.Combine(folder, System.IO.Path.GetFileNameWithoutExtension(name) + "-" + hash + extension);
         }
         if (!File.Exists(target)) _write(target, text);
+        if (extension == ".udc")
+        {
+            string sourceMacros = System.IO.Path.ChangeExtension(source, ".macros.json");
+            string targetMacros = MacroPath(System.IO.Path.GetFileName(target));
+            if (File.Exists(sourceMacros) && !File.Exists(targetMacros))
+            {
+                try { AtomicWrite(targetMacros, ReadText(sourceMacros), overwrite: false); }
+                catch (IOException) when (File.Exists(targetMacros)) { }
+            }
+        }
         return target;
     }
     public string NewSessionPath(string name) => System.IO.Path.Combine(SessionsFolder, name + "-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N")[..8] + ".contest.json");

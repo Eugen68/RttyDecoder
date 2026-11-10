@@ -89,6 +89,18 @@ public class ContestTests
         reopened.RefreshDefinitions(other);
         Assert.True(File.Exists(Path.Combine(work.Files.DefinitionsFolder, "Other.macros.json")));
         Assert.Equal("Raport", reopened.GetMacro(1).Name);
+
+        string incoming = Directory.CreateDirectory(Path.Combine(work.Root, "incoming")).FullName;
+        string external = Path.Combine(incoming, "Travel.udc");
+        File.Copy(other, external);
+        File.Copy(macroPath, Path.ChangeExtension(external, ".macros.json"));
+        reopened.ImportFiles([external]);
+        Assert.Equal("Schimb", reopened.GetMacro(1).Name);
+        string importedMacros = Path.Combine(work.Files.DefinitionsFolder, "Travel.macros.json");
+        string saved = File.ReadAllText(importedMacros);
+        File.WriteAllText(Path.ChangeExtension(external, ".macros.json"), "{}");
+        reopened.ImportFiles([external]);
+        Assert.Equal(saved, File.ReadAllText(importedMacros));
         return Task.CompletedTask;
     });
 
