@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,9 +11,15 @@ namespace RttyDecoder.Wpf.Contest;
 
 public partial class ContestWindow : Window
 {
+    private readonly string _applicationVersion;
+    private readonly string _buildInfo;
+
     public ContestViewModel Model { get; }
-    public ContestWindow(ContestViewModel model)
+
+    public ContestWindow(ContestViewModel model, string applicationVersion = "", string buildInfo = "")
     {
+        _applicationVersion = applicationVersion;
+        _buildInfo = buildInfo;
         InitializeComponent(); Model = model; DataContext = model;
         Loaded += (_, _) => { Model.SyncFrequency(); CallBox.Focus(); };
         Closing += OnClosing;
@@ -64,6 +71,36 @@ public partial class ContestWindow : Window
     }
     private void OnAdif(object sender, RoutedEventArgs e) => Export(true);
     private void OnCabrillo(object sender, RoutedEventArgs e) => Export(false);
+    private void OnHelp(object sender, RoutedEventArgs e) =>
+        MessageBox.Show(this, """
+            1. Din Fișiere, importă definiția UDC și listele SEC cerute de concurs.
+            2. Alege Nou, selectează definiția și completează datele stației. Poți redeschide un jurnal din același meniu.
+            3. Completează indicativul și schimbul primit. Folosește CAT sau introdu manual frecvența RF în kHz.
+
+            Enter salvează QSO-ul. F1–F4 trimit macro-urile, iar Esc oprește emisia.
+            Treci cu mouse-ul peste un macro pentru previzualizare sau fă click dreapta pentru editare.
+
+            În Setări găsești folderele UDC și SEC. Din Unelte poți exporta jurnalul în ADIF sau Cabrillo.
+            """, "Ajutor Contest", MessageBoxButton.OK, MessageBoxImage.Information);
+
+    private void OnAbout(object sender, RoutedEventArgs e)
+    {
+        var assembly = typeof(HamContest.ContestSession).Assembly;
+        string libraryVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+                                ?? assembly.GetName().Version?.ToString() ?? "";
+        string title = string.IsNullOrWhiteSpace(_applicationVersion)
+            ? "Contest - RTTY Decoder" : $"Contest - RTTY Decoder {_applicationVersion}";
+        MessageBox.Show(this,
+            $"{title}\nCopyright (c) 2026 Eugen Trifu, YO9VA - licență MIT\n\n" +
+            "Modul pentru concursuri RTTY cu jurnal QSO, punctaj, multiplicatori și verificarea dublelor.\n" +
+            $"Regulamente UDC / liste SEC și calculul punctajului: HamContest {libraryVersion}.\n" +
+            "Indicative și date de țară: HamCallsign (cty.dat).\n" +
+            "Export jurnal: ADIF și Cabrillo.\n\n" +
+            "https://github.com/Eugen68/RttyDecoder\nhttps://github.com/Eugen68/HamContest" +
+            (_buildInfo.Length > 0 ? "\n\n" + _buildInfo : ""),
+            "Despre Contest - RTTY Decoder", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void OnDetailsExpanded(object sender, RoutedEventArgs e)
     {
         if (ReferenceEquals(sender, HeadersExpander)) DiagnosticsExpander.IsExpanded = false;
@@ -104,6 +141,8 @@ public partial class ContestWindow : Window
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
+        if (ContestMenu.IsKeyboardFocusWithin || ContestMenu.Items.OfType<MenuItem>().Any(item => item.IsSubmenuOpen)) return;
+
         ICommand? command = e.Key switch
         {
             Key.Escape => Model.StopCommand, Key.F1 => Model.CqCommand, Key.F2 => Model.ReportCommand,

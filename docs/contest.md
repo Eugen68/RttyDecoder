@@ -11,6 +11,9 @@ Biblioteca [HamContest](https://github.com/Eugen68/HamContest) este un submodul 
 git clone --recurse-submodules https://github.com/Eugen68/RttyDecoder.git
 ```
 
+Meniul **Ajutor** include un ghid rapid si informatii despre modulul Contest, versiunea
+aplicatiei, build si biblioteca HamContest.
+
 ## Fisiere
 
 | Continut | Folder implicit |
@@ -20,9 +23,9 @@ git clone --recurse-submodules https://github.com/Eugen68/RttyDecoder.git
 | Jurnale .contest.json | `%APPDATA%\YO9VA\RttyDecoder\Contests\Sessions` |
 | Exporturi, locatie sugerata | `Documente\RttyDecoder\Logs` |
 
-Folderele sunt create automat. **Importa UDC / SEC** copiaza fisierele alese; un fisier diferit
+Folderele sunt create automat. **Fișiere → Importă UDC / SEC** copiaza fisierele alese; un fisier diferit
 cu acelasi nume primeste un sufix, fara a suprascrie definitia existenta. Nu pastrati doua liste
-SEC diferite cu acelasi Type: HamContest raporteaza conflictul; folositi butonul Folder SEC
+SEC diferite cu acelasi Type: HamContest raporteaza conflictul; folositi **Setări → Folder SEC**
 pentru a administra listele. SEC trebuie sa aiba layout-ul simplu suportat de biblioteca.
 
 DEMO-RTTY.udc si DEMO.sec sunt exemple originale pentru exercitiu, nu un regulament de concurs.
@@ -35,7 +38,7 @@ Copiile deja existente nu sunt inlocuite la pornire. Nu sunt descarcate automat 
 2. Apasati **Incepe sesiunea**. Definitia trebuie sa fie suportata si sa permita RTTY sau BOTH.
 3. Completati **Schimb fix (fara serial)** cu schimbul real cerut de regulament: zona, an,
    nume/QTH etc. Biblioteca nu poate transforma automat un text precum SeeRules intr-un schimb real.
-4. Folositi **Deschide sesiune** sau **Reia ultima** pentru un jurnal salvat. **Nou** pastreaza
+4. Folositi **Deschide sesiune** sau **Reia ultima sesiune** din **Fișiere** pentru un jurnal salvat. **Nou** pastreaza
    jurnalul curent si revine la configurare. Mai multe sesiuni sunt fisiere independente.
 
 Sesiunea contine textul UDC/SEC original, datele QSO-urilor, regulile identificate prin amprenta,
@@ -100,13 +103,13 @@ ferestrei principale nu sunt rescrise. TU nu logheaza automat un QSO.
 
 ## Export
 
-**Export ADIF** deschide salvarea unui `.adi`, cu o locatie sugerata in Documente; nu scrie
+**Unelte → Export ADIF** deschide salvarea unui `.adi`, cu o locatie sugerata in Documente; nu scrie
 langa executabil. ADI 3.1.8 contine UTC, frecventa MHz, banda, RTTY, RST, seriale, schimburile
 transmis/primit, nume, locator, comentariu si indicativul propriu. Include si QSO-urile duble.
 Campurile ADI sunt ASCII imprimabil: caracterele internationale sunt refuzate explicit,
 fara transliterare/pierdere silentioasa. Jurnalul JSON pastreaza integral textul original UTF-8.
 
-**Export Cabrillo** foloseste sablonul format 99 al UDC-ului. In **Antete Cabrillo** completati
+**Unelte → Export Cabrillo** foloseste sablonul format 99 al UDC-ului. In **Antete Cabrillo** completati
 categoria reala, cate o linie `CHEIE: valoare`. Exemplu de sintaxa, de adaptat categoriei proprii:
 
 ```text

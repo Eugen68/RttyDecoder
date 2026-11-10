@@ -18,137 +18,149 @@
             <Style TargetType="Expander"><Setter Property="Foreground" Value="#E6E6E6" /><Setter Property="Margin" Value="0,3" /></Style>
         </ResourceDictionary>
     </Window.Resources>
-    <Grid Margin="12">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <WrapPanel>
-            <Button Content="Nou..." Click="OnNew" ToolTip="Incheie sesiunea curenta dupa salvare si arata configurarea unui concurs nou" />
-            <Button Content="Deschide sesiune..." Click="OnOpen" />
-            <Button Content="Reia ultima" Click="OnResume" />
-            <Button Content="Importa UDC / SEC..." Click="OnImport" />
-            <Button Content="Folder UDC" Click="OnDefinitionsFolder" /><Button Content="Folder SEC" Click="OnSupportFolder" />
-            <Button Content="Export ADIF..." Click="OnAdif" IsEnabled="{Binding HasSession}" />
-            <Button Content="Export Cabrillo..." Click="OnCabrillo" IsEnabled="{Binding HasSession}" />
-        </WrapPanel>
+    <DockPanel>
+        <Menu x:Name="ContestMenu" DockPanel.Dock="Top">
+            <MenuItem Header="_Fișiere">
+                <MenuItem Header="_Nou..." Click="OnNew" />
+                <MenuItem Header="_Deschide sesiune..." Click="OnOpen" />
+                <MenuItem Header="_Reia ultima sesiune" Click="OnResume" />
+                <MenuItem Header="_Importă UDC / SEC..." Click="OnImport" />
+            </MenuItem>
+            <MenuItem Header="_Setări">
+                <MenuItem Header="Folder _UDC" Click="OnDefinitionsFolder" />
+                <MenuItem Header="Folder _SEC" Click="OnSupportFolder" />
+            </MenuItem>
+            <MenuItem Header="_Unelte">
+                <MenuItem Header="Export _ADIF..." Click="OnAdif" IsEnabled="{Binding HasSession}" />
+                <MenuItem Header="Export _Cabrillo..." Click="OnCabrillo" IsEnabled="{Binding HasSession}" />
+            </MenuItem>
+            <MenuItem Header="_Ajutor">
+                <MenuItem Header="_Ajutor" Click="OnHelp" />
+                <MenuItem Header="_Despre Contest - RTTY Decoder" Click="OnAbout" />
+            </MenuItem>
+        </Menu>
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                <RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Sesiune noua" Visibility="{Binding IsSetup, Converter={StaticResource Visible}}">
+                <StackPanel Margin="8">
+                    <WrapPanel>
+                        <TextBlock Text="Concurs UDC:" VerticalAlignment="Center" />
+                        <ComboBox x:Name="DefinitionBox" Width="240" ItemsSource="{Binding Definitions}" SelectedItem="{Binding SelectedDefinition}" />
+                        <TextBlock Text="Indicativ propriu:" VerticalAlignment="Center" Margin="10,0,0,0" />
+                        <TextBox Width="120" Text="{Binding OwnCall, UpdateSourceTrigger=PropertyChanged}" CharacterCasing="Upper" />
+                        <TextBlock Text="Primul serial:" VerticalAlignment="Center" />
+                        <TextBox Width="65" Text="{Binding FirstSerial, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Content="Incepe sesiunea" Command="{Binding CreateCommand}" Style="{StaticResource Rtty.PrimaryButton}" />
+                    </WrapPanel>
+                    <WrapPanel Margin="0,4,0,0">
+                        <TextBlock Text="Sectiunea proprie:" VerticalAlignment="Center" /><TextBox Width="90" Text="{Binding OwnSection, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="Locator propriu:" VerticalAlignment="Center" /><TextBox Width="95" Text="{Binding OwnGrid, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="WPX propriu (optional):" VerticalAlignment="Center" /><TextBox Width="85" Text="{Binding OwnWpx, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="Tara si zonele se rezolva din cty.dat. DEMO este numai pentru exercitiu." Foreground="{StaticResource Rtty.Muted}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    </WrapPanel>
+                </StackPanel>
+            </GroupBox>
 
-        <GroupBox Grid.Row="1" Header="Sesiune noua" Visibility="{Binding IsSetup, Converter={StaticResource Visible}}">
-            <StackPanel Margin="8">
+            <StackPanel Grid.Row="1" Margin="0,8,0,4">
+                <TextBlock Text="{Binding SessionTitle}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Rtty.Accent}" />
+                <TextBlock Text="{Binding Summary}" Margin="0,3,0,3" FontFamily="Consolas" FontSize="14" />
+                <TextBlock Text="{Binding SerialText}" Foreground="#FFD166" FontWeight="SemiBold" />
+            </StackPanel>
+
+            <StackPanel x:Name="EntryArea" Grid.Row="2" IsEnabled="{Binding HasSession}">
                 <WrapPanel>
-                    <TextBlock Text="Concurs UDC:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="DefinitionBox" Width="240" ItemsSource="{Binding Definitions}" SelectedItem="{Binding SelectedDefinition}" />
-                    <TextBlock Text="Indicativ propriu:" VerticalAlignment="Center" Margin="10,0,0,0" />
-                    <TextBox Width="120" Text="{Binding OwnCall, UpdateSourceTrigger=PropertyChanged}" CharacterCasing="Upper" />
-                    <TextBlock Text="Primul serial:" VerticalAlignment="Center" />
-                    <TextBox Width="65" Text="{Binding FirstSerial, UpdateSourceTrigger=PropertyChanged}" />
-                    <Button Content="Incepe sesiunea" Command="{Binding CreateCommand}" Style="{StaticResource Rtty.PrimaryButton}" />
+                    <TextBlock Text="Transmis · RST:" VerticalAlignment="Center" />
+                    <TextBox Width="55" Text="{Binding SentReport, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeSent}" />
+                    <TextBlock Text="Schimb fix (fara serial):" VerticalAlignment="Center" />
+                    <TextBox Width="210" Text="{Binding SentExchange, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeSent}" ToolTip="Introduceti schimbul real cerut de regulament: zona, an, nume/QTH etc. Serialul se adauga separat." />
+                    <Button Content="Fixeaza QSO / serial" Command="{Binding ReserveCommand}" />
+                    <Button Content="Anuleaza / iesi din editare" Command="{Binding CancelContactCommand}" />
                 </WrapPanel>
-                <WrapPanel Margin="0,4,0,0">
-                    <TextBlock Text="Sectiunea proprie:" VerticalAlignment="Center" /><TextBox Width="90" Text="{Binding OwnSection, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Text="Locator propriu:" VerticalAlignment="Center" /><TextBox Width="95" Text="{Binding OwnGrid, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Text="WPX propriu (optional):" VerticalAlignment="Center" /><TextBox Width="85" Text="{Binding OwnWpx, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Text="Tara si zonele se rezolva din cty.dat. DEMO este numai pentru exercitiu." Foreground="{StaticResource Rtty.Muted}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <WrapPanel Margin="0,5,0,0">
+                    <StackPanel><TextBlock Text="Indicativ" /><TextBox x:Name="CallBox" Width="145" FontSize="18" FontWeight="Bold" CharacterCasing="Upper"
+                        Text="{Binding Entry.Callsign, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeCall}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Frecventa RF · kHz" /><TextBox Width="115" Text="{Binding Entry.FrequencyKhz, UpdateSourceTrigger=PropertyChanged}"
+                        IsReadOnly="{Binding Entry.UseCat}" ToolTip="Frecventa RF a statiei, nu frecventa audio Mark/Space" /></StackPanel>
+                    <CheckBox Content="CAT" IsChecked="{Binding Entry.UseCat}" VerticalAlignment="Center" Margin="0,15,12,0" ToolTip="Citeste frecventa statiei conectate; fara CAT, debifati si introduceti frecventa manual" />
+                    <StackPanel><TextBlock Text="RST primit" /><TextBox Width="65" Text="{Binding Entry.Report, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Nr. primit" /><TextBox Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Schimb primit" /><TextBox Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    <StackPanel><TextBlock Text="Ora UTC (gol = acum)" /><TextBox Width="160" Text="{Binding Entry.TimeUtc, UpdateSourceTrigger=PropertyChanged}" ToolTip="yyyy-MM-dd HH:mm:ss" /></StackPanel>
+                </WrapPanel>
+                <Expander Header="Schimb suplimentar (dupa definitia UDC)" IsExpanded="True">
+                    <WrapPanel Margin="0,5,0,0">
+                        <StackPanel><TextBlock Text="Nume" /><TextBox Width="100" Text="{Binding Entry.Name, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Diverse / Misc" /><TextBox Width="110" Text="{Binding Entry.Misc, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Sectiune" /><TextBox Width="85" Text="{Binding Entry.Section, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Locator" /><TextBox Width="90" Text="{Binding Entry.Grid, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Prefix WPX" /><TextBox Width="85" Text="{Binding Entry.Wpx, UpdateSourceTrigger=PropertyChanged}" ToolTip="Pentru indicative portabile introduceti explicit prefixul WPX; indicativul simplu se poate completa automat la selectare" /></StackPanel>
+                        <StackPanel><TextBlock Text="Comentariu" /><TextBox Width="260" Text="{Binding Entry.Comment, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    </WrapPanel>
+                </Expander>
+                <TextBlock Text="{Binding Preview}" Foreground="#FFD166" TextWrapping="Wrap" Margin="0,4" MaxHeight="52" />
+                <WrapPanel Margin="0,2,0,8">
+                    <Button Content="{Binding LogButtonText}" Command="{Binding LogCommand}" Style="{StaticResource Rtty.PrimaryButton}" />
+                    <Button Content="Verifica" Command="{Binding CheckCommand}" />
+                    <CheckBox Content="S&amp;P" IsChecked="{Binding SearchAndPounce}" VerticalAlignment="Center"
+                              Margin="6,0" ToolTip="Bifat: Search &amp; Pounce. Debifat: Run." />
+                    <Border Background="Transparent" Tag="0" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F1" /></Border.ToolTip>
+                        <Button Content="{Binding F1Label}" Command="{Binding CqCommand}" />
+                    </Border>
+                    <Border Background="Transparent" Tag="1" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F2" /></Border.ToolTip>
+                        <Button Content="{Binding F2Label}" Command="{Binding ReportCommand}" />
+                    </Border>
+                    <Border Background="Transparent" Tag="2" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F3" /></Border.ToolTip>
+                        <Button Content="{Binding F3Label}" Command="{Binding AgnCommand}" />
+                    </Border>
+                    <Border Background="Transparent" Tag="3" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F4" /></Border.ToolTip>
+                        <Button Content="{Binding F4Label}" Command="{Binding TuCommand}" />
+                    </Border>
+                    <Button Content="STOP (Esc)" Command="{Binding StopCommand}" Background="#8B3030" />
                 </WrapPanel>
             </StackPanel>
-        </GroupBox>
 
-        <StackPanel Grid.Row="2" Margin="0,8,0,4">
-            <TextBlock Text="{Binding SessionTitle}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Rtty.Accent}" />
-            <TextBlock Text="{Binding Summary}" Margin="0,3,0,3" FontFamily="Consolas" FontSize="14" />
-            <TextBlock Text="{Binding SerialText}" Foreground="#FFD166" FontWeight="SemiBold" />
-        </StackPanel>
-
-        <StackPanel x:Name="EntryArea" Grid.Row="3" IsEnabled="{Binding HasSession}">
-            <WrapPanel>
-                <TextBlock Text="Transmis · RST:" VerticalAlignment="Center" />
-                <TextBox Width="55" Text="{Binding SentReport, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeSent}" />
-                <TextBlock Text="Schimb fix (fara serial):" VerticalAlignment="Center" />
-                <TextBox Width="210" Text="{Binding SentExchange, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeSent}" ToolTip="Introduceti schimbul real cerut de regulament: zona, an, nume/QTH etc. Serialul se adauga separat." />
-                <Button Content="Fixeaza QSO / serial" Command="{Binding ReserveCommand}" />
-                <Button Content="Anuleaza / iesi din editare" Command="{Binding CancelContactCommand}" />
-            </WrapPanel>
-            <WrapPanel Margin="0,5,0,0">
-                <StackPanel><TextBlock Text="Indicativ" /><TextBox x:Name="CallBox" Width="145" FontSize="18" FontWeight="Bold" CharacterCasing="Upper"
-                    Text="{Binding Entry.Callsign, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeCall}" /></StackPanel>
-                <StackPanel><TextBlock Text="Frecventa RF · kHz" /><TextBox Width="115" Text="{Binding Entry.FrequencyKhz, UpdateSourceTrigger=PropertyChanged}"
-                    IsReadOnly="{Binding Entry.UseCat}" ToolTip="Frecventa RF a statiei, nu frecventa audio Mark/Space" /></StackPanel>
-                <CheckBox Content="CAT" IsChecked="{Binding Entry.UseCat}" VerticalAlignment="Center" Margin="0,15,12,0" ToolTip="Citeste frecventa statiei conectate; fara CAT, debifati si introduceti frecventa manual" />
-                <StackPanel><TextBlock Text="RST primit" /><TextBox Width="65" Text="{Binding Entry.Report, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                <StackPanel><TextBlock Text="Nr. primit" /><TextBox Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                <StackPanel><TextBlock Text="Schimb primit" /><TextBox Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                <StackPanel><TextBlock Text="Ora UTC (gol = acum)" /><TextBox Width="160" Text="{Binding Entry.TimeUtc, UpdateSourceTrigger=PropertyChanged}" ToolTip="yyyy-MM-dd HH:mm:ss" /></StackPanel>
-            </WrapPanel>
-            <Expander Header="Schimb suplimentar (dupa definitia UDC)" IsExpanded="True">
-                <WrapPanel Margin="0,5,0,0">
-                    <StackPanel><TextBlock Text="Nume" /><TextBox Width="100" Text="{Binding Entry.Name, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Diverse / Misc" /><TextBox Width="110" Text="{Binding Entry.Misc, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Sectiune" /><TextBox Width="85" Text="{Binding Entry.Section, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Locator" /><TextBox Width="90" Text="{Binding Entry.Grid, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Prefix WPX" /><TextBox Width="85" Text="{Binding Entry.Wpx, UpdateSourceTrigger=PropertyChanged}" ToolTip="Pentru indicative portabile introduceti explicit prefixul WPX; indicativul simplu se poate completa automat la selectare" /></StackPanel>
-                    <StackPanel><TextBlock Text="Comentariu" /><TextBox Width="260" Text="{Binding Entry.Comment, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+            <Grid Grid.Row="3">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <WrapPanel>
+                    <TextBlock Text="Jurnal · UTC" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0" />
+                    <Button Content="Corecteaza selectat" Command="{Binding EditCommand}" />
+                    <Button Content="Sterge selectat..." Click="OnDelete" IsEnabled="{Binding HasSession}" />
                 </WrapPanel>
-            </Expander>
-            <TextBlock Text="{Binding Preview}" Foreground="#FFD166" TextWrapping="Wrap" Margin="0,4" MaxHeight="52" />
-            <WrapPanel Margin="0,2,0,8">
-                <Button Content="{Binding LogButtonText}" Command="{Binding LogCommand}" Style="{StaticResource Rtty.PrimaryButton}" />
-                <Button Content="Verifica" Command="{Binding CheckCommand}" />
-                <CheckBox Content="S&amp;P" IsChecked="{Binding SearchAndPounce}" VerticalAlignment="Center"
-                          Margin="6,0" ToolTip="Bifat: Search &amp; Pounce. Debifat: Run." />
-                <Border Background="Transparent" Tag="0" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
-                    <Border.ToolTip><ToolTip Content="Macro F1" /></Border.ToolTip>
-                    <Button Content="{Binding F1Label}" Command="{Binding CqCommand}" />
-                </Border>
-                <Border Background="Transparent" Tag="1" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
-                    <Border.ToolTip><ToolTip Content="Macro F2" /></Border.ToolTip>
-                    <Button Content="{Binding F2Label}" Command="{Binding ReportCommand}" />
-                </Border>
-                <Border Background="Transparent" Tag="2" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
-                    <Border.ToolTip><ToolTip Content="Macro F3" /></Border.ToolTip>
-                    <Button Content="{Binding F3Label}" Command="{Binding AgnCommand}" />
-                </Border>
-                <Border Background="Transparent" Tag="3" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
-                    <Border.ToolTip><ToolTip Content="Macro F4" /></Border.ToolTip>
-                    <Button Content="{Binding F4Label}" Command="{Binding TuCommand}" />
-                </Border>
-                <Button Content="STOP (Esc)" Command="{Binding StopCommand}" Background="#8B3030" />
-            </WrapPanel>
-        </StackPanel>
+                <DataGrid x:Name="Journal" Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedQso}" IsReadOnly="True" AutoGenerateColumns="False"
+                          CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column" Margin="0,4,0,0"
+                          Background="#101820" Foreground="#E6E6E6" BorderBrush="#3C3C3C" HorizontalGridLinesBrush="#303A44" VerticalGridLinesBrush="#303A44">
+                    <DataGrid.RowStyle><Style TargetType="DataGridRow"><Setter Property="Background" Value="#151C24" /><Setter Property="Foreground" Value="#E6E6E6" />
+                        <Style.Triggers><DataTrigger Binding="{Binding IsDupe}" Value="True"><Setter Property="Foreground" Value="#FFD166" /></DataTrigger></Style.Triggers>
+                    </Style></DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="UTC" Binding="{Binding Utc}" Width="135" /><DataGridTextColumn Header="Indicativ" Binding="{Binding Call}" Width="100" />
+                        <DataGridTextColumn Header="Banda" Binding="{Binding Band}" Width="50" /><DataGridTextColumn Header="kHz" Binding="{Binding FrequencyKhz}" Width="80" />
+                        <DataGridTextColumn Header="Transmis" Binding="{Binding Sent}" Width="155" /><DataGridTextColumn Header="Primit" Binding="{Binding Received}" Width="180" />
+                        <DataGridTextColumn Header="Pct." Binding="{Binding Points}" Width="45" /><DataGridTextColumn Header="Duble / multiplicatori noi" Binding="{Binding Result}" Width="*" MinWidth="160" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
 
-        <Grid Grid.Row="4">
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <WrapPanel>
-                <TextBlock Text="Jurnal · UTC" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0" />
-                <Button Content="Corecteaza selectat" Command="{Binding EditCommand}" />
-                <Button Content="Sterge selectat..." Click="OnDelete" IsEnabled="{Binding HasSession}" />
-            </WrapPanel>
-            <DataGrid x:Name="Journal" Grid.Row="1" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedQso}" IsReadOnly="True" AutoGenerateColumns="False"
-                      CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" HeadersVisibility="Column" Margin="0,4,0,0"
-                      Background="#101820" Foreground="#E6E6E6" BorderBrush="#3C3C3C" HorizontalGridLinesBrush="#303A44" VerticalGridLinesBrush="#303A44">
-                <DataGrid.RowStyle><Style TargetType="DataGridRow"><Setter Property="Background" Value="#151C24" /><Setter Property="Foreground" Value="#E6E6E6" />
-                    <Style.Triggers><DataTrigger Binding="{Binding IsDupe}" Value="True"><Setter Property="Foreground" Value="#FFD166" /></DataTrigger></Style.Triggers>
-                </Style></DataGrid.RowStyle>
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="UTC" Binding="{Binding Utc}" Width="135" /><DataGridTextColumn Header="Indicativ" Binding="{Binding Call}" Width="100" />
-                    <DataGridTextColumn Header="Banda" Binding="{Binding Band}" Width="50" /><DataGridTextColumn Header="kHz" Binding="{Binding FrequencyKhz}" Width="80" />
-                    <DataGridTextColumn Header="Transmis" Binding="{Binding Sent}" Width="155" /><DataGridTextColumn Header="Primit" Binding="{Binding Received}" Width="180" />
-                    <DataGridTextColumn Header="Pct." Binding="{Binding Points}" Width="45" /><DataGridTextColumn Header="Duble / multiplicatori noi" Binding="{Binding Result}" Width="*" MinWidth="160" />
-                </DataGrid.Columns>
-            </DataGrid>
+            <StackPanel Grid.Row="4">
+                <Expander x:Name="HeadersExpander" Header="Antete Cabrillo · completati categoria inainte de export" Expanded="OnDetailsExpanded">
+                    <TextBox Text="{Binding CabrilloHeaders, UpdateSourceTrigger=PropertyChanged}" Height="115" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
+                             ToolTip="CHEIE: valoare. Exemplu: CATEGORY-OPERATOR: SINGLE-OP; CATEGORY-BAND: ALL; CATEGORY-POWER: LOW; CATEGORY-ASSISTED: NON-ASSISTED; CATEGORY-TRANSMITTER: ONE. Verificati categoria si antetele cerute de organizator." />
+                </Expander>
+                <Expander x:Name="DiagnosticsExpander" Header="Definitie UDC · diagnostice" Expanded="OnDetailsExpanded">
+                    <TextBox Text="{Binding Diagnostics, Mode=OneWay}" Height="110" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                </Expander>
+            </StackPanel>
+            <StackPanel Grid.Row="5" Margin="0,4,0,0">
+                <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="{StaticResource Rtty.Accent}" MaxHeight="48" />
+                <TextBlock Text="{Binding SessionPath}" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SessionPath}" Margin="0,3,0,0" />
+            </StackPanel>
         </Grid>
-
-        <StackPanel Grid.Row="5">
-            <Expander x:Name="HeadersExpander" Header="Antete Cabrillo · completati categoria inainte de export" Expanded="OnDetailsExpanded">
-                <TextBox Text="{Binding CabrilloHeaders, UpdateSourceTrigger=PropertyChanged}" Height="115" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
-                         ToolTip="CHEIE: valoare. Exemplu: CATEGORY-OPERATOR: SINGLE-OP; CATEGORY-BAND: ALL; CATEGORY-POWER: LOW; CATEGORY-ASSISTED: NON-ASSISTED; CATEGORY-TRANSMITTER: ONE. Verificati categoria si antetele cerute de organizator." />
-            </Expander>
-            <Expander x:Name="DiagnosticsExpander" Header="Definitie UDC · diagnostice" Expanded="OnDetailsExpanded">
-                <TextBox Text="{Binding Diagnostics, Mode=OneWay}" Height="110" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
-            </Expander>
-        </StackPanel>
-        <StackPanel Grid.Row="6" Margin="0,4,0,0">
-            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="{StaticResource Rtty.Accent}" MaxHeight="48" />
-            <TextBlock Text="{Binding SessionPath}" Foreground="{StaticResource Rtty.Muted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SessionPath}" Margin="0,3,0,0" />
-        </StackPanel>
-    </Grid>
+    </DockPanel>
 </Window>

@@ -284,8 +284,7 @@ public partial class MainWindow : Window
     private void OnAbout(object sender, RoutedEventArgs e)
     {
         var a = Assembly.GetExecutingAssembly();
-        string version = a.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
-                         ?? a.GetName().Version?.ToString() ?? "";
+        string version = ApplicationVersion(a);
         MessageBox.Show(this,
             $"RTTY Decoder {version}\n" +
             "Copyright (c) 2026 Eugen Trifu, YO9VA - licenta MIT\n\n" +
@@ -295,6 +294,10 @@ public partial class MainWindow : Window
             (BuildInfo(a) is { Length: > 0 } build ? "\n\n" + build : ""),
             "Despre RTTY Decoder", MessageBoxButton.OK, MessageBoxImage.Information);
     }
+
+    private static string ApplicationVersion(Assembly assembly) =>
+        assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+        ?? assembly.GetName().Version?.ToString() ?? "";
 
     /// <summary>
     /// "Build #57 · commit 82e01be · 06.11.2026 14:32" (ora locala), din metadatele puse la compilare

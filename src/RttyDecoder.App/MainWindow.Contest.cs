@@ -36,7 +36,8 @@ public partial class MainWindow
                 _contestWindow.Activate(); return;
             }
             _contestModel ??= new(new ContestFiles(), ContestStationResolver.Load(CallsignCache), new DecoderContestHost(_vm));
-            var window = new ContestWindow(_contestModel) { Owner = this };
+            var assembly = typeof(MainWindow).Assembly;
+            var window = new ContestWindow(_contestModel, ApplicationVersion(assembly), BuildInfo(assembly)) { Owner = this };
             window.Closed += (_, _) => _contestWindow = null;
             _contestWindow = window;
             window.Show(); // deliberately modeless: the decoder remains interactive

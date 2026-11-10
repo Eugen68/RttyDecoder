@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -323,16 +324,29 @@ public class ContestTests
         {
             parent.Show(); window = new(work.Model) { Owner = parent }; window.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-            Assert.True(parent.IsEnabled); Assert.True(window.IsVisible); Capture(window, "contest-setup.png");
+            Assert.True(parent.IsEnabled); Assert.True(window.IsVisible);
+            var menu = Assert.IsType<Menu>(window.FindName("ContestMenu"));
+            Assert.Equal(new[] { "_Fișiere", "_Setări", "_Unelte", "_Ajutor" }, menu.Items.OfType<MenuItem>().Select(item => Assert.IsType<string>(item.Header)));
+            var tools = Assert.IsType<MenuItem>(menu.Items[2]);
+            Assert.All(tools.Items.OfType<MenuItem>(), item => Assert.False(item.IsEnabled));
+            Capture(window, "contest-setup.png");
             work.Start(); work.Model.ReserveSerial();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); Capture(window, "contest-reserved.png");
             work.Model.LogContact();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.All(tools.Items.OfType<MenuItem>(), item => Assert.True(item.IsEnabled));
             Capture(window, "contest-journal.png");
             window.Close(); Assert.True(parent.IsEnabled); Assert.Equal(0, work.Host.Stops);
             window = new(work.Model) { Owner = parent, Width = 920, Height = 640 }; window.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.Single(work.Model.Contacts); Capture(window, "contest-small.png");
+
+            work.Model.EndSession();
+            var reopenedMenu = Assert.IsType<Menu>(window.FindName("ContestMenu"));
+            var files = Assert.IsType<MenuItem>(reopenedMenu.Items[0]);
+            var resume = Assert.IsType<MenuItem>(files.Items[2]);
+            resume.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Single(work.Model.Contacts);
         }
         finally { window?.Close(); parent.Close(); }
     });
