@@ -108,7 +108,7 @@ public partial class MainWindow
         public long? FrequencyHz => 14_080_000;
         public bool IsBusy => false;
         public string MyCall => "YO9VA";
-        public bool TryTransmit(string text) => throw new InvalidOperationException("Smoke must never transmit.");
+        public bool TryTransmit(string text, bool allowAutoQsy) => throw new InvalidOperationException("Smoke must never transmit.");
         public void Stop() { }
     }
 }

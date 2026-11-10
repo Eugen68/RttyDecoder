@@ -230,16 +230,20 @@ public sealed partial class RttyDecoderViewModel
     /// <summary>Includes the short auto-QSY wait, so a contest QSO cannot be changed during queued TX.</summary>
     public bool ContestTxBusy => _afterQsy != null || _tx.IsTransmitting || _liveMode || IsTransmitting || RigTransmitting;
 
-    /// <summary>Sends an already expanded contest message through the existing FSK/QSY path.</summary>
-    public bool TrySendContestText(string text)
+    /// <summary>
+    /// Sends an already expanded contest message through the existing FSK path. Auto-QSY only when
+    /// <paramref name="allowAutoQsy"/> (S&amp;P); in Run the station stays on its own frequency.
+    /// </summary>
+    public bool TrySendContestText(string text, bool allowAutoQsy)
     {
+        text = text.Replace('\t', ' ');   // ca la emisie (RttyFskTransmitter.Normalize)
         if (ContestTxBusy) { Message = "Contest: asteptati terminarea emisiei sau apasati STOP."; return false; }
         if (!RigInRtty) { Message = "Contest: statia trebuie conectata in RTTY-L sau RTTY-U pentru emisie FSK."; return false; }
         var codec = new RttyDecoder.Core.Baudot.BaudotCodec { UsTty = UsTty };
         if (string.IsNullOrWhiteSpace(text) || text.ToUpperInvariant().Any(c => !codec.CanEncode(c)))
         { Message = "Contest: mesajul contine caractere care nu pot fi transmise in Baudot."; return false; }
         if (!CanTransmit()) return false;
-        Transmit(text);
+        Transmit(text, allowAutoQsy);
         return true;
     }
 
@@ -259,7 +263,7 @@ public sealed partial class RttyDecoderViewModel
     /// statia se muta intai unde a calculat ultimul A-TUNE (<see cref="TryAutoQsy"/>), iar PTT-ul vine
     /// dupa o pauza scurta. CQ-ul uita QSY-ul pregatit: chemi pe frecventa ta.
     /// </summary>
-    private void Transmit(string text)
+    private void Transmit(string text, bool allowAutoQsy = true)
     {
         if (_afterQsy != null)
         {
@@ -267,7 +271,7 @@ public sealed partial class RttyDecoderViewModel
             return;
         }
         if (IsCq(text)) ForgetPendingQsy();
-        else if (_tx.Settings.AutoQsy && !_tx.IsTransmitting && TryAutoQsy())
+        else if (allowAutoQsy && _tx.Settings.AutoQsy && !_tx.IsTransmitting && TryAutoQsy())
         {
             var batch = new List<string> { text };
             _afterQsy = batch;

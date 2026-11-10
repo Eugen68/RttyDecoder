@@ -114,7 +114,8 @@ public sealed class ContestViewModel : ObservableObject
         ReserveCommand = Command(ReserveSerial, () => HasSession && !IsEditing && !string.IsNullOrWhiteSpace(Entry.Callsign) && !_host.IsBusy);
         CancelContactCommand = Command(CancelContact, () => HasSession && !_host.IsBusy);
         EditCommand = Command(EditSelected, () => HasSession && !IsReserved && SelectedQso != null && !_host.IsBusy);
-        CqCommand = Command(() => Send("CQ"), () => HasSession && !IsEditing && !IsReserved && !_host.IsBusy);
+        // F1: in Run e CQ (nu peste un QSO fixat); in S&P e indicativul propriu, care se poate repeta oricand
+        CqCommand = Command(() => Send("CQ"), () => HasSession && !IsEditing && (!IsReserved || SearchAndPounce) && !_host.IsBusy);
         ReportCommand = Command(() => Send("REPORT"), () => HasSession && !IsEditing && !string.IsNullOrWhiteSpace(Entry.Callsign) && !_host.IsBusy);
         AgnCommand = Command(() => Send("AGN"), () => HasSession && !IsEditing && !_host.IsBusy);
         TuCommand = Command(() => Send("TU"), () => HasSession && !IsEditing && !_host.IsBusy);
@@ -420,7 +421,7 @@ public sealed class ContestViewModel : ObservableObject
         EnsureIdle(); EnsureSession(); if (IsEditing) throw new InvalidOperationException("Incheiati editarea inainte de emisie.");
         int slot = kind switch { "CQ" => 0, "REPORT" => 1, "AGN" => 2, "TU" => 3, _ => throw new ArgumentException("Mesaj necunoscut.") };
         var macro = GetMacro(slot);
-        if (slot == 0 && IsReserved) throw new InvalidOperationException("Logati sau anulati QSO-ul curent inainte de F1.");
+        if (slot == 0 && IsReserved && !SearchAndPounce) throw new InvalidOperationException("Logati sau anulati QSO-ul curent inainte de F1.");
         if (slot == 1)
         {
             ValidateSent();
@@ -428,7 +429,7 @@ public sealed class ContestViewModel : ObservableObject
             ReserveSerial();
         }
         string text = RenderMacro(macro, preview: false);
-        if (!_host.TryTransmit(text)) throw new InvalidOperationException("Mesajul nu a fost acceptat pentru emisie. Verificati statia si configuratia FSK in aplicatia principala.");
+        if (!_host.TryTransmit(text, allowAutoQsy: SearchAndPounce)) throw new InvalidOperationException("Mesajul nu a fost acceptat pentru emisie. Verificati statia si configuratia FSK in aplicatia principala.");
         Status = "Mesaj acceptat pentru emisie. Logarea QSO-ului se face explicit.";
     }
 

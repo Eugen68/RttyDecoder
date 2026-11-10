@@ -5,6 +5,6 @@ public sealed class DecoderContestHost(RttyDecoderViewModel decoder) : IContestH
     public long? FrequencyHz => decoder.RigConnected ? decoder.RigState.FrequencyHz : null;
     public bool IsBusy => decoder.ContestTxBusy;
     public string MyCall => decoder.MyCall;
-    public bool TryTransmit(string text) => decoder.TrySendContestText(text);
+    public bool TryTransmit(string text, bool allowAutoQsy) => decoder.TrySendContestText(text, allowAutoQsy);
     public void Stop() => decoder.StopTx();
 }

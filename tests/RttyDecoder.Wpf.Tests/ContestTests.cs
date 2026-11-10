@@ -40,7 +40,12 @@ public class ContestTests
         public Action? BeforeSend { get; set; }
         public bool Accept { get; set; } = true;
         public int Stops { get; private set; }
-        public bool TryTransmit(string text) { BeforeSend?.Invoke(); if (!Accept) return false; Sent.Add(text); return true; }
+        public List<bool> AutoQsy { get; } = new();
+        public bool TryTransmit(string text, bool allowAutoQsy)
+        {
+            BeforeSend?.Invoke(); if (!Accept) return false;
+            Sent.Add(text); AutoQsy.Add(allowAutoQsy); return true;
+        }
         public void Stop() => Stops++;
     }
     private sealed class Workspace : IDisposable
@@ -92,6 +97,41 @@ public class ContestTests
         reopened.LogContact();
         reopened.SelectCallsign("SM7ABC");
         Assert.False(reopened.HasHistorySuggestion);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task AutoQsyOnlyInSearchAndPounce() => Sta(() =>
+    {
+        // Run: raportul pleaca fara QSY automat - frecventa de Run nu aluneca spre corespondent
+        using var work = new Workspace(); work.Start();
+        work.Model.SelectCallsign("YO3ABC");
+        work.Model.Send("REPORT");
+        Assert.False(work.Host.AutoQsy.Single());
+        work.Model.CancelContact();
+        // S&P: QSY-ul automat (dupa A-TUNE) e permis - mergi pe frecventa statiei chemate
+        work.Model.SearchAndPounce = true;
+        work.Model.SelectCallsign("YO3ABD");
+        work.Model.Send("REPORT");
+        Assert.True(work.Host.AutoQsy.Last());
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task F1RepeatsOwnCallInSearchAndPounceAfterReserving() => Sta(() =>
+    {
+        using var work = new Workspace(); work.Start();
+        work.Model.SelectCallsign("YO3ABC");
+        work.Model.ReserveSerial();
+        // Run: F1 = CQ, nu peste un QSO fixat
+        Assert.Throws<InvalidOperationException>(() => work.Model.Send("CQ"));
+        Assert.False(work.Model.CqCommand.CanExecute(null));
+        // S&P: F1 = indicativul propriu, se poate repeta dupa ce ai trimis schimbul
+        work.Model.SearchAndPounce = true;
+        Assert.True(work.Model.CqCommand.CanExecute(null));
+        work.Model.Send("CQ");
+        Assert.Single(work.Host.Sent);
+        Assert.True(work.Model.IsReserved);
         return Task.CompletedTask;
     });
 
@@ -288,7 +328,7 @@ public class ContestTests
         using var rx = new RttyReceiver(() => null!);
         using var decoder = new RttyDecoderViewModel(rx);
         var before = decoder.ExportMacros().Select(m => m.Text).ToArray();
-        Assert.False(decoder.TrySendContestText("CQ TEST DE YO9VA"));
+        Assert.False(decoder.TrySendContestText("CQ TEST DE YO9VA", allowAutoQsy: false));
         Assert.False(decoder.Tx.IsTransmitting); Assert.Equal(before, decoder.ExportMacros().Select(m => m.Text));
         return Task.CompletedTask;
     });

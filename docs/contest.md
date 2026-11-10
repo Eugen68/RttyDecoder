@@ -93,7 +93,9 @@ In fereastra Contest:
 | Esc | STOP TX prin emitatorul existent |
 
 Debifati **S&P** pentru Run. Bifati **S&P** pentru Search & Pounce, unde F1 trimite
-indicativul propriu, F2 trimite schimbul si F4 confirma cu TU. Fiecare set poate fi editat
+indicativul propriu, F2 trimite schimbul si F4 confirma cu TU. In S&P, F1 (indicativul propriu)
+se poate repeta si dupa ce QSO-ul a fost fixat cu F2; in Run, F1 (CQ) cere logarea sau anularea
+QSO-ului curent. Fiecare set poate fi editat
 separat prin click dreapta pe butoanele F1–F4. Tineti cursorul peste buton pentru previzualizare.
 Serialul din previzualizare este estimat pana la rezervare.
 
@@ -105,7 +107,9 @@ preia si fisierul de macro-uri alaturat daca destinatia nu are deja unul.
 Un fisier invalid este pastrat si eroarea este afisata.
 
 Emisia foloseste configuratia FSK/CAT a aplicatiei, numai cu statia conectata in RTTY-L/U.
-Optiunea existenta QSY automat inainte de TX ramane valabila. Logarea, schimbarea sesiunii si
+Optiunea QSY automat inainte de raspuns se aplica **numai in S&P** (statia merge pe frecventa
+corespondentului calculata de A-TUNE). In Run statia ramane pe frecventa ta: altfel, la fiecare
+A-TUNE pe un corespondent care raspunde alaturi, frecventa de Run ar aluneca. Logarea, schimbarea sesiunii si
 anularea sunt blocate inclusiv in scurta asteptare pentru QSY. Mesajele Contest nu sunt puse
 in coada peste o emisie activa; asteptati sfarsitul sau apasati STOP. Macro-urile normale ale
 ferestrei principale nu sunt rescrise. TU nu logheaza automat un QSO.

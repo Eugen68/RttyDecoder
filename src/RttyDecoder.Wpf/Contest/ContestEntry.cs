@@ -51,6 +51,10 @@ public interface IContestHost
     long? FrequencyHz { get; }
     bool IsBusy { get; }
     string MyCall { get; }
-    bool TryTransmit(string text);
+    /// <param name="allowAutoQsy">
+    /// QSY-ul automat (dupa A-TUNE) e permis doar in S&amp;P: in Run frecventa ta trebuie sa ramana
+    /// pe loc, altfel aluneca spre fiecare corespondent care raspunde alaturi.
+    /// </param>
+    bool TryTransmit(string text, bool allowAutoQsy);
     void Stop();
 }
