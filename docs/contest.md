@@ -10,7 +10,8 @@ Contest în față. Alegerea se păstrează dacă închideți și redeschideți 
 aplicația rămâne pornită.
 
 Biblioteca [HamContest](https://github.com/Eugen68/HamContest) este un submodul fixat la commit-ul
-`4132ff9` (preview.2, din PR #1 al bibliotecii). Clonati cu submodule:
+`86b76b4` (ramura `station-preview`: preview.2 din PR #1 al bibliotecii, plus `UdcContestRules.Preview`
+pentru culorile din decodor). Clonati cu submodule:
 
 ```sh
 git clone --recurse-submodules https://github.com/Eugen68/RttyDecoder.git
@@ -61,10 +62,12 @@ unei sesiuni incepute. Schimbarile incompatibile ale versiunii HamContest necesi
   egal cu 599 se introduce de mana.
 - Cat e deschisa fereastra Contest, **indicativele din terminal si din lista statiilor sunt colorate**
   dupa starea lor in sesiune, pe banda curenta: **gri taiat = dublu**, **roz = multiplicator nou**,
-  culorile obisnuite = QSO valid. Tooltip-ul o spune si in cuvinte. Se calculeaza ca un QSO fara schimb
-  primit: multiplicatorii care vin din indicativ (tara, prefix, continent) se vad inainte; cei care vin
-  din schimb (sectiune, zona primita) abia la logare. Culorile se refac la fiecare QSO si la schimbarea
-  benzii (prin CAT).
+  culorile obisnuite = QSO valid. Tooltip-ul o spune si in cuvinte. Calculul e facut de HamContest
+  (`UdcContestRules.Preview`), fara schimbul primit: **dublu** = indicativ lucrat deja pe banda/modul
+  cerut de regulament; multiplicatorii care vin din indicativ (tara, prefix WPX, zona CQ/ITU din cty.dat)
+  se vad inainte de QSO, cei care vin din schimb (sectiune, numar) abia la logare. Daca regulamentul are
+  si un criteriu de dublu pe schimb, gri inseamna "lucrat deja" (QSO-ul poate fi totusi valid). Culorile
+  se refac la fiecare QSO si la schimbarea benzii (prin CAT).
 - **CAT** preia frecventa RF afisata de statie, in kHz. La pierderea conexiunii, logarea cere
   debifarea CAT si completarea manuala. Nu se foloseste frecventa audio Mark/Space.
 - Completati RST, numarul si schimbul primit. Campurile suplimentare se mapeaza explicit pe

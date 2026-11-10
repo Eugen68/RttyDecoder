@@ -503,11 +503,11 @@ public sealed class ContestViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Starea unui indicativ auzit, pe banda curenta: dublu, multiplicator nou sau QSO valid. Se
-    /// calculeaza cu regulile sesiunii, ca un QSO fara schimb primit - deci multiplicatorii care vin
-    /// din schimb (sectiune, zona primita) nu se vad inainte de logare; cei din indicativ (tara,
-    /// prefix, continent) da. Fara sesiune sau frecventa cunoscuta: None. Rezultatele se pastreaza
-    /// pana la urmatoarea schimbare a jurnalului sau a benzii.
+    /// Starea unui indicativ auzit, pe banda curenta: dublu, multiplicator nou sau QSO valid
+    /// (HamContest <c>UdcContestRules.Preview</c>). Multiplicatorii care vin din indicativ (tara, prefix
+    /// WPX, zona din cty.dat) se vad inainte de QSO; cei din schimb (sectiune, numar) abia la logare.
+    /// "Dublu" = lucrat deja pe banda/modul cerut de regulament. Fara sesiune sau frecventa cunoscuta:
+    /// None. Rezultatele se pastreaza pana la urmatoarea schimbare a jurnalului sau a benzii.
     /// </summary>
     public ContestCallState CallState(string call)
     {
@@ -533,17 +533,13 @@ public sealed class ContestViewModel : ObservableObject
         try
         {
             var rules = (UdcContestRules)_session!.Rules;
-            var candidate = new Qso
-            {
-                Id = Guid.NewGuid(), Time = DateTimeOffset.UtcNow, FrequencyHz = frequencyHz, Mode = ContactMode.RTTY,
-                Station = _resolver.Resolve(call, rules.RequiredCountryIdentityKind), Sent = new(), Received = new(),
-            };
-            var result = _session.Rules.Score(_session.Contacts.Append(candidate), _session.OwnStation).Contacts.First(r => r.Qso.Id == candidate.Id);
-            if (result.IsDupe) return ContestCallState.Dupe;
-            return result.NewMultipliers.Any(m => m.CountsForScore && !string.IsNullOrWhiteSpace(m.Key))
-                ? ContestCallState.NewMultiplier : ContestCallState.Needed;
+            var station = _resolver.Resolve(call, rules.RequiredCountryIdentityKind);
+            // HamContest evalueaza statia fara schimbul primit (Score cere un QSO complet)
+            var preview = rules.Preview(_session.Contacts, _session.OwnStation, station, frequencyHz, ContactMode.RTTY);
+            if (preview.IsWorked) return ContestCallState.Dupe;
+            return preview.NewMultipliers.Any(m => m.CountsForScore) ? ContestCallState.NewMultiplier : ContestCallState.Needed;
         }
-        catch (Exception) { return ContestCallState.None; }   // indicativ nerezolvat: fara culoare de concurs
+        catch (ArgumentException) { return ContestCallState.None; }   // indicativ nerezolvat: fara culoare de concurs
     }
 
     // ------------------------------------------------------------------

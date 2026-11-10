@@ -35,7 +35,7 @@ Cat e deschisa fereastra Contest, indicativele din terminal si din lista statiil
 | Roz | Multiplicator nou |
 | Culorile obisnuite | QSO valid |
 
-Multiplicatorii care vin din indicativ (tara, prefix, continent) se vad inainte de QSO; cei din schimb (sectiune, zona primita) abia la logare.
+Gri = indicativ lucrat deja pe banda (sau modul) cerut de regulament. Multiplicatorii care vin din indicativ (tara, prefix WPX, zona CQ/ITU din cty.dat) se vad inainte de QSO; cei din schimb (sectiune, numar) abia la logare.
 
 ## Tastele in fereastra Contest
 
