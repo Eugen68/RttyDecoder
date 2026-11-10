@@ -209,6 +209,13 @@
                             <Setter TargetName="Gesture" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="Bd" Property="Padding" Value="8,3" />
                         </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="Role" Value="TopLevelItem" />
+                                <Condition Property="IsCheckable" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="IconColumn" Property="Width" Value="16" />
+                        </MultiTrigger>
                         <Trigger Property="Role" Value="SubmenuHeader">
                             <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
                             <Setter TargetName="PART_Popup" Property="Placement" Value="Right" />

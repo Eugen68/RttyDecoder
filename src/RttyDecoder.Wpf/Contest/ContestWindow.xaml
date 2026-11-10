@@ -30,6 +30,10 @@
                 <MenuItem Header="Folder _UDC" Click="OnDefinitionsFolder" />
                 <MenuItem Header="Folder _SEC" Click="OnSupportFolder" />
             </MenuItem>
+            <MenuItem x:Name="KeepAboveDecoderItem" Header="_Deasupra decodorului"
+                      IsCheckable="True" IsChecked="True"
+                      Checked="OnKeepAboveDecoderChanged" Unchecked="OnKeepAboveDecoderChanged"
+                      ToolTip="Bifat: Contest rămâne deasupra decodorului. Debifat: ferestrele se pot suprapune liber." />
             <MenuItem Header="_Unelte">
                 <MenuItem Header="Export _ADIF..." Click="OnAdif" IsEnabled="{Binding HasSession}" />
                 <MenuItem Header="Export _Cabrillo..." Click="OnCabrillo" IsEnabled="{Binding HasSession}" />

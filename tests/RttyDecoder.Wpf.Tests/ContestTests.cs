@@ -326,8 +326,11 @@ public class ContestTests
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.True(parent.IsEnabled); Assert.True(window.IsVisible);
             var menu = Assert.IsType<Menu>(window.FindName("ContestMenu"));
-            Assert.Equal(new[] { "_Fișiere", "_Setări", "_Unelte", "_Ajutor" }, menu.Items.OfType<MenuItem>().Select(item => Assert.IsType<string>(item.Header)));
-            var tools = Assert.IsType<MenuItem>(menu.Items[2]);
+            Assert.Equal(new[] { "_Fișiere", "_Setări", "_Deasupra decodorului", "_Unelte", "_Ajutor" }, menu.Items.OfType<MenuItem>().Select(item => Assert.IsType<string>(item.Header)));
+            var keepAbove = Assert.IsType<MenuItem>(menu.Items[2]);
+            Assert.True(keepAbove.IsCheckable);
+            Assert.True(keepAbove.IsChecked);
+            var tools = Assert.IsType<MenuItem>(menu.Items[3]);
             Assert.All(tools.Items.OfType<MenuItem>(), item => Assert.False(item.IsEnabled));
             Capture(window, "contest-setup.png");
             work.Start(); work.Model.ReserveSerial();

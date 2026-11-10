@@ -4,6 +4,11 @@
 nemodala. Decodorul ramane disponibil. O singura fereastra Contest este deschisa la un moment
 dat; repetarea comenzii o aduce in fata. Inchiderea ei salveaza formularul si nu opreste receptia.
 
+Opțiunea **Deasupra decodorului** este bifată implicit. Debifați-o pentru a aduce decodorul
+în față și pentru a permite ferestrei Contest să rămână în spate. **Ctrl+Shift+C** readuce
+Contest în față. Alegerea se păstrează dacă închideți și redeschideți Contest cât timp
+aplicația rămâne pornită.
+
 Biblioteca [HamContest](https://github.com/Eugen68/HamContest) este un submodul fixat la commit-ul
 `4132ff9` (preview.2, din PR #1 al bibliotecii). Clonati cu submodule:
 

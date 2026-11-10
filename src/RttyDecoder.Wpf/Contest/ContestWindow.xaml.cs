@@ -15,6 +15,16 @@ public partial class ContestWindow : Window
     private readonly string _buildInfo;
 
     public ContestViewModel Model { get; }
+    public event EventHandler? KeepAboveDecoderChanged;
+
+    public bool KeepAboveDecoder
+    {
+        get => KeepAboveDecoderItem.IsChecked;
+        set => KeepAboveDecoderItem.IsChecked = value;
+    }
+
+    private void OnKeepAboveDecoderChanged(object sender, RoutedEventArgs e) =>
+        KeepAboveDecoderChanged?.Invoke(this, EventArgs.Empty);
 
     public ContestWindow(ContestViewModel model, string applicationVersion = "", string buildInfo = "")
     {

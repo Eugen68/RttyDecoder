@@ -15,6 +15,7 @@ public partial class MainWindow
     private readonly string? _contestSmoke;
     private ContestViewModel? _contestModel;
     private ContestWindow? _contestWindow;
+    private bool _contestAboveDecoder = true;
 
     private void InitializeContest()
     {
@@ -37,7 +38,17 @@ public partial class MainWindow
             }
             _contestModel ??= new(new ContestFiles(), ContestStationResolver.Load(CallsignCache), new DecoderContestHost(_vm));
             var assembly = typeof(MainWindow).Assembly;
-            var window = new ContestWindow(_contestModel, ApplicationVersion(assembly), BuildInfo(assembly)) { Owner = this };
+            var window = new ContestWindow(_contestModel, ApplicationVersion(assembly), BuildInfo(assembly))
+            {
+                Owner = _contestAboveDecoder ? this : null,
+                KeepAboveDecoder = _contestAboveDecoder
+            };
+            window.KeepAboveDecoderChanged += (_, _) =>
+            {
+                _contestAboveDecoder = window.KeepAboveDecoder;
+                window.Owner = _contestAboveDecoder ? this : null;
+                if (!_contestAboveDecoder) Activate();
+            };
             window.Closed += (_, _) => _contestWindow = null;
             _contestWindow = window;
             window.Show(); // deliberately modeless: the decoder remains interactive
@@ -60,7 +71,7 @@ public partial class MainWindow
             _contestModel = new(files, ContestStationResolver.Load(), new SmokeContestHost()) { OwnCall = "YO9VA" };
             ShowContestWindow();
             var firstWindow = _contestWindow ?? throw new InvalidOperationException("Contest window did not open.");
-            if (!IsEnabled || !firstWindow.IsVisible || firstWindow.Owner != this) throw new InvalidOperationException("Contest must be a separate modeless owned window.");
+            if (!IsEnabled || !firstWindow.IsVisible || firstWindow.Owner != this || !firstWindow.KeepAboveDecoder || firstWindow.Topmost) throw new InvalidOperationException("Contest must be a separate modeless owned window.");
             ShowContestWindow();
             if (_contestWindow != firstWindow) throw new InvalidOperationException("Duplicate contest window.");
             _contestModel.CreateSession();
@@ -76,12 +87,18 @@ public partial class MainWindow
             bitmap.Render(firstWindow);
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using (var output = File.Create(Path.Combine(directory, "contest-window.png"))) encoder.Save(output);
+            firstWindow.KeepAboveDecoder = false;
+            if (firstWindow.Owner != null || firstWindow.Topmost) throw new InvalidOperationException("Contest must allow the decoder to come in front.");
             firstWindow.Close();
             if (!IsEnabled) throw new InvalidOperationException("Parent disabled after closing contest.");
             ShowContestWindow();
-            if (_contestModel.Contacts.Count != 1 || _contestWindow == firstWindow) throw new InvalidOperationException("Reopening contest lost the journal.");
-            _contestWindow!.Close();
-            File.WriteAllText(Path.Combine(directory, "result.txt"), "PASS: separate modeless window, singleton, saved QSO, reopen, ADIF, Cabrillo; no CAT/PTT.");
+            var reopened = _contestWindow ?? throw new InvalidOperationException("Contest window did not reopen.");
+            if (_contestModel.Contacts.Count != 1 || reopened == firstWindow) throw new InvalidOperationException("Reopening contest lost the journal.");
+            if (reopened.KeepAboveDecoder || reopened.Owner != null) throw new InvalidOperationException("Reopening contest changed its window order.");
+            reopened.KeepAboveDecoder = true;
+            if (reopened.Owner != this || reopened.Topmost) throw new InvalidOperationException("Contest must stay above the decoder only.");
+            reopened.Close();
+            File.WriteAllText(Path.Combine(directory, "result.txt"), "PASS: separate modeless window, singleton, relative window order, saved QSO, reopen, ADIF, Cabrillo; no CAT/PTT.");
         }
         catch (Exception error) { File.WriteAllText(Path.Combine(directory, "result.txt"), error.ToString()); code = 1; }
         Application.Current.Shutdown(code);
