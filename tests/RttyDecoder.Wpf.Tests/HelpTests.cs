@@ -65,7 +65,8 @@ public class HelpTests
         Assert.Equal("Un ingrosat si cod continuat.", new TextRange(paragraph.ContentStart, paragraph.ContentEnd).Text);
         var bullets = (List)blocks[2];
         Assert.Equal(2, bullets.ListItems.Count);
-        Assert.Equal("doi continuare", new TextRange(bullets.ListItems.LastListItem!.ContentStart, bullets.ListItems.LastListItem.ContentEnd).Text.Trim());
+        var lastItem = (Paragraph)bullets.ListItems.LastListItem!.Blocks.FirstBlock!;   // fara bulina
+        Assert.Equal("doi continuare", new TextRange(lastItem.ContentStart, lastItem.ContentEnd).Text);
         Assert.Equal(TextMarkerStyle.Decimal, ((List)blocks[3]).MarkerStyle);
         var table = (Table)blocks[4];
         Assert.Equal(2, table.Columns.Count);
