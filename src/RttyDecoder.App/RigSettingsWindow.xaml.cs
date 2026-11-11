@@ -28,6 +28,8 @@ public partial class RigSettingsWindow : Window
     public RigSettingsWindow(RigSettings settings)
     {
         InitializeComponent();
+        MaxHeight = SystemParameters.WorkArea.Height;
+        SizeChanged += (_, _) => FitToScreen();
         _updating = true;
         foreach (int b in Bauds)
         {
@@ -133,10 +135,12 @@ public partial class RigSettingsWindow : Window
         try
         {
             bool direct = Kind == RigKind.YaesuCat, omni = Kind == RigKind.OmniRig, hamlib = Kind == RigKind.Hamlib, any = Kind != RigKind.None;
-            SetEnabled(DirectPanel, direct);
-            SetEnabled(OmniPanel, omni);
-            SetEnabled(HamlibPanel, hamlib);
-            SetEnabled(KeyPanel, any);
+            // doar sectiunea conexiunii alese; celelalte nu ocupa loc
+            Show(DirectPanel, direct);
+            Show(OmniPanel, omni);
+            Show(HamlibPanel, hamlib);
+            Show(KeyPanel, any);
+            Show(KeyHeader, any);
             // rigctld deja pornit: modelul, portul si viteza sunt ale lui
             bool start = HamlibStartBox.IsChecked == true;
             HamlibPathBox.IsEnabled = HamlibModelBox.IsEnabled = HamlibPortBox.IsEnabled = HamlibBaudBox.IsEnabled = HamlibArgsBox.IsEnabled = start;
@@ -162,10 +166,15 @@ public partial class RigSettingsWindow : Window
         }
     }
 
-    private static void SetEnabled(UIElement panel, bool on)
+    private static void Show(UIElement panel, bool on) => panel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Fereastra nu iese din ecran: inaltimea maxima = zona de lucru, iar marginea de jos ramane vizibila.</summary>
+    private void FitToScreen()
     {
-        panel.IsEnabled = on;
-        panel.Opacity = on ? 1 : 0.45;
+        var area = SystemParameters.WorkArea;
+        MaxHeight = area.Height;
+        if (Top + ActualHeight > area.Bottom) Top = Math.Max(area.Top, area.Bottom - ActualHeight);
+        if (Top < area.Top) Top = area.Top;
     }
 
     private void OnKindChanged(object sender, RoutedEventArgs e) => UpdatePanels();

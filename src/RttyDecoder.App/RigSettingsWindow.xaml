@@ -25,7 +25,28 @@
         </Style>
     </Window.Resources>
 
-    <StackPanel Margin="16">
+    <!-- butoanele fixe jos; restul se deruleaza daca fereastra nu incape pe monitor -->
+    <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Margin="16,8,16,16">
+        <DockPanel>
+            <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Testeaza" Width="90" Click="OnTest"
+                    ToolTip="Se conecteaza cu setarile de mai sus si citeste frecventa si modul" />
+            <Button x:Name="PttTestButton" DockPanel.Dock="Left" Content="Test PTT 0.5 s" Click="OnTestPtt"
+                    ToolTip="Pune statia pe emisie o jumatate de secunda (fara audio: in DATA/SSB nu iese putere). Verifica antena/sarcina!" />
+            <Button x:Name="KeyTestButton" DockPanel.Dock="Left" Content="Test manipulare 0.5 s" Click="OnTestKey"
+                    ToolTip="Activeaza pinul de manipulare o jumatate de secunda (fara emisie)" />
+            <TextBlock x:Name="TestStatus" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" />
+        </DockPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Anuleaza" Width="90" IsCancel="True" />
+            <Button Content="Salveaza" Width="90" IsDefault="True" Style="{StaticResource Rtty.PrimaryButton}" Click="OnSave" />
+        </StackPanel>
+    </StackPanel>
+    <Border DockPanel.Dock="Bottom" Height="1" Background="{StaticResource Rtty.Border}" Margin="16,0" />
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="16,16,16,8">
         <TextBlock Text="Cum e legata statia" FontWeight="Bold" Margin="0,0,0,4" />
         <RadioButton x:Name="KindNone" Content="Fara statie" Checked="OnKindChanged" />
         <RadioButton x:Name="KindDirect" Content="Direct pe portul serial (CAT Yaesu: FTX-1, FTDX10, FT-710, FT-991A...)" Checked="OnKindChanged" />
@@ -124,7 +145,7 @@
         </Border>
 
         <!-- PORT MANIPULARE SI PTT -->
-        <TextBlock Text="Port manipulare si PTT" FontWeight="Bold" Margin="0,14,0,4" />
+        <TextBlock x:Name="KeyHeader" Text="Port manipulare si PTT" FontWeight="Bold" Margin="0,14,0,4" />
         <Border x:Name="KeyPanel" Padding="10" BorderBrush="{StaticResource Rtty.Border}" BorderThickness="1">
             <StackPanel>
                 <Grid>
@@ -152,19 +173,7 @@
             </StackPanel>
         </Border>
 
-        <DockPanel Margin="0,14,0,0">
-            <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Testeaza" Width="90" Click="OnTest"
-                    ToolTip="Se conecteaza cu setarile de mai sus si citeste frecventa si modul" />
-            <Button x:Name="PttTestButton" DockPanel.Dock="Left" Content="Test PTT 0.5 s" Click="OnTestPtt"
-                    ToolTip="Pune statia pe emisie o jumatate de secunda (fara audio: in DATA/SSB nu iese putere). Verifica antena/sarcina!" />
-            <Button x:Name="KeyTestButton" DockPanel.Dock="Left" Content="Test manipulare 0.5 s" Click="OnTestKey"
-                    ToolTip="Activeaza pinul de manipulare o jumatate de secunda (fara emisie)" />
-            <TextBlock x:Name="TestStatus" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" />
-        </DockPanel>
-
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Anuleaza" Width="90" IsCancel="True" />
-            <Button Content="Salveaza" Width="90" IsDefault="True" Style="{StaticResource Rtty.PrimaryButton}" Click="OnSave" />
-        </StackPanel>
     </StackPanel>
+    </ScrollViewer>
+    </DockPanel>
 </Window>
