@@ -16,10 +16,12 @@ Rig 1 sau Rig 2; statia poate fi folosita in acelasi timp si de alte programe. O
 
 ## Prin Hamlib
 
-Pentru statiile pe care conexiunea directa nu le stie (Icom, Kenwood, Elecraft, Yaesu mai vechi...) - Hamlib cunoaste ~280 de modele. Hamlib se instaleaza separat: [Hamlib releases](https://github.com/Hamlib/Hamlib/releases) (pe Windows, installer-ul sau arhiva `hamlib-w64`).
+Hamlib cunoaste sute de modele: Icom, Kenwood, Elecraft, Yaesu (inclusiv **FTX-1**, din Hamlib 4.7). Se instaleaza separat: [Hamlib releases](https://github.com/Hamlib/Hamlib/releases) (pe Windows, installer-ul sau arhiva `hamlib-w64`).
+
+**Foloseste Hamlib 4.7.2 sau mai nou**: are doua corecturi de securitate in rigctld (CVE-2026-54634, GHSA-f72v-7gmh-m9mj) si corecturi pentru FTX-1. Cand lista de modele se incarca, fereastra de setari arata versiunea si te avertizeaza daca e mai veche. rigctld pornit de program asculta doar pe calculatorul tau (127.0.0.1), nu in retea.
 
 - Programul vorbeste cu **rigctld** (programul de retea din Hamlib), implicit pe `127.0.0.1:4532`.
-- Cu bifa **Porneste rigctld din program**: alegi **modelul** (lista vine din `rigctl -l`; se poate scrie si numarul, de ex. 1042 = FTDX-10, 1049 = FT-710, 3073 = IC-7300), **portul** si **viteza** statiei. Programul porneste rigctld si il opreste la iesire. Calea catre `rigctld.exe` se gaseste singura (PATH sau `Program Files\hamlib*\bin`); altfel o alegi cu **...**.
+- Cu bifa **Porneste rigctld din program**: alegi **modelul** (lista vine din `rigctl -l`; se poate scrie si numarul, de ex. 1051 = FTX-1, 1042 = FTDX-10, 1049 = FT-710, 3073 = IC-7300), **portul** si **viteza** statiei. Programul porneste rigctld si il opreste la iesire. Calea catre `rigctld.exe` se gaseste singura (PATH sau `Program Files\hamlib*\bin`); altfel o alegi cu **...**.
 - Fara bifa: programul se leaga la un rigctld deja pornit (de exemplu cel folosit si de WSJT-X) - completezi doar adresa.
 - Modurile: RTTY = RTTY-L, RTTYR = RTTY-U, PKTUSB / PKTLSB = DATA-U / DATA-L.
 - **PTT** prin Hamlib, sau pe un pin al portului de manipulare. **Manipularea FSK** doar pe portul de manipulare.

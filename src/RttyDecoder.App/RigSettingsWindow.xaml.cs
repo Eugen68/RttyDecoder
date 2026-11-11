@@ -186,14 +186,17 @@ public partial class RigSettingsWindow : Window
         }
         try
         {
-            var models = await Task.Run(() => Hamlib.ListModels(path));
+            var (models, version) = await Task.Run(() => (Hamlib.ListModels(path), Hamlib.GetVersion(path)));
             int current = HamlibModelId();
             HamlibModelBox.Items.Clear();
             foreach (var m in models.OrderBy(m => m.Manufacturer, StringComparer.OrdinalIgnoreCase).ThenBy(m => m.Model, StringComparer.OrdinalIgnoreCase))
                 HamlibModelBox.Items.Add(m);
             if (models.FirstOrDefault(m => m.Id == current) is { } selected) HamlibModelBox.SelectedItem = selected;
             if (string.IsNullOrWhiteSpace(HamlibPathBox.Text)) HamlibPathBox.Text = path;
-            if (!quiet) Status($"{models.Count} modele Hamlib.", true);
+            // versiune veche: avertisment si cand lista se incarca singura
+            if (version != null && version < Hamlib.RecommendedVersion)
+                Status($"Hamlib {version} - recomandat {Hamlib.RecommendedVersion} sau mai nou: corecturi de securitate in rigctld si suport FTX-1 (model 1051).", false);
+            else if (!quiet) Status($"Hamlib {version?.ToString() ?? "?"} · {models.Count} modele.", true);
         }
         catch (RigException ex)
         {
