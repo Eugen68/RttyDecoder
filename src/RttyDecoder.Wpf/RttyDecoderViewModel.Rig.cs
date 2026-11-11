@@ -108,7 +108,7 @@ public sealed partial class RttyDecoderViewModel
     public Func<double, double?>? WaterfallRf { get => _waterfallRf; private set => Set(ref _waterfallRf, value); }
 
     private double _txPairLowerHz = double.NaN;
-    /// <summary>Tonul de jos al perechii pe care pleaca emisia FSK (2125), sau NaN daca statia nu e in RTTY.</summary>
+    /// <summary>Tonul de jos al perechii pe care pleaca emisia: FSK 2125 (statia in RTTY), AFSK perechea decodorului; NaN = nu se poate emite.</summary>
     public double TxPairLowerHz { get => _txPairLowerHz; private set => Set(ref _txPairLowerHz, value); }
 
     /// <summary>Mark-ul decodorului dupa QSY: tonul de jos pe NORM, cel de sus pe REV.</summary>
@@ -294,7 +294,9 @@ public sealed partial class RttyDecoderViewModel
     {
         var s = _rigState;
         WaterfallRf = _rig != null && s.Connected ? audio => AudioToRf(s.FrequencyHz, s.Mode, audio) : null;
-        TxPairLowerHz = RigInRtty ? FskMarkHz : double.NaN;
+        TxPairLowerHz = IsAfsk
+            ? (_rig != null && s.Connected && IsAfskMode(s.Mode) ? DecoderLowerHz : double.NaN)
+            : RigInRtty ? FskMarkHz : double.NaN;
         RigConnected = s.Connected;
         RigTransmitting = s.Connected && s.Transmitting;
         if (_rig == null)

@@ -40,7 +40,7 @@ Cursorul trece singur la campul urmator. Cu ESM debifat, Enter doar logheaza. TU
 
 ## Emisia
 
-- Foloseste configuratia FSK/CAT a aplicatiei, numai cu statia conectata in **RTTY-L sau RTTY-U**.
+- Foloseste configuratia de emisie a aplicatiei: **FSK** cu statia conectata in **RTTY-L sau RTTY-U**, sau **AFSK** cu statia in **DATA-U / USB** (tonurile pe perechea decodorului).
 - **QSY automat** (daca e bifat in Setari transmisie) se face **doar in S&P**: statia merge pe frecventa calculata de A-TUNE. In Run statia ramane pe frecventa ta.
 - Mesajele Contest nu se pun in coada peste o emisie activa: asteapta sfarsitul sau apasa STOP.
 - Macro-urile F1-F8 ale ferestrei principale nu sunt atinse.

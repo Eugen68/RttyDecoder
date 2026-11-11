@@ -289,6 +289,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(ReverseText));
                 OnPropertyChanged(nameof(MarkText));
+                OnMarkChangedForRig();
             }
         }
     }

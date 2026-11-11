@@ -28,10 +28,30 @@
 
     <StackPanel Margin="16">
         <TextBlock Text="Metoda" FontWeight="Bold" Margin="0,0,0,4" />
-        <RadioButton x:Name="Fsk" Content="FSK - statia in modul RTTY, pinul de manipulare comutat de program" IsChecked="True" />
-        <RadioButton Content="AFSK - tonuri pe placa audio, statia in DATA/USB (in curand)" IsEnabled="False" />
+        <RadioButton x:Name="Fsk" Content="FSK - statia in modul RTTY, pinul de manipulare comutat de program" IsChecked="True" Checked="OnMethodChanged" />
         <TextBlock Style="{StaticResource Hint}" Margin="20,2,0,0"
                    Text="Portul si pinul FSK, plus PTT-ul, se aleg in Setari &gt; Conexiune statie. Pune statia in RTTY (de obicei RTTY-L); shift-ul si tonurile le da statia." />
+        <RadioButton x:Name="Afsk" Content="AFSK - tonuri pe placa de sunet, statia in DATA-U / USB" Margin="0,8,0,3" Checked="OnMethodChanged" />
+        <TextBlock Style="{StaticResource Hint}" Margin="20,2,0,0"
+                   Text="Programul genereaza tonurile Mark/Space chiar pe perechea pe care decodezi (emiti unde asculti, fara QSY). PTT-ul merge prin CAT (Setari &gt; Conexiune statie). Pe statie: modul DATA-U (USB-D pe Icom), intrarea de date pe USB (IC-7300: DATA MOD = USB; Yaesu: DATA MOD SOURCE / sursa audio = USB). Polaritatea pe aer e cea standard, calculata din modul statiei." />
+        <Grid x:Name="AfskPanel" Margin="20,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="50" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition /><RowDefinition />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Placa de iesire:" VerticalAlignment="Center" />
+            <ComboBox x:Name="AfskDeviceBox" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2" DisplayMemberPath="Name" />
+            <TextBlock Grid.Row="1" Text="Nivel:" VerticalAlignment="Center" />
+            <Slider x:Name="AfskLevelBox" Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="100" SmallChange="1" LargeChange="5"
+                    IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" Margin="0,4" ValueChanged="OnLevelChanged" />
+            <TextBlock x:Name="AfskLevelText" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0" />
+        </Grid>
+        <TextBlock x:Name="AfskLevelHint" Style="{StaticResource Hint}" Margin="20,2,0,0"
+                   Text="Nivelul: incepe de la 50% si coboara pana cand ALC-ul statiei nu mai misca (sau abia misca) la emisie - semnal curat, fara splatter. Reglajul fin il faci si din statie (USB MOD Level)." />
 
         <TextBlock Text="Emisia" FontWeight="Bold" Margin="0,14,0,4" />
         <Grid>
@@ -51,14 +71,14 @@
         </Grid>
         <CheckBox x:Name="CrLfBox" Content="CR/LF automat la inceputul si la sfarsitul emisiei" />
         <CheckBox x:Name="DiddleBox" Content="Diddle in LIVE (LTRS continuu cand nu scrii)" />
-        <CheckBox x:Name="AutoQsyBox" Content="QSY automat inainte de raspuns (statia pe frecventa corespondentului)" />
+        <CheckBox x:Name="AutoQsyBox" Content="QSY automat inainte de raspuns (doar FSK: statia pe frecventa corespondentului)" />
         <TextBlock Style="{StaticResource Hint}" Margin="20,0,0,0"
                    Text="La macrourile si textul (Enter) care nu incep cu CQ, dupa un A-TUNE care a calculat alta frecventa decat a statiei: statia se muta intai acolo, ca la dublu click pe A-TUNE. Doar in RTTY-L / RTTY-U. Nu muta: CQ-ul (ramai pe frecventa ta), LIVE, si dupa ce ai dat click pe alt semnal in waterfall sau statia s-a mutat de la A-TUNE." />
 
-        <TextBlock Text="Polaritatea FSK" FontWeight="Bold" Margin="0,14,0,4" />
-        <CheckBox x:Name="InvertBox" Content="Inverseaza pinul FSK (pin activ = Space)" />
+        <TextBlock Text="Polaritatea" FontWeight="Bold" Margin="0,14,0,4" />
+        <CheckBox x:Name="InvertBox" Content="Inverseaza polaritatea (FSK: pin activ = Space; AFSK: Mark pe celalalt ton)" />
         <TextBlock Style="{StaticResource Hint}" Margin="20,2,0,0"
-                   Text="Implicit pin activ = Mark, mereu: emisia NU urmeaza butonul NORM/REV (acela e doar pentru receptie) si nici modul statiei - testat pe FTDX10 si FTX-1, emisia iese la fel in RTTY-L si RTTY-U. Daca vrei emisie inversata, schimba polaritatea TX din meniul statiei; bifa de aici e doar pentru interfete sau statii care inverseaza linia. Tabelul US-TTY urmeaza butonul de la receptie." />
+                   Text="FSK - implicit pin activ = Mark, mereu: emisia NU urmeaza butonul NORM/REV (acela e doar pentru receptie) si nici modul statiei - testat pe FTDX10 si FTX-1, emisia iese la fel in RTTY-L si RTTY-U. Daca vrei emisie inversata, schimba polaritatea TX din meniul statiei; bifa de aici e doar pentru interfete sau statii care inverseaza linia. Tabelul US-TTY urmeaza butonul de la receptie." />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Implicit" Width="90" Click="OnDefaults" />

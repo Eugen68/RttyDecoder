@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Windows.Input;
+using HamRig;
+using RttyDecoder.Audio;
+using RttyDecoder.Core;
 using RttyDecoder.Core.Tx;
 
 namespace RttyDecoder.Wpf;
@@ -55,9 +58,9 @@ public sealed class MacroItem : ObservableObject
 }
 
 /// <summary>
-/// Emisia RTTY prin FSK: macro-uri, text trimis la Enter, LIVE. PTT-ul si pinul FSK sunt cele din
-/// Setari > Conexiune statie (HamRig: <c>IRig.SetPtt</c> / <c>IRig.SetKey</c>). Cat timp se emite,
-/// decodarea sta (statia nu receptioneaza).
+/// Emisia RTTY: macro-uri, text trimis la Enter, LIVE. FSK: PTT-ul si pinul FSK din Setari &gt;
+/// Conexiune statie (HamRig: <c>IRig.SetPtt</c> / <c>IRig.SetKey</c>). AFSK: PTT-ul prin CAT si
+/// tonurile pe placa de sunet, pe perechea Mark/Space a decodorului. Cat timp se emite, decodarea sta.
 /// </summary>
 public sealed partial class RttyDecoderViewModel
 {
@@ -95,8 +98,68 @@ public sealed partial class RttyDecoderViewModel
     public RttyTxSettings TxSettings
     {
         get => _tx.Settings;
-        set => _tx.Settings = value.Clone();
+        set
+        {
+            _tx.Settings = value.Clone();
+            ConfigureTxOutput();
+        }
     }
+
+    private RigFskOutput _fskOutput = null!;
+    private AfskOutput? _afskOutput;
+    private string? _afskDeviceId;
+    private volatile object _afskTones = new AfskTones(2125, 2295);
+
+    /// <summary>Placa de sunet pentru AFSK, dupa id (testele o inlocuiesc).</summary>
+    internal Func<string, IAfskSink> AfskSinkFactory { get; set; } = id => new WasapiAfskSink(id);
+
+    /// <summary>Emisia AFSK (tonuri pe placa de sunet) in loc de FSK.</summary>
+    public bool IsAfsk => _tx?.Settings.Method == TxMethod.Afsk;
+
+    /// <summary>Iesirea emitatorului dupa metoda aleasa; se aplica de la urmatoarea emisie.</summary>
+    private void ConfigureTxOutput()
+    {
+        var s = _tx.Settings;
+        if (s.Method == TxMethod.Afsk)
+        {
+            if (_afskOutput == null || _afskDeviceId != s.AfskDeviceId)
+            {
+                _afskDeviceId = s.AfskDeviceId;
+                _afskOutput = new AfskOutput(AfskSinkFactory(s.AfskDeviceId),
+                    on => { if (_rig is { } rig) rig.SetPtt(on); else if (on) throw new InvalidOperationException("statia nu e conectata"); },
+                    () => (AfskTones)_afskTones,
+                    () => _tx.Settings.AfskLevel);
+            }
+            _tx.Output = _afskOutput;
+        }
+        else _tx.Output = _fskOutput;
+        OnPropertyChanged(nameof(IsAfsk));
+        UpdateRigText();
+    }
+
+    /// <summary>Statia intr-un mod in care trimite audio de la placa (SSB / DATA); Unknown = nu stim, lasam.</summary>
+    public static bool IsAfskMode(RigMode mode) =>
+        mode is RigMode.Usb or RigMode.Lsb or RigMode.DataU or RigMode.DataL or RigMode.Unknown;
+
+    /// <summary>
+    /// Tonurile AFSK: perechea decodorului (emiti unde asculti). Polaritatea standard pe aer din modul
+    /// statiei (USB/DATA-U: Mark = tonul de sus; LSB/DATA-L: tonul de jos); mod necunoscut = ca la
+    /// receptie (NORM/REV). InvertFsk inverseaza.
+    /// </summary>
+    public static AfskTones AfskTonesFor(double markHz, bool reverse, RigMode mode, bool invert)
+    {
+        double lower = reverse ? markHz - RttySettings.ShiftHz : markHz;
+        bool? usb = mode switch
+        {
+            RigMode.Usb or RigMode.DataU => true,
+            RigMode.Lsb or RigMode.DataL => false,
+            _ => null,
+        };
+        return AfskTones.ForSideband(lower, RttySettings.ShiftHz, usb ?? reverse, invert);
+    }
+
+    /// <summary>Tonul de jos al perechii decodorului.</summary>
+    private double DecoderLowerHz => Reverse ? MarkFrequencyHz - RttySettings.ShiftHz : MarkFrequencyHz;
 
     private string _txText = "";
     /// <summary>Campul de emisie (Enter = trimite; in LIVE caracterele pleaca pe masura ce le scrii).</summary>
@@ -170,7 +233,8 @@ public sealed partial class RttyDecoderViewModel
 
     private void InitTx()
     {
-        _tx = new RttyFskTransmitter(new RigFskOutput(this));
+        _fskOutput = new RigFskOutput(this);
+        _tx = new RttyFskTransmitter(_fskOutput);
         _tx.CharacterSent += c => { lock (_pendingEcho) _pendingEcho.Append(c); };
         _tx.Started += () => _dispatcher.BeginInvoke(() => IsTransmitting = true);
         _tx.Stopped += reason => _dispatcher.BeginInvoke(() =>
@@ -238,7 +302,7 @@ public sealed partial class RttyDecoderViewModel
     {
         text = text.Replace('\t', ' ');   // ca la emisie (RttyFskTransmitter.Normalize)
         if (ContestTxBusy) { Message = "Contest: asteptati terminarea emisiei sau apasati STOP."; return false; }
-        if (!RigInRtty) { Message = "Contest: statia trebuie conectata in RTTY-L sau RTTY-U pentru emisie FSK."; return false; }
+        if (!IsAfsk && !RigInRtty) { Message = "Contest: statia trebuie conectata in RTTY-L sau RTTY-U pentru emisie FSK."; return false; }
         var codec = new RttyDecoder.Core.Baudot.BaudotCodec { UsTty = UsTty };
         if (string.IsNullOrWhiteSpace(text) || text.ToUpperInvariant().Any(c => !codec.CanEncode(c)))
         { Message = "Contest: mesajul contine caractere care nu pot fi transmise in Baudot."; return false; }
@@ -271,7 +335,8 @@ public sealed partial class RttyDecoderViewModel
             return;
         }
         if (IsCq(text)) ForgetPendingQsy();
-        else if (allowAutoQsy && _tx.Settings.AutoQsy && !_tx.IsTransmitting && TryAutoQsy())
+        // AFSK emite pe perechea decodorului: nu e nevoie de QSY
+        else if (allowAutoQsy && !IsAfsk && _tx.Settings.AutoQsy && !_tx.IsTransmitting && TryAutoQsy())
         {
             var batch = new List<string> { text };
             _afterQsy = batch;
@@ -344,6 +409,15 @@ public sealed partial class RttyDecoderViewModel
             Message = "Emisie: statia nu e conectata (Setari > Conexiune statie).";
             return false;
         }
+        if (IsAfsk)
+        {
+            if (!IsAfskMode(_rigState.Mode))
+            {
+                Message = $"Emisie AFSK: statia e in {RigMath.ModeName(_rigState.Mode)} - pune-o in DATA-U / USB (sau DATA-L / LSB); in RTTY statia nu ia tonurile de la placa.";
+                return false;
+            }
+            return true;
+        }
         if (!_rig.CanKey)
         {
             Message = "Emisie FSK: alege portul si pinul de manipulare (Setari > Conexiune statie).";
@@ -358,6 +432,7 @@ public sealed partial class RttyDecoderViewModel
     /// </summary>
     private void PrepareTx()
     {
+        _afskTones = AfskTonesFor(MarkFrequencyHz, Reverse, _rigState.Mode, _tx.Settings.InvertFsk);
         if (_tx.Settings.UsTty != UsTty)
         {
             var s = _tx.Settings.Clone();

@@ -19,7 +19,7 @@ aplicatie mai mare.
   ritm, semnal 56-100%; bitul de stop si SNR-ul nu deosebesc zgomotul). La deschidere se scrie si
   inceputul mesajului, iar la pauzele de tastare nu se pierde nimic. Afecteaza doar textul afisat,
   nu decodarea; pragul (implicit 35%) in Reglaje. Decodoarele clasice; DeepRTTY are filtrul lui.
-- **emisie RTTY prin FSK**: 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
+- **emisie RTTY prin FSK sau AFSK** (tonuri pe placa de sunet, de ex. IC-7300 in USB-D): 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
 - **Contest** intr-o fereastra separata (Ctrl+Shift+C): UDC/SEC prin HamContest, seriale persistente,
   jurnal, duble, punctaj si export ADIF/Cabrillo; [instructiuni](docs/contest.md)
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
@@ -141,8 +141,15 @@ Conexiune statie:
 - Mesajele trimise in timpul unei emisii se adauga la coada (un singur PTT). **STOP (Esc)** opreste
   imediat. Textul trimis apare in terminal cu galben; cat timp se emite, decodarea sta.
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
-  limita unei emisii (180 s), CR/LF automat, diddle, inversarea pinului FSK (implicit oprita).
-  Valorile implicite sunt cele din aplicatia Android. AFSK urmeaza.
+  limita unei emisii (180 s), CR/LF automat, diddle, inversarea polaritatii (implicit oprita).
+  Valorile implicite sunt cele din aplicatia Android.
+- **AFSK** (Setari transmisie > Metoda): tonurile se genereaza pe placa de sunet aleasa (WASAPI,
+  formatul mixerului Windows), pe ceasul placii, cu faza continua; PTT-ul prin CAT. Statia in
+  **DATA-U / USB** (IC-7300: USB-D, DATA MOD = USB; Yaesu: DATA-U, sursa audio USB). Emisia pleaca
+  pe **perechea Mark/Space a decodorului** (emiti unde asculti, fara QSY - QSY-ul automat e doar
+  pentru FSK). Polaritatea pe aer e cea standard, din modul statiei: DATA-U / USB = Mark pe tonul de
+  sus, DATA-L / LSB = pe cel de jos; mod necunoscut = ca NORM/REV de la receptie. Nivelul (implicit
+  50%) se coboara pana cand ALC-ul nu mai misca.
 - **QSY automat inainte de raspuns** (Setari transmisie, implicit oprit): la un macro sau text (Enter)
   care **nu incepe cu CQ**, dupa un **A-TUNE** care a calculat alta frecventa decat a statiei, statia se
   muta intai acolo (ca dublu click pe A-TUNE), apoi pleaca emisia (~250 ms mai tarziu). Doar in RTTY-L /

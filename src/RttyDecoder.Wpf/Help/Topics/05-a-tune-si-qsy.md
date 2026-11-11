@@ -11,7 +11,7 @@
 
 Muta statia pe frecventa calculata: perechea corespondentului ajunge pe **2125 / 2295 Hz**, deci emisia ta FSK pleaca exact pe frecventa lui. Decodorul trece pe Mark 2125 (NORM) sau 2295 (REV).
 
-De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, cu tonurile fixe 2125 / 2295.
+De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, cu tonurile fixe 2125 / 2295. La **AFSK** nu e nevoie de QSY: emisia pleaca pe perechea decodorului, deci A-TUNE singur e destul.
 
 ## RTTY-L si RTTY-U
 
