@@ -28,15 +28,18 @@
     <!-- butoanele fixe jos; restul se deruleaza daca fereastra nu incape pe monitor -->
     <DockPanel>
     <StackPanel DockPanel.Dock="Bottom" Margin="16,8,16,16">
-        <DockPanel>
-            <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Testeaza" Width="90" Click="OnTest"
+        <StackPanel Orientation="Horizontal">
+            <Button x:Name="TestButton" Content="Testeaza" Width="90" Click="OnTest"
                     ToolTip="Se conecteaza cu setarile de mai sus si citeste frecventa si modul" />
-            <Button x:Name="PttTestButton" DockPanel.Dock="Left" Content="Test PTT 0.5 s" Click="OnTestPtt"
+            <Button x:Name="PttTestButton" Content="Test PTT 0.5 s" Click="OnTestPtt"
                     ToolTip="Pune statia pe emisie o jumatate de secunda (fara audio: in DATA/SSB nu iese putere). Verifica antena/sarcina!" />
-            <Button x:Name="KeyTestButton" DockPanel.Dock="Left" Content="Test manipulare 0.5 s" Click="OnTestKey"
+            <Button x:Name="KeyTestButton" Content="Test manipulare 0.5 s" Click="OnTestKey"
                     ToolTip="Activeaza pinul de manipulare o jumatate de secunda (fara emisie)" />
-            <TextBlock x:Name="TestStatus" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" />
-        </DockPanel>
+        </StackPanel>
+        <!-- rezultatul testului sub butoane; un mesaj lung se deruleaza, nu umfla fereastra -->
+        <ScrollViewer MaxHeight="72" Margin="0,6,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="TestStatus" TextWrapping="Wrap" />
+        </ScrollViewer>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="Anuleaza" Width="90" IsCancel="True" />
