@@ -219,9 +219,49 @@ public sealed partial class RttyDecoderViewModel
         return $". Pentru emisie: statia pe {RigMath.FormatFrequency(dial)} - dublu click pe A-TUNE.";
     }
 
-    /// <summary>Dublu click pe A-TUNE: statia pe frecventa calculata, decodorul pe perechea 2125 / 2295.</summary>
+    // calculul afisat inainte de ultimul click pe A-TUNE: primul click al unui dublu click il reface, iar
+    // semnalul se poate fi oprit intre timp (recalculul ar iesi pe zgomot)
+    private (long Dial, long From, bool Reverse)? _beforeClick;
+    private DateTime _lastAutoTuneClick;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
+    private void RememberBeforeAutoTune()
+    {
+        _beforeClick = _pendingQsyDial is { } d ? (d, _pendingQsyFrom, Reverse) : null;
+        _lastAutoTuneClick = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Ce calcul foloseste dublu click-ul: cel afisat inainte de dublu click (daca exista si statia e tot
+    /// acolo), nu cel refacut de primul click al dublu click-ului. Null = calculul curent.
+    /// </summary>
+    public static (long Dial, long From, bool Reverse)? DoubleClickTarget(
+        (long Dial, long From, bool Reverse)? before, TimeSpan sinceClick, long rigHz, TimeSpan doubleClickTime)
+    {
+        if (before is not { } b) return null;
+        if (sinceClick > doubleClickTime + TimeSpan.FromMilliseconds(300)) return null;   // nu e dublu click-ul acestui click
+        return b.From == rigHz ? b : null;
+    }
+
+    /// <summary>Dublu click pe A-TUNE: statia pe frecventa calculata (cea afisata), decodorul pe perechea 2125 / 2295.</summary>
     public void QsyToPending()
     {
+        if (DoubleClickTarget(_beforeClick, DateTime.UtcNow - _lastAutoTuneClick, _rigState.FrequencyHz,
+                TimeSpan.FromMilliseconds(GetDoubleClickTime())) is { } before)
+        {
+            // primul click a refacut A-TUNE (poate pe zgomot, dupa ce emisia corespondentului s-a oprit):
+            // se revine la calculul afisat, cu NORM/REV-ul lui
+            _pendingQsyDial = before.Dial;
+            _pendingQsyFrom = before.From;
+            if (Reverse != before.Reverse)
+            {
+                Receiver.Update(s => s.Reverse = before.Reverse);
+                SyncFromSettings(Receiver.Settings);
+            }
+        }
+        _beforeClick = null;
         if (_pendingQsyDial is not { } dial || _rig == null || !_rigState.Connected)
         {
             Message = "A-TUNE: nu e nimic de mutat (statia deja pe frecventa, sau fara statie).";

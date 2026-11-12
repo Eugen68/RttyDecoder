@@ -45,3 +45,30 @@ public class AutoQsyTests
         Assert.Equal(cq, RttyDecoderViewModel.IsCq(text));
     }
 }
+
+/// <summary>Dublu click pe A-TUNE: calculul afisat inainte, nu cel refacut de primul click.</summary>
+public class AtuneDoubleClickTests
+{
+    private static readonly TimeSpan Dbl = TimeSpan.FromMilliseconds(500);
+
+    [Fact]
+    public void FolosesteCalcululAfisat()
+    {
+        // testul pe statii: calcul 3.501.795, emisia s-a oprit, primul click a recalculat 3.501.861
+        var t = RttyDecoderViewModel.DoubleClickTarget((3_501_795, 3_501_500, true), TimeSpan.FromMilliseconds(200), 3_501_500, Dbl);
+        Assert.Equal((3_501_795L, 3_501_500L, true), t);
+    }
+
+    [Fact]
+    public void FaraCalculInainteSeFolosesteCelNou()
+    {
+        Assert.Null(RttyDecoderViewModel.DoubleClickTarget(null, TimeSpan.FromMilliseconds(200), 3_501_500, Dbl));
+    }
+
+    [Fact]
+    public void StatiaMutataSauClickVechi()
+    {
+        Assert.Null(RttyDecoderViewModel.DoubleClickTarget((3_501_795, 3_501_500, false), TimeSpan.FromMilliseconds(200), 3_502_000, Dbl));
+        Assert.Null(RttyDecoderViewModel.DoubleClickTarget((3_501_795, 3_501_500, false), TimeSpan.FromSeconds(3), 3_501_500, Dbl));
+    }
+}

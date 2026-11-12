@@ -590,6 +590,8 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
     private void AutoTune()
     {
         if (DateTime.UtcNow < _ignoreAutoTuneUntil) return;   // al doilea click al unui dublu click, dupa QSY
+        // primul click al unui eventual dublu click: tine minte calculul afisat pana acum
+        RememberBeforeAutoTune();
         if (Receiver.FindLowerTone() is not { } lower)
         {
             _pendingQsyDial = null;

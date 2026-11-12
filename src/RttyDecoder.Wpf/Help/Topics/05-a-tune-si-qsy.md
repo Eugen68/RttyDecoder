@@ -11,6 +11,8 @@
 
 Muta statia pe frecventa calculata: perechea corespondentului ajunge pe **2125 / 2295 Hz**, deci emisia ta FSK pleaca exact pe frecventa lui. Decodorul trece pe Mark 2125 (NORM) sau 2295 (REV).
 
+Daca un A-TUNE a calculat deja frecventa (o vezi la `TX:`), dublu click-ul duce statia **exact acolo**, chiar daca intre timp corespondentul a terminat emisia: primul click al dublu click-ului nu mai inlocuieste calculul afisat. Pentru alt semnal: click pe el in waterfall (sau A-TUNE simplu), apoi dublu click. Fara un calcul afisat, dublu click-ul face A-TUNE si QSY dintr-o data (cat semnalul e pe aer).
+
 De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, cu tonurile fixe 2125 / 2295. La **AFSK** nu e nevoie de QSY: emisia pleaca pe perechea decodorului, deci A-TUNE singur e destul.
 
 ## RTTY-L si RTTY-U
