@@ -120,7 +120,7 @@
                     <Button Grid.Row="0" Grid.Column="2" Content="..." Width="28" Click="OnHamlibBrowse" ToolTip="Alege rigctld.exe" />
 
                     <TextBlock Grid.Row="1" Text="Model:" VerticalAlignment="Center" />
-                    <ComboBox x:Name="HamlibModelBox" Grid.Row="1" Grid.Column="1" IsEditable="True" IsTextSearchEnabled="True"
+                    <ComboBox x:Name="HamlibModelBox" Grid.Row="1" Grid.Column="1" IsEditable="True" IsTextSearchEnabled="True" DropDownClosed="OnHamlibModelPicked"
                               ToolTip="Modelul statiei din lista Hamlib; se poate scrie si numarul (de ex. 1042 = FTDX-10)" />
                     <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource Refresh}" Click="OnHamlibModels" ToolTip="Reciteste lista modelelor (rigctl -l)" />
 
@@ -171,8 +171,11 @@
                     <ComboBox x:Name="KeyPinBox" Grid.Row="3" Grid.Column="1" SelectionChanged="OnPinChanged"
                               ToolTip="FSK pentru RTTY, keying pentru CW" />
                 </Grid>
+                <CheckBox x:Name="InvertFskBox" Content="Inverseaza polaritatea FSK (pin activ = Space)" Margin="0,8,0,0"
+                          Foreground="{StaticResource Rtty.Foreground}"
+                          ToolTip="Yaesu (FTDX10, FTX-1): nebifat. Icom (IC-7300 / MK2) pe setarile din fabrica: bifat. Se bifeaza singur cand alegi un model Icom in Hamlib." />
                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                           Text="La FTX-1 de obicei al doilea port (Standard): PTT pe un pin, manipularea pe celalalt (ex. PTT pe RTS, FSK pe DTR, ca in aplicatia Android). PTT-ul se alege intr-un singur loc: aici sau la portul CAT." />
+                           Text="La FTX-1 de obicei al doilea port (Standard): PTT pe un pin, manipularea pe celalalt (ex. PTT pe RTS, FSK pe DTR, ca in aplicatia Android). La IC-7300MK2 portul USB (B), cu USB SEND / USB Keying (RTTY) pe (B) in meniul statiei. PTT-ul se alege intr-un singur loc: aici sau la portul CAT. Polaritatea FSK: Yaesu nebifat, Icom bifat (testat: FTDX10, FTX-1, IC-7300MK2 pe setarile din fabrica)." />
             </StackPanel>
         </Border>
 

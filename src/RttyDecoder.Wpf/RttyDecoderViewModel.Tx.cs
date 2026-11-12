@@ -432,14 +432,21 @@ public sealed partial class RttyDecoderViewModel
     /// </summary>
     private void PrepareTx()
     {
-        _afskTones = AfskTonesFor(MarkFrequencyHz, Reverse, _rigState.Mode, _tx.Settings.InvertFsk);
-        if (_tx.Settings.UsTty != UsTty)
+        _afskTones = AfskTonesFor(MarkFrequencyHz, Reverse, _rigState.Mode, _tx.Settings.InvertAfsk);
+        if (_tx.Settings.UsTty != UsTty || _tx.Settings.InvertFsk != RigFskInverted)
         {
             var s = _tx.Settings.Clone();
             s.UsTty = UsTty;
+            s.InvertFsk = RigFskInverted;
             _tx.Settings = s;
         }
     }
+
+    /// <summary>
+    /// Polaritatea pinului FSK a statiei curente (Conexiune statie): false = pin activ = Mark (Yaesu),
+    /// true = pin activ = Space (Icom pe setarile din fabrica). Gazda o pune odata cu statia.
+    /// </summary>
+    public bool RigFskInverted { get; set; }
 
     /// <summary>Din Drain (firul UI): ecoul caracterelor trimise.</summary>
     private void DrainTxEcho()

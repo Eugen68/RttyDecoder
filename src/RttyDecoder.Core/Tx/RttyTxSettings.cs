@@ -19,11 +19,14 @@ public sealed class RttyTxSettings
     public int MaxTxSeconds { get; set; } = 180;
 
     /// <summary>
-    /// Inverseaza pinul FSK (pin activ = Space in loc de Mark). Implicit oprit: emisia nu urmeaza
-    /// NORM/REV-ul receptiei si nici modul statiei; polaritatea se schimba de obicei din meniul statiei
-    /// (TX polarity). Doar pentru interfete / statii care inverseaza linia.
+    /// Inverseaza pinul FSK (pin activ = Space in loc de Mark). Emisia nu urmeaza NORM/REV-ul receptiei
+    /// si nici modul statiei. In aplicatie valoarea vine din setarile statiei (Conexiune statie:
+    /// Yaesu nu, Icom da) si se pune la fiecare emisie.
     /// </summary>
     public bool InvertFsk { get; set; }
+
+    /// <summary>AFSK: Mark pe celalalt ton fata de polaritatea standard calculata din modul statiei.</summary>
+    public bool InvertAfsk { get; set; }
 
     /// <summary>
     /// QSY automat inainte de emisie: la un macro sau text care nu incepe cu CQ, dupa un A-TUNE care a

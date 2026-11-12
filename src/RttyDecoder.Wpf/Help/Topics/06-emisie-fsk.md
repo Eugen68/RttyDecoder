@@ -8,7 +8,7 @@ Metoda se alege in **Setari > Setari transmisie**:
 ## AFSK (de exemplu IC-7300)
 
 - **Emiti unde asculti**: tonurile Mark/Space sunt chiar perechea pe care decodezi (A-TUNE sau click pe waterfall). Liniile verzi **TX** din waterfall stau pe pereche. Nu e nevoie de QSY - QSY-ul automat nu se foloseste la AFSK.
-- **Polaritatea pe aer** e cea standard (Mark = frecventa RF mai mare), calculata din modul statiei: in DATA-U / USB Mark e tonul de sus, in DATA-L / LSB tonul de jos - indiferent de NORM/REV. Daca statia nu raporteaza modul, emisia urmeaza NORM/REV de la receptie. Bifa **Inverseaza polaritatea** schimba tonurile intre ele.
+- **Polaritatea pe aer** e cea standard (Mark = frecventa RF mai mare), calculata din modul statiei: in DATA-U / USB Mark e tonul de sus, in DATA-L / LSB tonul de jos - indiferent de NORM/REV. Daca statia nu raporteaza modul, emisia urmeaza NORM/REV de la receptie. Bifa **AFSK: inverseaza tonurile** (Setari transmisie) le schimba intre ele.
 - Tonurile se genereaza pe ceasul placii de sunet, cu faza continua: viteza exacta 45.45 baud, fara clicuri.
 - **Placa de iesire**: placa audio a statiei (la IC-7300: "USB Audio CODEC"). **Nivel**: incepe cu 50% si coboara pana cand ALC-ul nu mai misca. Prea mult = splatter.
 - **Pe statie**:
@@ -53,7 +53,7 @@ Fiecare mesaj incepe pe un rand nou cu `[HH:mm:ss]` UTC - verde la receptie, ros
 | CR/LF automat | Da | La inceputul si sfarsitul emisiei |
 | Diddle | Da | In LIVE, LTRS continuu cand nu scrii |
 | QSY automat inainte de raspuns | Nu | Doar FSK. Vezi subiectul A-TUNE, polaritate si QSY |
-| Inverseaza polaritatea | Nu | FSK: pin activ = Space, doar pentru interfete care inverseaza linia (altfel polaritatea TX din meniul statiei). AFSK: Mark pe celalalt ton |
+| AFSK: inverseaza tonurile | Nu | Mark pe celalalt ton. Polaritatea pinului FSK e in Conexiune statie (Yaesu nebifat, Icom bifat) |
 | Metoda | FSK | FSK sau AFSK |
 | Placa de iesire (AFSK) | implicita | Placa audio a statiei |
 | Nivel (AFSK) | 50% | Pana cand ALC-ul nu mai misca |

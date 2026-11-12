@@ -59,6 +59,13 @@ public partial class MainWindow : Window
         _vm.MonitorVolume = _settings.MonitorVolume;
         _vm.MyCall = _settings.MyCall ?? "";
         _vm.ShowStations = _settings.ShowStations;
+        // polaritatea FSK s-a mutat din Setari transmisie in Conexiune statie (tine de statie)
+        if (_settings.Tx.InvertFsk && !_settings.Rig.InvertFsk)
+        {
+            _settings.Rig.InvertFsk = true;
+            _settings.Tx.InvertFsk = false;
+            _settings.Save();
+        }
         _vm.TxSettings = _settings.Tx;
         Decoder.WaterfallSettings = _settings.Waterfall;
         _vm.ImportMacros(_settings.Macros);
@@ -163,6 +170,7 @@ public partial class MainWindow : Window
             return;
         }
         _rig = rig;
+        _vm.RigFskInverted = _settings.Rig.InvertFsk;
         _vm.AttachRig(rig);
         try
         {
@@ -356,7 +364,8 @@ public partial class MainWindow : Window
         _settings.RealTime = _vm.RealTime;
         _settings.MonitorVolume = _vm.MonitorVolume;
         _settings.MyCall = _vm.MyCall;
-        _settings.Tx = _vm.TxSettings;
+        _settings.Tx = _vm.TxSettings.Clone();
+        _settings.Tx.InvertFsk = false;   // tine de statie (Rig.InvertFsk)
         _settings.Macros = _vm.ExportMacros();
         _settings.Waterfall = Decoder.WaterfallSettings;
         _settings.ShowStations = _vm.ShowStations;

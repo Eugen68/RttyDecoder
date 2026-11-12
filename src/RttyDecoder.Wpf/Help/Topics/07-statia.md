@@ -49,6 +49,8 @@ Porturile USB:
 
 Un al doilea port serial: port, viteza, **PTT** (Fara / RTS / DTR) si **manipulare** (Fara / RTS / DTR) - FSK pentru RTTY. La FTX-1 de obicei al doilea port ("Standard"), de exemplu PTT pe RTS si FSK pe DTR.
 
+**Inverseaza polaritatea FSK** (pin activ = Space): **Yaesu nebifat, Icom bifat** - testat pe FTDX10, FTX-1 si IC-7300MK2 cu setarile din fabrica. Se bifeaza singur cand alegi un model Icom din lista Hamlib si se debifeaza la conexiunea directa (Yaesu). La IC-7300MK2: in meniul statiei USB SEND = USB (B) DTR, USB Keying (RTTY) = USB (B) RTS (portul (A) e cel CI-V, tinut de rigctld), iar in program portul de manipulare = al doilea port COM al statiei, PTT pe DTR, manipulare pe RTS.
+
 PTT-ul se alege **intr-un singur loc** (la portul CAT sau la portul de manipulare): cand alegi un pin intr-o parte, cealalta trece pe Fara. Fara niciun pin, la conexiunea directa emisia se comanda prin CAT (`TX1;`), la Hamlib prin rigctld; la OmniRig nu exista PTT.
 
 ## Teste

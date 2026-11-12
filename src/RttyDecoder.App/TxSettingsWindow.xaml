@@ -76,10 +76,9 @@
                    Text="La macrourile si textul (Enter) care nu incep cu CQ, dupa un A-TUNE care a calculat alta frecventa decat a statiei: statia se muta intai acolo, ca la dublu click pe A-TUNE. Doar in RTTY-L / RTTY-U. Nu muta: CQ-ul (ramai pe frecventa ta), LIVE, si dupa ce ai dat click pe alt semnal in waterfall sau statia s-a mutat de la A-TUNE." />
 
         <TextBlock Text="Polaritatea" FontWeight="Bold" Margin="0,14,0,4" />
-        <CheckBox x:Name="InvertBox" Content="Inverseaza polaritatea (FSK: pin activ = Space; AFSK: Mark pe celalalt ton)" />
+        <CheckBox x:Name="InvertBox" Content="AFSK: inverseaza tonurile (Mark pe celalalt ton)" />
         <TextBlock Style="{StaticResource Hint}" Margin="20,2,0,0"
-                   Text="FSK - implicit pin activ = Mark, mereu: emisia NU urmeaza butonul NORM/REV (acela e doar pentru receptie) si nici modul statiei - testat pe FTDX10 si FTX-1, emisia iese la fel in RTTY-L si RTTY-U. Daca vrei emisie inversata, schimba polaritatea TX din meniul statiei; bifa de aici e doar pentru interfete sau statii care inverseaza linia. Tabelul US-TTY urmeaza butonul de la receptie." />
-
+                   Text="AFSK: polaritatea standard se calculeaza din modul statiei; bifa doar daca vrei emisie inversata. FSK: polaritatea pinului tine de statie si se alege in Setari &gt; Conexiune statie (Yaesu nebifat, Icom bifat)." />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Implicit" Width="90" Click="OnDefaults" />
             <Button Content="Anuleaza" Width="90" IsCancel="True" />

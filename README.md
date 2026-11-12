@@ -141,7 +141,7 @@ Conexiune statie:
 - Mesajele trimise in timpul unei emisii se adauga la coada (un singur PTT). **STOP (Esc)** opreste
   imediat. Textul trimis apare in terminal cu galben; cat timp se emite, decodarea sta.
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
-  limita unei emisii (180 s), CR/LF automat, diddle, inversarea polaritatii (implicit oprita).
+  limita unei emisii (180 s), CR/LF automat, diddle, inversarea tonurilor AFSK (implicit oprita).
   Valorile implicite sunt cele din aplicatia Android.
 - **AFSK** (Setari transmisie > Metoda): tonurile se genereaza pe placa de sunet aleasa (WASAPI,
   formatul mixerului Windows), pe ceasul placii, cu faza continua; PTT-ul prin CAT. Statia in
@@ -155,11 +155,14 @@ Conexiune statie:
   muta intai acolo (ca dublu click pe A-TUNE), apoi pleaca emisia (~250 ms mai tarziu). Doar in RTTY-L /
   RTTY-U. Nu muta: CQ-ul (chemi pe frecventa ta - si uita QSY-ul pregatit), LIVE, dupa un click pe alt
   semnal in waterfall sau daca statia s-a mutat de la A-TUNE.
-- **Polaritatea emisiei**: pinul FSK pleaca mereu normal (activ = Mark) - **NORM/REV e doar pentru
-  receptie**, iar emisia nu depinde nici de modul statiei. Testul pe statii (FTDX10 <-> FTX-1 +
-  aplicatia Android, `tools/android-patch/README.md`): emisia iese la fel in RTTY-L si RTTY-U, doar
-  receptia in RTTY-U cere REV (comportament Yaesu). Emisie inversata, daca e nevoie: polaritatea TX
-  din meniul statiei; bifa "Inverseaza pinul FSK" doar pentru interfete care inverseaza linia.
+- **Polaritatea emisiei**: **NORM/REV e doar pentru receptie**, iar emisia nu depinde nici de modul
+  statiei. Testele pe statii (FTDX10 <-> FTX-1 + aplicatia Android, `tools/android-patch/README.md`;
+  FTDX10 <-> IC-7300MK2 cu instrumentele interne ale statiilor): Yaesu emite la fel in RTTY-L si
+  RTTY-U, Icom la fel in RTTY si RTTY-R; RTTY-U (Yaesu) si RTTY-R (Icom) inverseaza doar receptia.
+  Polaritatea **pinului FSK** tine de statie: Setari > Conexiune statie > "Inverseaza polaritatea
+  FSK" - Yaesu nebifat (pin activ = Mark), Icom pe setarile din fabrica bifat (pin activ = Space);
+  se bifeaza singur la un model Icom din lista Hamlib. Setarile vechi (bifa din Setari transmisie)
+  se muta automat acolo.
 
 **Meniul** de sus:
 - **Fisier**: Deschide WAV (Ctrl+O), Salveaza textul (Ctrl+S), Salveaza lista statiilor (CSV), Iesire

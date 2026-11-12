@@ -32,7 +32,7 @@ public partial class TxSettingsWindow : Window
         CrLfBox.IsChecked = s.AutoCrLf;
         DiddleBox.IsChecked = s.Diddle;
         AutoQsyBox.IsChecked = s.AutoQsy;
-        InvertBox.IsChecked = s.InvertFsk;
+        InvertBox.IsChecked = s.InvertAfsk;
         (s.Method == TxMethod.Afsk ? Afsk : Fsk).IsChecked = true;
         var devices = new List<AudioDevice>(_devices);
         if (s.AfskDeviceId.Length > 0 && devices.All(d => d.Id != s.AfskDeviceId))
@@ -86,7 +86,8 @@ public partial class TxSettingsWindow : Window
             AutoCrLf = CrLfBox.IsChecked == true,
             Diddle = DiddleBox.IsChecked == true,
             AutoQsy = AutoQsyBox.IsChecked == true,
-            InvertFsk = InvertBox.IsChecked == true,
+            InvertAfsk = InvertBox.IsChecked == true,
+            InvertFsk = false,   // tine de statie: Conexiune statie
             Method = Afsk.IsChecked == true ? TxMethod.Afsk : TxMethod.Fsk,
             AfskDeviceId = (AfskDeviceBox.SelectedItem as AudioDevice)?.Id ?? "",
             AfskLevel = AfskLevelBox.Value / 100.0,

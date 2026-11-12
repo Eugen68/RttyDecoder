@@ -55,6 +55,7 @@ public partial class RigSettingsWindow : Window
         KeyBaudBox.SelectedItem = Bauds.Contains(settings.KeyBaud) ? settings.KeyBaud : 4800;
         KeyPttBox.SelectedIndex = Index(settings.KeyPortPttPin);
         KeyPinBox.SelectedIndex = Index(settings.KeyPin);
+        InvertFskBox.IsChecked = settings.InvertFsk;
         // Hamlib: portul si viteza statiei sunt CatPort / CatBaud (rigctld le foloseste)
         HamlibPortBox.Text = settings.CatPort ?? "";
         HamlibBaudBox.SelectedItem = Bauds.Contains(settings.CatBaud) ? settings.CatBaud : 38400;
@@ -126,6 +127,7 @@ public partial class RigSettingsWindow : Window
         KeyBaud = KeyBaudBox.SelectedItem is int kb ? kb : 4800,
         KeyPortPttPin = Pin(KeyPttBox),
         KeyPin = Pin(KeyPinBox),
+        InvertFsk = InvertFskBox.IsChecked == true,
     };
 
     private void UpdatePanels()
@@ -177,7 +179,18 @@ public partial class RigSettingsWindow : Window
         if (Top < area.Top) Top = area.Top;
     }
 
-    private void OnKindChanged(object sender, RoutedEventArgs e) => UpdatePanels();
+    private void OnKindChanged(object sender, RoutedEventArgs e)
+    {
+        // conexiunea directa e doar Yaesu: pin activ = Mark
+        if (!_updating && Kind == RigKind.YaesuCat) InvertFskBox.IsChecked = false;
+        UpdatePanels();
+    }
+
+    /// <summary>Model ales din lista Hamlib: polaritatea FSK obisnuita a fabricantului (Icom = inversat).</summary>
+    private void OnHamlibModelPicked(object? sender, EventArgs e)
+    {
+        if (HamlibModelBox.SelectedItem is HamlibModel m) InvertFskBox.IsChecked = RigSettings.DefaultInvertFsk(m.Manufacturer);
+    }
 
     private void OnHamlibStartChanged(object sender, RoutedEventArgs e) => UpdatePanels();
 
