@@ -54,8 +54,11 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
 6. **Indicativele** din textul decodat apar evidentiate: verde = cunoscut (in MASTER.SCP sau in lista LoTW), auriu =
    forma corecta dar necunoscut (poate fi si o eroare de decodare), portocaliu = indicativul propriu
    (campul *Indicativul meu* din lista statiilor). Mouse-ul deasupra arata tara si zonele.
-   **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com (la fel
-   si in lista). Lista (butonul **Statii**) se poate sorta pe orice coloana si salva ca CSV.
+   **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com.
+   Lista (butonul **Statii**) arata si **frecventa** (Mark-ul pe RF, la ultima decodare) si ora **UTC**;
+   **dublu click** pe un rand = **QSY** acolo (FSK: ca dublu click pe A-TUNE, emisia pe frecventa lui;
+   AFSK: perechea lui pe perechea decodorului), **click dreapta** = Look-up QRZ.com / QSY / Copiaza.
+   Se poate sorta pe orice coloana si salva ca CSV.
    Cu un cont QRZ.com si/sau HamQTH.com (meniul **Setari**), indicativele aurii se verifica si online
    (QRZ.com intai, HamQTH.com ca rezerva gratuita): cele confirmate devin verzi, cu numele si orasul
    in tooltip; cele negasite raman aurii ("probabil o eroare de decodare"). O singura cautare pe

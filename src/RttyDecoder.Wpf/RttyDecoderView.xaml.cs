@@ -632,9 +632,42 @@ public partial class RttyDecoderView : UserControl
         if (RowAt(e) is { } row) _vm?.SelectCallsign(row.Callsign);
     }
 
+    /// <summary>Dublu click pe o statie: QSY pe frecventa unde a fost auzita (QRZ.com e in meniul de la click dreapta).</summary>
     private void OnStationDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (RowAt(e) is { } row) _vm?.OpenQrz(row.Callsign);
+        if (RowAt(e) is { } row) _vm?.QsyToStation(row);
+    }
+
+    /// <summary>Click dreapta selecteaza randul de sub mouse; meniul lucreaza pe el.</summary>
+    private void OnStationRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (RowAt(e) is { } row) StationsGrid.SelectedItem = row;
+    }
+
+    private HeardStationRow? SelectedStation => StationsGrid.SelectedItem as HeardStationRow;
+
+    private void OnStationMenuOpened(object sender, RoutedEventArgs e)
+    {
+        var row = SelectedStation;
+        StationQrzItem.IsEnabled = StationCopyItem.IsEnabled = row != null;
+        StationQsyItem.IsEnabled = row?.Spot != null;
+        StationQrzItem.Header = row != null ? $"_Look-up QRZ.com ({row.Callsign.HomeCall})" : "_Look-up QRZ.com";
+        StationQsyItem.Header = row?.FrequencyText is { Length: > 0 } f ? $"_QSY pe frecventa lui ({f})" : "_QSY pe frecventa lui";
+    }
+
+    private void OnStationQrz(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStation is { } row) _vm?.OpenQrz(row.Callsign);
+    }
+
+    private void OnStationQsy(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStation is { } row) _vm?.QsyToStation(row);
+    }
+
+    private void OnStationCopy(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStation is { } row) _vm?.SelectCallsign(row.Callsign);
     }
 
     private void OnMyCallKeyDown(object sender, KeyEventArgs e)

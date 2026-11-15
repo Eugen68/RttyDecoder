@@ -12,12 +12,20 @@ Indicativele din textul decodat sunt evidentiate:
 
 - **Mouse-ul deasupra**: tara si zonele (din cty.dat).
 - **Click**: copiaza indicativul in clipboard si il foloseste pentru `{CALL}` in macro-uri (si il trimite in fereastra Contest, daca e deschisa).
-- **Dublu click**: deschide pagina lui pe QRZ.com.
+- **Dublu click** (in terminal): deschide pagina lui pe QRZ.com.
 - Indicativele cu prefix litera+cifra (`S50A`, `A61BK`, `E73A`) sunt recunoscute daca cty.dat confirma prefixul.
 
 ## Lista statiilor
 
-Butonul **Statii**: tara, continent, zona CQ, de cate ori a fost auzita, prima si ultima data. Se sorteaza pe orice coloana; **Fisier > Salveaza lista statiilor (CSV)**. **Goleste** sterge lista.
+Butonul **Statii**: tara, continent, zona CQ, de cate ori a fost auzita, **Frecventa** (Mark-ul pe RF, in kHz, la ultima decodare - doar cu statia conectata) si **UTC** (ultima decodare). Se sorteaza pe orice coloana; **Fisier > Salveaza lista statiilor (CSV)**. **Goleste** sterge lista.
+
+- **Click**: ca in terminal (clipboard, `{CALL}`, fereastra Contest).
+- **Dublu click = QSY** pe frecventa unde a fost auzit, cu NORM/REV-ul lui:
+  - **FSK** (statia in RTTY): ca dublu click pe A-TUNE - perechea lui ajunge pe 2125 / 2295, deci raspunzi exact pe frecventa lui;
+  - **AFSK** / SSB / DATA: perechea lui ajunge pe perechea decodorului;
+  - statia trebuie sa fie in **acelasi mod** ca atunci cand a fost auzit;
+  - fara statie conectata se muta doar decodorul pe tonul lui (corect doar daca VFO-ul n-a fost mutat).
+- **Click dreapta**: Look-up QRZ.com, QSY pe frecventa lui, Copiaza indicativul.
 
 ## Verificare online
 

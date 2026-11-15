@@ -72,3 +72,32 @@ public class AtuneDoubleClickTests
         Assert.Null(RttyDecoderViewModel.DoubleClickTarget((3_501_795, 3_501_500, false), TimeSpan.FromSeconds(3), 3_501_500, Dbl));
     }
 }
+
+/// <summary>Dublu click pe o statie din lista: QSY pe frecventa unde a fost auzita.</summary>
+public class StationQsyTests
+{
+    [Fact]
+    public void FskCaLaATune()
+    {
+        // auzit cu tonul de jos pe 2000 Hz in RTTY-L: acelasi QSY ca dublu click pe A-TUNE
+        var spot = new SignalSpot(3_505_000, RigMode.RttyL, 2000, false, 3_505_125);
+        Assert.Equal(RttyDecoderViewModel.TxDial(3_505_000, RigMode.RttyL, 2000),
+            RttyDecoderViewModel.SpotDial(spot, 3_506_000, RigMode.RttyL, fskTx: true, decoderLowerHz: 1500));
+    }
+
+    [Fact]
+    public void AfskPePerecheaDecodorului()
+    {
+        // DATA-U: semnalul de pe 1500 Hz trebuie sa ajunga pe 1000 Hz => VFO cu 500 Hz mai sus
+        var spot = new SignalSpot(14_080_000, RigMode.DataU, 1500, true, 14_081_670);
+        Assert.Equal(14_080_500, RttyDecoderViewModel.SpotDial(spot, 14_085_000, RigMode.DataU, fskTx: false, decoderLowerHz: 1000));
+    }
+
+    [Fact]
+    public void AltModSauFaraStatie()
+    {
+        var spot = new SignalSpot(3_505_000, RigMode.RttyL, 2000, false, 3_505_125);
+        Assert.Null(RttyDecoderViewModel.SpotDial(spot, 3_505_000, RigMode.RttyU, true, 2125));
+        Assert.Null(RttyDecoderViewModel.SpotDial(spot with { DialHz = 0 }, 3_505_000, RigMode.RttyL, true, 2125));
+    }
+}

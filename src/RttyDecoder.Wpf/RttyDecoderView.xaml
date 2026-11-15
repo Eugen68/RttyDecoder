@@ -275,7 +275,16 @@
                     </TextBlock>
                 </DockPanel>
                 <DataGrid x:Name="StationsGrid" Style="{StaticResource Rtty.Grid}" ItemsSource="{Binding HeardStationsView}"
-                          PreviewMouseLeftButtonUp="OnStationClick" MouseDoubleClick="OnStationDoubleClick">
+                          PreviewMouseLeftButtonUp="OnStationClick" MouseDoubleClick="OnStationDoubleClick"
+                          PreviewMouseRightButtonDown="OnStationRightButtonDown">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu Opened="OnStationMenuOpened">
+                            <MenuItem x:Name="StationQrzItem" Header="_Look-up QRZ.com" Click="OnStationQrz" />
+                            <MenuItem x:Name="StationQsyItem" Header="_QSY pe frecventa lui" Click="OnStationQsy" />
+                            <Separator />
+                            <MenuItem x:Name="StationCopyItem" Header="_Copiaza indicativul" Click="OnStationCopy" />
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
                             <Setter Property="ToolTip" Value="{Binding ToolTip}" />
@@ -312,8 +321,8 @@
                         <DataGridTextColumn Header="Cont" Binding="{Binding Continent}" Width="Auto" />
                         <DataGridTextColumn Header="CQ" Binding="{Binding CqZone}" Width="Auto" />
                         <DataGridTextColumn Header="Nr" Binding="{Binding Count}" Width="Auto" />
-                        <DataGridTextColumn Header="Prima UTC" Binding="{Binding FirstHeardUtc, StringFormat=HH:mm}" Width="Auto" />
-                        <DataGridTextColumn Header="Ultima UTC" Binding="{Binding LastHeardUtc, StringFormat=HH:mm}" Width="Auto" />
+                        <DataGridTextColumn Header="Frecventa" Binding="{Binding FrequencyText}" Width="Auto" />
+                        <DataGridTextColumn Header="UTC" Binding="{Binding LastHeardUtc, StringFormat=HH:mm:ss}" Width="Auto" />
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

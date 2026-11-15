@@ -6,6 +6,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using HamCallsign;
 using HamCallsign.Online;
+using HamRig;
 
 namespace RttyDecoder.Wpf;
 
@@ -236,9 +237,10 @@ public sealed partial class RttyDecoderViewModel
         if (_rows.TryGetValue(s.Callsign.Full, out var row))
         {
             row.Update(s);
+            row.Spot = CurrentSpot();
             return;
         }
-        row = new HeardStationRow(s) { ContestState = ContestStateOf(s.Callsign.Full) };
+        row = new HeardStationRow(s) { ContestState = ContestStateOf(s.Callsign.Full), Spot = CurrentSpot() };
         row.SetOnline(Verifier.GetState(row.Callsign), Verifier.GetResult(row.Callsign));
         _rows[s.Callsign.Full] = row;
         HeardStations.Add(row);
@@ -253,6 +255,12 @@ public sealed partial class RttyDecoderViewModel
         StationsText = "0 statii";
     }
 }
+
+/// <summary>
+/// Unde era semnalul cand s-a decodat indicativul: frecventa si modul statiei, tonul de jos al perechii
+/// decodorului si NORM/REV. <see cref="MarkRfHz"/> = frecventa RF a Mark-ului (null fara statie).
+/// </summary>
+public sealed record SignalSpot(long DialHz, RigMode Mode, double LowerHz, bool Reverse, double? MarkRfHz);
 
 /// <summary>Un rand din lista statiilor auzite.</summary>
 public sealed class HeardStationRow : ObservableObject
@@ -327,6 +335,19 @@ public sealed class HeardStationRow : ObservableObject
         get => _lastHeardUtc;
         private set => Set(ref _lastHeardUtc, value);
     }
+
+    private SignalSpot? _spot;
+    /// <summary>Unde s-a decodat ultima data (pentru coloana Frecventa si QSY la dublu click).</summary>
+    public SignalSpot? Spot
+    {
+        get => _spot;
+        internal set { if (Set(ref _spot, value)) OnPropertyChanged(nameof(FrequencyText)); }
+    }
+
+    /// <summary>Frecventa RF a Mark-ului in kHz ("3505.20"), gol fara statie conectata.</summary>
+    public string FrequencyText => Spot?.MarkRfHz is { } hz
+        ? (hz / 1000).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+        : "";
 
     private int _count;
     public int Count
