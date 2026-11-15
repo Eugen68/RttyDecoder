@@ -68,6 +68,7 @@ public partial class RigSettingsWindow : Window
         (settings.Kind switch { RigKind.YaesuCat => KindDirect, RigKind.OmniRig => KindOmni, RigKind.Hamlib => KindHamlib, _ => KindNone }).IsChecked = true;
         _updating = false;
         UpdatePanels();
+        UpdateInvertWarning();
     }
 
     /// <summary>Setarile alese (dupa ShowDialog() == true).</summary>
@@ -184,6 +185,16 @@ public partial class RigSettingsWindow : Window
         // conexiunea directa e doar Yaesu: pin activ = Mark
         if (!_updating && Kind == RigKind.YaesuCat) InvertFskBox.IsChecked = false;
         UpdatePanels();
+        UpdateInvertWarning();
+    }
+
+    private void OnInvertFskChanged(object sender, RoutedEventArgs e) => UpdateInvertWarning();
+
+    /// <summary>Conexiunea directa e Yaesu: bifa pusa e aproape sigur o greseala (de ex. ramasa de la Icom).</summary>
+    private void UpdateInvertWarning()
+    {
+        if (InvertFskWarning == null) return;
+        InvertFskWarning.Visibility = Kind == RigKind.YaesuCat && InvertFskBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Model ales din lista Hamlib: polaritatea FSK obisnuita a fabricantului (Icom = inversat).</summary>

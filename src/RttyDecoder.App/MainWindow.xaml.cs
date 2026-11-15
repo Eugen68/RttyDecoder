@@ -59,10 +59,11 @@ public partial class MainWindow : Window
         _vm.MonitorVolume = _settings.MonitorVolume;
         _vm.MyCall = _settings.MyCall ?? "";
         _vm.ShowStations = _settings.ShowStations;
-        // polaritatea FSK s-a mutat din Setari transmisie in Conexiune statie (tine de statie)
-        if (_settings.Tx.InvertFsk && !_settings.Rig.InvertFsk)
+        // polaritatea FSK s-a mutat din Setari transmisie in Conexiune statie (tine de statie). Bifa veche
+        // venea de la o proba cu Icom: nu se muta peste o statie Yaesu legata direct (acolo e mereu nebifata)
+        if (_settings.Tx.InvertFsk)
         {
-            _settings.Rig.InvertFsk = true;
+            if (_settings.Rig.Kind != HamRig.RigKind.YaesuCat) _settings.Rig.InvertFsk = true;
             _settings.Tx.InvertFsk = false;
             _settings.Save();
         }
@@ -175,7 +176,10 @@ public partial class MainWindow : Window
         try
         {
             await rig.ConnectAsync();
-            _vm.Message = $"Statia: {rig.Description} - conectata.";
+            _vm.Message = $"Statia: {rig.Description} - conectata." +
+                          (_settings.Rig.Kind == HamRig.RigKind.YaesuCat && _settings.Rig.InvertFsk && _settings.Rig.HasKeying
+                              ? " ATENTIE: polaritatea FSK e inversata (Conexiune statie) - la Yaesu de obicei nebifat."
+                              : "");
         }
         catch (Exception ex)
         {
