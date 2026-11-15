@@ -311,10 +311,23 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(CanAdjustSnrGate));
                 OnPropertyChanged(nameof(CanAdjustSquelch));
                 OnPropertyChanged(nameof(DecoderHelp));
+                OnPropertyChanged(nameof(IsDeepRtty));
                 if (value == RttyDecoderType.DeepRtty && !Receiver.IsDeepRttyReady) Message = "DeepRTTY: se incarca modelul...";
                 Push(s => s.Decoder = value);
             }
         }
+    }
+
+    public bool IsDeepRtty => Decoder == RttyDecoderType.DeepRtty;
+
+    public IReadOnlyList<DeepRttyLatency> DeepLatencies { get; } = Enum.GetValues<DeepRttyLatency>();
+
+    private DeepRttyLatency _deepLatency = DeepRttyLatency.Normal;
+    /// <summary>DeepRTTY: Rapid (~4 s), Normal (~7 s) sau Precis (~13 s) pana la textul confirmat.</summary>
+    public DeepRttyLatency DeepLatency
+    {
+        get => _deepLatency;
+        set { if (Set(ref _deepLatency, value)) Push(s => s.DeepLatency = value); }
     }
 
     /// <summary>Filtrele Chebyshev: text clasic sau masurare SNR/AFC la DeepRTTY.</summary>
@@ -407,6 +420,7 @@ public sealed partial class RttyDecoderViewModel : ObservableObject, IDisposable
             FilterWidthHz = s.FilterWidthHz;
             UsTty = s.UsTty;
             Squelch = s.Squelch;
+            DeepLatency = s.DeepLatency;
             SquelchPercent = Math.Round(s.SquelchLevel * 100);
         }
         finally

@@ -164,7 +164,10 @@
                     ToolTip="Click: acord automat pe cel mai puternic semnal RTTY (Mark-ul real, NORM/REV dupa semnal) si calculul frecventei statiei pentru emisie. Dublu click: muta statia acolo - perechea semnalului pe 2125 / 2295, emisia FSK pe frecventa corespondentului." />
             <TextBlock Text="Decodor:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="130" ItemsSource="{Binding Decoders}" SelectedItem="{Binding Decoder}"
-                      ToolTip="Chebyshev (implicit, bun si la flutter), Matched Filter (cel mai bun clasic pe semnal slab si fading lent) sau DeepRTTY (model neural, cel mai bun; text provizoriu cu gri, confirmat dupa ~8-12 s)" />
+                      ToolTip="Chebyshev (implicit, bun si la flutter), Matched Filter (cel mai bun clasic pe semnal slab si fading lent) sau DeepRTTY (model neural, cel mai bun; text provizoriu cu gri, confirmat dupa cateva secunde - vezi alegerea de alaturi)" />
+            <ComboBox Width="75" Margin="4,0,0,0" ItemsSource="{Binding DeepLatencies}" SelectedItem="{Binding DeepLatency}"
+                      Visibility="{Binding IsDeepRtty, Converter={StaticResource BoolToVis}}"
+                      ToolTip="DeepRTTY: cat de repede se confirma textul. Rapid ~4 s (semnale curate; pe QRN puternic pierde cateva caractere), Normal ~7 s (implicit, la fel de precis ca Precis in teste), Precis ~13 s (ca modelul original). Textul gri provizoriu apare oricum la fiecare secunda." />
             <TextBlock Text="Profil:" VerticalAlignment="Center" Margin="12,0,4,0" />
             <ComboBox Width="195" ItemsSource="{Binding ReceptionProfiles}" DisplayMemberPath="Name"
                       SelectedItem="{Binding SelectedReceptionProfile}" ToolTip="{Binding SelectedReceptionProfile.Description}" />

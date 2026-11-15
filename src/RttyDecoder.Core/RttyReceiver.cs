@@ -477,6 +477,7 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
         dst.UsTty = src.UsTty;
         dst.Squelch = src.Squelch;
         dst.SquelchLevel = src.SquelchLevel;
+        dst.DeepLatency = src.DeepLatency;
     }
 
     private static void Sanitize(RttySettings s)
@@ -488,6 +489,7 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
         if (s.Decoder == RttyDecoderType.MatchedFilter)
             s.DnrWidthHz = Math.Max(s.DnrWidthHz, RttySettings.MinDnrWidthMatchedFilterHz);
         s.SnrGatingK = Math.Clamp(s.SnrGatingK, 1, 3);
+        if (!Enum.IsDefined(s.DeepLatency)) s.DeepLatency = DeepRttyLatency.Normal;
         s.Sensitivity = Math.Clamp(s.Sensitivity, 0, 0.2);
         s.FilterWidthHz = Math.Clamp(s.FilterWidthHz, RttySettings.MinFilterWidthHz, RttySettings.MaxFilterWidthHz);
         s.SquelchLevel = Math.Clamp(s.SquelchLevel, 0.1, 0.8);
@@ -572,6 +574,7 @@ public sealed class RttyReceiver : IDisposable, IAsyncDisposable
                 return;
             }
             EnsureDeepReceiver();
+            _deep!.HopSamples = DeepRttyConst.HopFor((int)_settings.DeepLatency);
             if (_running) _deep!.Start();
         }
     }

@@ -11,7 +11,16 @@ Programul are trei decodoare, alese din lista **Decodor**:
 ## Modelul DeepRTTY
 
 - Modelul (`model_rtty_2026-10.onnx`) e **inclus in program**; nu se descarca nimic. Se incarca la prima alegere a decodorului DeepRTTY ("DeepRTTY: se incarca modelul...").
-- Textul **gri** de sub terminal e provizoriu; se confirma (verde, in terminal) dupa aproximativ **8-12 secunde**. E normal: modelul are nevoie de context.
+- Textul **gri** de sub terminal e provizoriu (se reface la fiecare secunda); se confirma (verde, in terminal) dupa cateva secunde. E normal: modelul are nevoie de semnal si **dupa** fiecare caracter.
+- Langa decodor alegi cat de repede se confirma:
+
+| Alegere | Confirmare (mediana) | Cand |
+|---|---|---|
+| Rapid | ~4 s | Semnale curate; pe QRN puternic pierde cateva caractere |
+| **Normal** (implicit) | ~7 s | In teste la fel de precis ca Precis, si pe QRN |
+| Precis | ~13 s | Ca modelul original (ferestre la 8 s) |
+
+Schimbarea in timpul decodarii reporneste DeepRTTY (textul gri de atunci se pierde).
 - Modelul primeste **audio-ul original**, prin propriul front-end. NB, DNR si latimea filtrului schimba doar masurarea SNR si urmarirea AFC/PLL, nu intrarea modelului.
 - SQL, SNR-G, ATC, Volant si Sensibilitate nu modifica textul neural (DeepRTTY are filtrul lui de zgomot). NORM/REV si US-TTY se aplica.
 - Sub terminal apare cat audio asteapta decodarea si cate recuperari dupa suprasarcina au fost (daca procesorul nu tine pasul pe live, decodorul renunta la audio-ul vechi si reia de la semnalul nou).
@@ -24,7 +33,7 @@ Lista **Profil** pune dintr-o data reglajele potrivite unei situatii. Sunt punct
 | Profil | Decodor | Utilizare |
 |---|---|---|
 | Semnal bun · rapid | Matched Filter | Acord bun, fading lent, fara intarzierea modelului |
-| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe QRN; confirmare dupa ~8-12 s |
+| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe QRN; confirmare dupa ~7 s (Normal) |
 | QRN / flutter · rapid | Chebyshev | Alternativa clasica rapida la flutter |
 
 Toate pornesc cu SQL 35%, volant activ si pragurile implicite. Profilul **pastreaza** acordul (Mark), NORM/REV, AFC/PLL si ITA2/US-TTY. Daca modifici de mana un reglaj, profilul devine **Personalizat**.

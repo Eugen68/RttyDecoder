@@ -1,5 +1,17 @@
 namespace RttyDecoder.Core;
 
+/// <summary>
+/// DeepRTTY: pasul dintre ferestrele de 12 s (secunde). Un caracter se confirma dupa ~1,5-2 pasi:
+/// Rapid ~4 s, Normal ~7 s, Precis ~13 s. Masurat: Normal la fel de precis ca Precis (si pe QRN);
+/// Rapid pierde cateva caractere pe QRN puternic.
+/// </summary>
+public enum DeepRttyLatency
+{
+    Rapid = 2,
+    Normal = 4,
+    Precis = 8,
+}
+
 /// <summary>Detectorul de text.</summary>
 public enum RttyDecoderType
 {
@@ -88,6 +100,9 @@ public sealed class RttySettings
 
     /// <summary>Pragul SQL: proportia minima de caractere in ritm (0.1..0.8).</summary>
     public double SquelchLevel { get; set; } = 0.35;
+
+    /// <summary>DeepRTTY: cat de repede se confirma textul (vezi <see cref="DeepRttyLatency"/>).</summary>
+    public DeepRttyLatency DeepLatency { get; set; } = DeepRttyLatency.Normal;
 
     public RttySettings Clone() => (RttySettings)MemberwiseClone();
 }

@@ -49,7 +49,7 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
    reactie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), sunetul se reintoarce.
    La fisierele WAV se aude doar cu *Timp real* bifat.
 5. **DeepRTTY** decodeaza mai bine semnalele slabe, dar cu intarziere: textul gri de sub terminal e
-   provizoriu si se confirma (verde) dupa ~8-12 s.
+   provizoriu si se confirma (verde) dupa ~7 s (Normal; langa decodor: Rapid ~4 s, Precis ~13 s).
 
 6. **Indicativele** din textul decodat apar evidentiate: verde = cunoscut (in MASTER.SCP sau in lista LoTW), auriu =
    forma corecta dar necunoscut (poate fi si o eroare de decodare), portocaliu = indicativul propriu
@@ -244,7 +244,7 @@ Lista **Profil** ofera trei puncte de pornire masurate pe corpusul W6IWI:
 | Profil | Decodor | Utilizare |
 |---|---|---|
 | Semnal bun · rapid | Matched Filter | Acord bun si fading lent, fara confirmarea intarziata a modelului neural |
-| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe inregistrarea QRN; confirmarea textului dupa aproximativ 8-12 s |
+| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe inregistrarea QRN; confirmarea textului dupa ~7 s (Normal) |
 | QRN / flutter · rapid | Chebyshev | Alternativa clasica rapida la flutter; NB si ATC nu sunt activate automat, deoarece au iesit mai slab pe proba QRN masurata |
 
 Toate pornesc cu SQL 35%, volant activ si pragurile implicite. Profilul reseteaza reglajele
@@ -310,7 +310,7 @@ Indicativele: gazda da bazele (`vm.UseReferenceData(ReferenceData.Load(folder))`
 
 DeepRTTY pastreaza cel mult 24 s de audio neprocesat, inclusiv blocul aflat in lucru.
 Sub terminal apare cantitatea de audio in asteptare; aceasta nu include intarzierea normala
-(~8-12 s) a textului provizoriu. La un WAV (inclusiv cu *Timp real*), citirea asteapta automat
+(~4 / 7 / 13 s, dupa alegerea Rapid / Normal / Precis) a textului provizoriu. La un WAV (inclusiv cu *Timp real*), citirea asteapta automat
 loc liber, fara sa piarda audio. La live, daca bufferul se umple, decodorul abandoneaza audio-ul
 vechi si textul lui neconfirmat si reincepe de la semnalul nou; contorul de recuperari apare
 langa starea bufferului. Textul deja confirmat ramane in terminal.

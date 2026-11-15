@@ -118,6 +118,7 @@ public static class DeepRttySpectrogram
 public sealed class DeepRttyStream
 {
     private readonly RttyInference _inferenta;
+    private readonly int _hop;
     private float[] _buf = Array.Empty<float>();
     private long _bufStart;
     private long _nextWindow;
@@ -125,7 +126,17 @@ public sealed class DeepRttyStream
     private OverlapMerger _merger = NewMerger();
     private long _ultimulConfirmat = long.MinValue;
 
-    public DeepRttyStream(RttyInference inferenta) => _inferenta = inferenta;
+    /// <param name="hop">Pasul ferestrelor (esantioane la 3200 Hz); implicit <see cref="DeepRttyConst.Hop"/>.</param>
+    public DeepRttyStream(RttyInference inferenta, int? hop = null)
+    {
+        _inferenta = inferenta;
+        _hop = hop ?? DeepRttyConst.Hop;
+        if (_hop <= 0 || _hop > DeepRttyConst.Window || _hop % DeepRttyConst.OutputHopLength != 0)
+            throw new ArgumentOutOfRangeException(nameof(hop));
+    }
+
+    /// <summary>Pasul ferestrelor (esantioane la 3200 Hz).</summary>
+    public int Hop => _hop;
 
     private static OverlapMerger NewMerger() => new(DeepRttyConst.EdgeGuard, DeepRttyConst.Tolerance);
 
@@ -161,7 +172,7 @@ public sealed class DeepRttyStream
             if (c.Count > 0) _ultimulConfirmat = c[^1].Sample;
             confirmate.AddRange(c);
             _lastWindowStart = _nextWindow;
-            _nextWindow += DeepRttyConst.Hop;
+            _nextWindow += _hop;
         }
         // Pastram doar ce mai trebuie: de la inceputul ultimei ferestre (pentru preview) incolo.
         long pastreazaDe = Math.Max(_bufStart, _lastWindowStart >= 0 ? _lastWindowStart : _bufStart);
