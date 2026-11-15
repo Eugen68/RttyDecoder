@@ -317,6 +317,7 @@ public partial class RttyDecoderView : UserControl
     private DateTime _lastTxUtc = DateTime.MinValue;
     private DateTime _lastStampUtc = DateTime.MinValue;
     private bool _stampNextRx = true;
+    private double? _lastStampFreqHz;
 
     /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora si frecventa.</summary>
     private void OnTuningChanged() { _stampNextRx = true; Waterfall.MarkBoundary("ACORD / QSY"); }
@@ -339,7 +340,10 @@ public partial class RttyDecoderView : UserControl
         if (first == text.Length) return text;
 
         var now = DateTime.UtcNow;
-        bool tuning = who == Speaker.Rx && _stampNextRx;
+        // acordul schimbat cu cel putin 10 Hz (RF-ul Mark-ului, sau tonul audio fara statie)
+        double? freqHz = _vm == null ? null : _vm.StampFrequencyHz ?? _vm.MarkFrequencyHz;
+        bool tuning = who == Speaker.Rx && _stampNextRx && freqHz is { } f && TerminalStamps.FrequencyChanged(_lastStampFreqHz, f);
+        if (tuning) _lastStampFreqHz = freqHz;
         bool need = who != _lastSpeaker || tuning || (who == Speaker.Rx
             ? TerminalStamps.PeriodicDue(now, _lastRxUtc, _lastStampUtc)
             : now - _lastTxUtc >= StampGap);
@@ -532,6 +536,7 @@ public partial class RttyDecoderView : UserControl
         _highlighter.Reset();
         _lastSpeaker = Speaker.None;
         _stampNextRx = true;
+        _lastStampFreqHz = null;   // primul text dupa CLEAR arata din nou frecventa
         Waterfall.Clear();
     }
 

@@ -17,6 +17,17 @@ public static class TerminalStamps
     /// <summary>O ora pusa (frecventa noua, emisie) cu mai putin de atat inainte de :00 / :30 o inlocuieste pe cea periodica.</summary>
     public static readonly TimeSpan RecentStamp = TimeSpan.FromSeconds(15);
 
+    /// <summary>Sub atat, o schimbare de acord nu pune ora cu frecventa (click-uri mici, A-TUNE pe acelasi semnal).</summary>
+    public const double MinFrequencyChangeHz = 10;
+
+    /// <summary>
+    /// Dupa o schimbare de acord: ora cu frecventa doar daca Mark-ul s-a mutat cu cel putin 10 Hz fata
+    /// de ultima ora cu frecventa (<paramref name="lastHz"/> null = prima). Frecventa e cea RF a Mark-ului
+    /// sau, fara statie, tonul audio Mark.
+    /// </summary>
+    public static bool FrequencyChanged(double? lastHz, double nowHz) =>
+        lastHz is not { } last || Math.Abs(nowHz - last) >= MinFrequencyChangeHz;
+
     /// <summary>Ultimul :00 sau :30 cel mult egal cu <paramref name="utc"/>.</summary>
     public static DateTime LastBoundary(DateTime utc) =>
         new(utc.Ticks - utc.Ticks % Period.Ticks, utc.Kind);

@@ -48,7 +48,7 @@ Ora UTC sta pe un rand al ei, textul incepe pe randul de dedesubt (verde la rece
 CQ CQ DE YO9VA YO9VA K
 ```
 
-- **Schimbare de acord / frecventa** (click sau rotita pe waterfall, A-TUNE, NORM/REV, orice QSY, VFO-ul statiei; nu deriva AFC): ora si **frecventa Mark-ului pe RF** in kHz, inaintea primului text decodat dupa schimbare. Fara statie conectata doar ora: `[12:34:56]:`.
+- **Schimbare de acord / frecventa** (click sau rotita pe waterfall, A-TUNE, NORM/REV, orice QSY, VFO-ul statiei; nu deriva AFC): ora si **frecventa Mark-ului pe RF** in kHz, inaintea primului text decodat dupa schimbare - doar daca Mark-ul s-a mutat cu **cel putin 10 Hz** fata de ultima ora cu frecventa (un click mic sau A-TUNE pe acelasi semnal nu pun ora). Fara statie conectata doar ora: `[12:34:56]:` (pragul de 10 Hz se aplica tonului audio).
 - **Periodic, la :00 si :30** din fiecare minut, fara sa rupa traficul: daca la :00 / :30 se decodeaza, asteapta o **pauza de 3 s**; daca in **10 s** nu vine nicio pauza, trece oricum pe rand nou. Daca nu se decodeaza nimic, nu se pune nimic (ora vine in fata primului text). O ora pusa cu mai putin de 15 s inainte (frecventa noua, emisie) o inlocuieste pe cea periodica.
 - **Trecerea receptie / emisie**: primul text dupa schimbare primeste ora.
 - **Emisie**: fiecare emisie noua (dupa o pauza de cel putin 5 s) incepe cu ora.

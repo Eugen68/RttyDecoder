@@ -179,11 +179,13 @@ public sealed partial class RttyDecoderViewModel
     private bool CanQsy() =>
         _rig != null && _rigState.Connected && RigMath.QsyDial(_rigState.FrequencyHz, _rigState.Mode, 1000, 2000) != null;
 
-    /// <summary>Frecventa Mark-ului pe RF in kHz ("3505.20") pentru ora din terminal; null fara statie.</summary>
+    /// <summary>Frecventa Mark-ului pe RF (Hz) pentru ora din terminal; null fara statie.</summary>
+    public double? StampFrequencyHz =>
+        _rig != null && _rigState.Connected ? AudioToRf(_rigState.FrequencyHz, _rigState.Mode, MarkFrequencyHz) : null;
+
+    /// <summary>"3505.20" (kHz) pentru ora din terminal; null fara statie.</summary>
     public string? StampFrequencyText =>
-        _rig != null && _rigState.Connected && AudioToRf(_rigState.FrequencyHz, _rigState.Mode, MarkFrequencyHz) is { } hz
-            ? (hz / 1000).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
-            : null;
+        StampFrequencyHz is { } hz ? (hz / 1000).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : null;
 
     /// <summary>Unde e acum semnalul decodat (statia, perechea decodorului) - pentru lista statiilor.</summary>
     private SignalSpot CurrentSpot()

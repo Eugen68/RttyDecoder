@@ -60,4 +60,15 @@ public class TerminalStampTests
         Assert.Equal("[12:34:56]:", TerminalStamps.Header(T(34, 56), null));
         Assert.Equal("[12:34:56] [3505.20]:", TerminalStamps.Header(T(34, 56), "3505.20"));
     }
+
+    [Theory]
+    [InlineData(null, 3_505_200.0, true)]        // prima
+    [InlineData(3_505_200.0, 3_505_209.0, false)] // 9 Hz: click mic, A-TUNE pe acelasi semnal
+    [InlineData(3_505_200.0, 3_505_210.0, true)]
+    [InlineData(3_505_200.0, 3_505_030.0, true)]  // NORM/REV: Mark-ul trece pe celalalt ton
+    [InlineData(2125.0, 2120.0, false)]           // fara statie: tonul audio
+    public void FrecventaDoarPeste10Hz(double? last, double now, bool stamp)
+    {
+        Assert.Equal(stamp, TerminalStamps.FrequencyChanged(last, now));
+    }
 }
