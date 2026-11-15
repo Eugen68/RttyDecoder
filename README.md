@@ -136,11 +136,12 @@ Conexiune statie:
   indicativ pe care ai dat click in terminal sau in lista), `{RST}` (599).
 - **Campul de emisie**: Enter = trimite. **LIVE**: emisia sta pornita si fiecare caracter pleaca
   imediat ce il scrii (intre ele, diddle = LTRS).
-- **Ora UTC in terminal**: fiecare mesaj incepe pe un rand nou cu `[HH:mm:ss]: ` - verde la
-  receptie, rosu la emisie. Mesaj nou = dupa o pauza de cel putin 5 s, la trecerea intre receptie
-  si emisie si (la receptie) dupa orice schimbare de acord: click/rotita pe waterfall, A-TUNE,
-  NORM/REV, QSY sau VFO-ul statiei (nu si deriva AFC). Sus, dupa volumul monitorizarii, ceasurile
-  **UTC** si **LOCAL**.
+- **Ora UTC in terminal**, pe un rand al ei (textul dedesubt), verde la receptie si rosu la emisie:
+  dupa orice schimbare de acord / frecventa (click/rotita pe waterfall, A-TUNE, NORM/REV, QSY sau
+  VFO-ul statiei; nu si deriva AFC) cu frecventa Mark-ului pe RF - `[12:34:56] [3505.20]:`; periodic
+  la :00 si :30 fara sa rupa traficul (asteapta o pauza de 3 s, cel mult 10 s; sarita daca s-a pus o
+  ora cu mai putin de 15 s inainte); la trecerea receptie / emisie; la fiecare emisie noua. Sus, dupa
+  volumul monitorizarii, ceasurile **UTC** si **LOCAL**.
 - Mesajele trimise in timpul unei emisii se adauga la coada (un singur PTT). **STOP (Esc)** opreste
   imediat. Textul trimis apare in terminal cu galben; cat timp se emite, decodarea sta.
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),

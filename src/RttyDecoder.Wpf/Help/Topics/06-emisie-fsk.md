@@ -41,7 +41,18 @@ Metoda se alege in **Setari > Setari transmisie**:
 
 ## Ora in terminal
 
-Fiecare mesaj incepe pe un rand nou cu `[HH:mm:ss]` UTC - verde la receptie, rosu la emisie. Mesaj nou = dupa o pauza de cel putin 5 s, la trecerea receptie/emisie si dupa orice schimbare de acord.
+Ora UTC sta pe un rand al ei, textul incepe pe randul de dedesubt (verde la receptie, rosu la emisie):
+
+```
+[12:34:56] [3505.20]:
+CQ CQ DE YO9VA YO9VA K
+```
+
+- **Schimbare de acord / frecventa** (click sau rotita pe waterfall, A-TUNE, NORM/REV, orice QSY, VFO-ul statiei; nu deriva AFC): ora si **frecventa Mark-ului pe RF** in kHz, inaintea primului text decodat dupa schimbare. Fara statie conectata doar ora: `[12:34:56]:`.
+- **Periodic, la :00 si :30** din fiecare minut, fara sa rupa traficul: daca la :00 / :30 se decodeaza, asteapta o **pauza de 3 s**; daca in **10 s** nu vine nicio pauza, trece oricum pe rand nou. Daca nu se decodeaza nimic, nu se pune nimic (ora vine in fata primului text). O ora pusa cu mai putin de 15 s inainte (frecventa noua, emisie) o inlocuieste pe cea periodica.
+- **Trecerea receptie / emisie**: primul text dupa schimbare primeste ora.
+- **Emisie**: fiecare emisie noua (dupa o pauza de cel putin 5 s) incepe cu ora.
+- Dupa un mesaj al aplicatiei, urmatorul text primeste ora.
 
 ## Derularea terminalului
 

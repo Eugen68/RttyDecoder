@@ -304,7 +304,10 @@ public partial class RttyDecoderView : UserControl
 
     private enum Speaker { None, Rx, Tx }
 
-    /// <summary>Peste atata pauza, urmatorul mesaj (receptie sau emisie) incepe cu ora.</summary>
+    /// <summary>Tag-ul randurilor cu ora (<c>[HH:mm:ss]:</c>), ca sa nu fie luate drept text decodat.</summary>
+    private static readonly object StampMarker = new();
+
+    /// <summary>La emisie: peste atata pauza, urmatoarea emisie incepe cu ora.</summary>
     private static readonly TimeSpan StampGap = TimeSpan.FromSeconds(5);
 
     private static readonly Brush StampTxBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
@@ -312,20 +315,23 @@ public partial class RttyDecoderView : UserControl
     private Speaker _lastSpeaker = Speaker.None;
     private DateTime _lastRxUtc = DateTime.MinValue;
     private DateTime _lastTxUtc = DateTime.MinValue;
+    private DateTime _lastStampUtc = DateTime.MinValue;
     private bool _stampNextRx = true;
 
-    /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora.</summary>
+    /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora si frecventa.</summary>
     private void OnTuningChanged() { _stampNextRx = true; Waterfall.MarkBoundary("ACORD / QSY"); }
 
     /// <summary>
-    /// Pune ora in fata textului daca e un mesaj nou: dupa o pauza de cel putin 5 s, la trecerea
-    /// intre receptie si emisie, sau (la receptie) dupa o schimbare de acord. Ora incepe un rand nou;
-    /// spatiile / randurile goale de la inceputul mesajului se sar. Un text doar din spatii nu conteaza
-    /// ca activitate. <paramref name="beforeStamp"/> incheie ce era inceput (cuvantul neterminat).
+    /// Pune ora (pe un rand al ei, textul dedesubt) daca e un mesaj nou:
+    /// <list type="bullet">
+    /// <item>la trecerea intre receptie si emisie;</item>
+    /// <item>la receptie, dupa o schimbare de acord / frecventa: <c>[12:34:56] [3505.20]:</c> (frecventa Mark-ului pe RF; fara statie doar ora);</item>
+    /// <item>la receptie, periodic la :00 si :30 (<see cref="TerminalStamps.PeriodicDue"/>): fara sa rupa traficul - asteapta o pauza de 3 s, cel mult 10 s;</item>
+    /// <item>la emisie, dupa o pauza de cel putin 5 s (fiecare emisie noua).</item>
+    /// </list>
+    /// Spatiile / randurile goale de la inceputul mesajului se sar; un text doar din spatii nu conteaza ca
+    /// activitate. <paramref name="beforeStamp"/> incheie ce era inceput (cuvantul neterminat).
     /// </summary>
-    /// <summary>Tag-ul randurilor cu ora (<c>[HH:mm:ss]: </c>), ca sa nu fie luate drept text decodat.</summary>
-    private static readonly object StampMarker = new();
-
     private string MaybeStamp(string text, Speaker who, Action beforeStamp)
     {
         int first = 0;
@@ -333,8 +339,10 @@ public partial class RttyDecoderView : UserControl
         if (first == text.Length) return text;
 
         var now = DateTime.UtcNow;
-        var last = who == Speaker.Rx ? _lastRxUtc : _lastTxUtc;
-        bool need = who != _lastSpeaker || now - last >= StampGap || (who == Speaker.Rx && _stampNextRx);
+        bool tuning = who == Speaker.Rx && _stampNextRx;
+        bool need = who != _lastSpeaker || tuning || (who == Speaker.Rx
+            ? TerminalStamps.PeriodicDue(now, _lastRxUtc, _lastStampUtc)
+            : now - _lastTxUtc >= StampGap);
         if (who == Speaker.Rx)
         {
             _lastRxUtc = now;
@@ -348,19 +356,22 @@ public partial class RttyDecoderView : UserControl
         if (!need) return text;
 
         beforeStamp();
+        _lastStampUtc = now;
         bool lineStart = _text.Length == 0 || _text[^1] == '\n';
-        string stamp = $"[{now:HH:mm:ss}]: ";
+        string? freq = tuning ? _vm?.StampFrequencyText : null;
+        string stamp = TerminalStamps.Header(now, freq);
         var inlines = TerminalParagraph.Inlines;
         if (!lineStart)
         {
             inlines.Add(new LineBreak());
             _text.Append('\n');
         }
-        // marcata: cifrele orei nu se preiau in Contest (click / evidentiere)
+        // marcata: cifrele orei / frecventei nu se preiau in Contest (click / evidentiere)
         var run = new Run(stamp) { Tag = StampMarker };
         if (who == Speaker.Tx) run.Foreground = StampTxBrush;   // la receptie: verdele textului
         inlines.Add(run);
-        _text.Append(stamp);
+        inlines.Add(new LineBreak());
+        _text.Append(stamp).Append('\n');
         _plain = null;
         return text.Substring(first);
     }
