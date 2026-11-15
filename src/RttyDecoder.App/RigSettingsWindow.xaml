@@ -172,13 +172,10 @@
                               ToolTip="FSK pentru RTTY, keying pentru CW" />
                 </Grid>
                 <CheckBox x:Name="InvertFskBox" Content="Inverseaza polaritatea FSK (pin activ = Space)" Margin="0,8,0,0"
-                          Checked="OnInvertFskChanged" Unchecked="OnInvertFskChanged"
                           Foreground="{StaticResource Rtty.Foreground}"
-                          ToolTip="Yaesu (FTDX10, FTX-1): nebifat. Icom (IC-7300 / MK2) pe setarile din fabrica: bifat. Se bifeaza singur cand alegi un model Icom in Hamlib." />
-                <TextBlock x:Name="InvertFskWarning" Foreground="Orange" TextWrapping="Wrap" Margin="20,2,0,0" Visibility="Collapsed"
-                           Text="Atentie: la Yaesu (FTDX10, FTX-1) bifa trebuie sa fie de obicei nebifata - altfel emisia iese inversata (sau trebuie inversat si TX-ul din meniul statiei)." />
+                          ToolTip="Depinde de statie (cu meniul RTTY TX polarity pe Normal): FTDX10 si IC-7300MK2 - bifat (testat); FTX-1 - nebifat (testat cu aplicatia Android). Daca nu esti decodat, schimba bifa." />
                 <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                           Text="La FTX-1 de obicei al doilea port (Standard): PTT pe un pin, manipularea pe celalalt (ex. PTT pe RTS, FSK pe DTR, ca in aplicatia Android). La IC-7300MK2 portul USB (B), cu USB SEND / USB Keying (RTTY) pe (B) in meniul statiei. PTT-ul se alege intr-un singur loc: aici sau la portul CAT. Polaritatea FSK: Yaesu nebifat, Icom bifat (testat: FTDX10, FTX-1, IC-7300MK2 pe setarile din fabrica)." />
+                           Text="La FTX-1 de obicei al doilea port (Standard): PTT pe un pin, manipularea pe celalalt (ex. PTT pe RTS, FSK pe DTR, ca in aplicatia Android). La IC-7300MK2 portul USB (B), cu USB SEND / USB Keying (RTTY) pe (B) in meniul statiei. PTT-ul se alege intr-un singur loc: aici sau la portul CAT. Polaritatea FSK depinde de statie (meniul TX polarity pe Normal): FTDX10 si IC-7300MK2 bifat, FTX-1 nebifat." />
             </StackPanel>
         </Border>
 

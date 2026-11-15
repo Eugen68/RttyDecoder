@@ -68,7 +68,6 @@ public partial class RigSettingsWindow : Window
         (settings.Kind switch { RigKind.YaesuCat => KindDirect, RigKind.OmniRig => KindOmni, RigKind.Hamlib => KindHamlib, _ => KindNone }).IsChecked = true;
         _updating = false;
         UpdatePanels();
-        UpdateInvertWarning();
     }
 
     /// <summary>Setarile alese (dupa ShowDialog() == true).</summary>
@@ -182,25 +181,13 @@ public partial class RigSettingsWindow : Window
 
     private void OnKindChanged(object sender, RoutedEventArgs e)
     {
-        // conexiunea directa e doar Yaesu: pin activ = Mark
-        if (!_updating && Kind == RigKind.YaesuCat) InvertFskBox.IsChecked = false;
         UpdatePanels();
-        UpdateInvertWarning();
-    }
-
-    private void OnInvertFskChanged(object sender, RoutedEventArgs e) => UpdateInvertWarning();
-
-    /// <summary>Conexiunea directa e Yaesu: bifa pusa e aproape sigur o greseala (de ex. ramasa de la Icom).</summary>
-    private void UpdateInvertWarning()
-    {
-        if (InvertFskWarning == null) return;
-        InvertFskWarning.Visibility = Kind == RigKind.YaesuCat && InvertFskBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Model ales din lista Hamlib: polaritatea FSK obisnuita a fabricantului (Icom = inversat).</summary>
     private void OnHamlibModelPicked(object? sender, EventArgs e)
     {
-        if (HamlibModelBox.SelectedItem is HamlibModel m) InvertFskBox.IsChecked = RigSettings.DefaultInvertFsk(m.Manufacturer);
+        if (HamlibModelBox.SelectedItem is HamlibModel m) InvertFskBox.IsChecked = RigSettings.DefaultInvertFsk(m.ToString());
     }
 
     private void OnHamlibStartChanged(object sender, RoutedEventArgs e) => UpdatePanels();

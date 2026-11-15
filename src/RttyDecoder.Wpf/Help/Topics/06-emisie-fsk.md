@@ -68,7 +68,7 @@ Poti derula in urma (rotita, bara) ca sa citesti ce s-a decodat; textul nou nu t
 | CR/LF automat | Da | La inceputul si sfarsitul emisiei |
 | Diddle | Da | In LIVE, LTRS continuu cand nu scrii |
 | QSY automat inainte de raspuns | Nu | Doar FSK. Vezi subiectul A-TUNE, polaritate si QSY |
-| AFSK: inverseaza tonurile | Nu | Mark pe celalalt ton. Polaritatea pinului FSK e in Conexiune statie (Yaesu nebifat, Icom bifat) |
+| AFSK: inverseaza tonurile | Nu | Mark pe celalalt ton. Polaritatea pinului FSK e in Conexiune statie (FTDX10 si IC-7300MK2 bifat, FTX-1 nebifat) |
 | Metoda | FSK | FSK sau AFSK |
 | Placa de iesire (AFSK) | implicita | Placa audio a statiei |
 | Nivel (AFSK) | 50% | Pana cand ALC-ul nu mai misca |

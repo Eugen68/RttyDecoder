@@ -164,9 +164,9 @@ Conexiune statie:
   FTDX10 <-> IC-7300MK2 cu instrumentele interne ale statiilor): Yaesu emite la fel in RTTY-L si
   RTTY-U, Icom la fel in RTTY si RTTY-R; RTTY-U (Yaesu) si RTTY-R (Icom) inverseaza doar receptia.
   Polaritatea **pinului FSK** tine de statie: Setari > Conexiune statie > "Inverseaza polaritatea
-  FSK" - Yaesu nebifat (pin activ = Mark), Icom pe setarile din fabrica bifat (pin activ = Space);
-  se bifeaza singur la un model Icom din lista Hamlib. Setarile vechi (bifa din Setari transmisie)
-  se muta automat acolo.
+  FSK", cu meniul TX polarity al statiei pe Normal - **FTDX10 si IC-7300MK2 bifat** (pin activ =
+  Space; FTDX10 testat intr-un concurs), **FTX-1 nebifat** (pin activ = Mark). Se pune singura la un
+  model Icom / FTDX-10 din lista Hamlib. Setarile vechi (bifa din Setari transmisie) se muta automat acolo.
 
 **Meniul** de sus:
 - **Fisier**: Deschide WAV (Ctrl+O), Salveaza textul (Ctrl+S), Salveaza lista statiilor (CSV), Iesire

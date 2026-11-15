@@ -78,7 +78,7 @@
         <TextBlock Text="Polaritatea" FontWeight="Bold" Margin="0,14,0,4" />
         <CheckBox x:Name="InvertBox" Content="AFSK: inverseaza tonurile (Mark pe celalalt ton)" />
         <TextBlock Style="{StaticResource Hint}" Margin="20,2,0,0"
-                   Text="AFSK: polaritatea standard se calculeaza din modul statiei; bifa doar daca vrei emisie inversata. FSK: polaritatea pinului tine de statie si se alege in Setari &gt; Conexiune statie (Yaesu nebifat, Icom bifat)." />
+                   Text="AFSK: polaritatea standard se calculeaza din modul statiei; bifa doar daca vrei emisie inversata. FSK: polaritatea pinului tine de statie si se alege in Setari &gt; Conexiune statie (FTDX10 si IC-7300MK2 bifat, FTX-1 nebifat)." />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Implicit" Width="90" Click="OnDefaults" />
             <Button Content="Anuleaza" Width="90" IsCancel="True" />

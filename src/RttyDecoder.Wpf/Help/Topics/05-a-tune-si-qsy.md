@@ -26,7 +26,7 @@ De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, c
 
 NORM/REV e **doar pentru receptie**. Emisia nu depinde de NORM/REV si nici de modul statiei - testat: FTDX10 si FTX-1 emit la fel in RTTY-L si RTTY-U, IC-7300MK2 la fel in RTTY si RTTY-R; modurile U (Yaesu) si RTTY-R (Icom) inverseaza doar receptia.
 
-Polaritatea **pinului FSK** tine de statie (Setari > Conexiune statie > Inverseaza polaritatea FSK): Yaesu ia pinul activ ca Mark (nebifat), Icom pe setarile din fabrica ca Space (bifat). Cu bifa potrivita, ambele emit standard (Mark sus) - testat FTDX10 <-> IC-7300MK2.
+Polaritatea **pinului FSK** tine de statie (Setari > Conexiune statie > Inverseaza polaritatea FSK), cu meniul TX polarity al statiei pe **Normal**: **FTDX10 si IC-7300MK2 bifat** (pin activ = Space; testat in emisie, FTDX10 intr-un concurs), **FTX-1 nebifat** (pin activ = Mark; testat cu aplicatia Android). Cu bifa potrivita emisia iese standard (Mark sus). Daca nu esti decodat, schimba intai bifa.
 
 ## QSY automat inainte de raspuns
 
