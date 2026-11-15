@@ -311,6 +311,8 @@ public partial class RttyDecoderView : UserControl
     private static readonly TimeSpan StampGap = TimeSpan.FromSeconds(5);
 
     private static readonly Brush StampTxBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+    /// <summary>Ora la receptie: albastru deschis, separat de textul verde.</summary>
+    private static readonly Brush StampRxBrush = new SolidColorBrush(Color.FromRgb(0x4F, 0xC3, 0xF7));
 
     private Speaker _lastSpeaker = Speaker.None;
     private DateTime _lastRxUtc = DateTime.MinValue;
@@ -372,7 +374,7 @@ public partial class RttyDecoderView : UserControl
         }
         // marcata: cifrele orei / frecventei nu se preiau in Contest (click / evidentiere)
         var run = new Run(stamp) { Tag = StampMarker };
-        if (who == Speaker.Tx) run.Foreground = StampTxBrush;   // la receptie: verdele textului
+        run.Foreground = who == Speaker.Tx ? StampTxBrush : StampRxBrush;
         inlines.Add(run);
         inlines.Add(new LineBreak());
         _text.Append(stamp).Append('\n');

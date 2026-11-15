@@ -136,7 +136,7 @@ Conexiune statie:
   indicativ pe care ai dat click in terminal sau in lista), `{RST}` (599).
 - **Campul de emisie**: Enter = trimite. **LIVE**: emisia sta pornita si fiecare caracter pleaca
   imediat ce il scrii (intre ele, diddle = LTRS).
-- **Ora UTC in terminal**, pe un rand al ei (textul dedesubt), verde la receptie si rosu la emisie:
+- **Ora UTC in terminal**, pe un rand al ei (textul dedesubt), albastra la receptie si rosie la emisie:
   dupa orice schimbare de acord / frecventa (click/rotita pe waterfall, A-TUNE, NORM/REV, QSY sau
   VFO-ul statiei; nu si deriva AFC) cu frecventa Mark-ului pe RF - `[12:34:56] [3505.20]:`; periodic
   la :00 si :30 fara sa rupa traficul (asteapta o pauza de 3 s, cel mult 10 s; sarita daca s-a pus o

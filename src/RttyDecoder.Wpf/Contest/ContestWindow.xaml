@@ -87,7 +87,7 @@
                     <StackPanel><TextBlock Text="Indicativ" /><TextBox x:Name="CallBox" Width="145" FontSize="18" FontWeight="Bold" CharacterCasing="Upper"
                         Text="{Binding Entry.Callsign, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanChangeCall}" /></StackPanel>
                     <StackPanel><TextBlock Text="Frecventa RF · kHz" /><TextBox Width="115" Text="{Binding Entry.FrequencyKhz, UpdateSourceTrigger=PropertyChanged}"
-                        IsReadOnly="{Binding Entry.UseCat}" ToolTip="Frecventa RF a statiei, nu frecventa audio Mark/Space" /></StackPanel>
+                        IsReadOnly="{Binding Entry.UseCat}" ToolTip="Frecventa RF a semnalului (Mark-ul pe RF, ca in lista statiilor), nu VFO-ul si nu tonul audio. In AFSK VFO-ul e cu ~1,5-2 kHz mai jos." /></StackPanel>
                     <CheckBox Content="CAT" IsChecked="{Binding Entry.UseCat}" VerticalAlignment="Center" Margin="0,15,12,0" ToolTip="Citeste frecventa statiei conectate; fara CAT, debifati si introduceti frecventa manual" />
                     <StackPanel><TextBlock Text="RST primit" /><TextBox Width="65" Text="{Binding Entry.Report, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     <StackPanel><TextBlock Text="Nr. primit" /><TextBox x:Name="SerialBox" Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>

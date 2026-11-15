@@ -41,7 +41,7 @@ Metoda se alege in **Setari > Setari transmisie**:
 
 ## Ora in terminal
 
-Ora UTC sta pe un rand al ei, textul incepe pe randul de dedesubt (verde la receptie, rosu la emisie):
+Ora UTC sta pe un rand al ei, textul incepe pe randul de dedesubt (**albastra** la receptie, rosie la emisie; textul decodat ramane verde, cel trimis galben):
 
 ```
 [12:34:56] [3505.20]:

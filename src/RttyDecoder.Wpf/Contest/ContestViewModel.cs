@@ -496,9 +496,14 @@ public sealed class ContestViewModel : ObservableObject
     private readonly Dictionary<string, ContestCallState> _callStates = new(StringComparer.OrdinalIgnoreCase);
     private string _callStatesBand = "";
 
+    // jurnalul punctat o singura data pe versiune (HamContest StationPreviewContext): culorile a sute de
+    // indicative nu mai repuncteaza tot jurnalul fiecare
+    private StationPreviewContext? _previewContext;
+
     private void InvalidateCallStates()
     {
         _callStates.Clear();
+        _previewContext = null;
         JournalChanged?.Invoke();
     }
 
@@ -535,7 +540,8 @@ public sealed class ContestViewModel : ObservableObject
             var rules = (UdcContestRules)_session!.Rules;
             var station = _resolver.Resolve(call, rules.RequiredCountryIdentityKind);
             // HamContest evalueaza statia fara schimbul primit (Score cere un QSO complet)
-            var preview = rules.Preview(_session.Contacts, _session.OwnStation, station, frequencyHz, ContactMode.RTTY);
+            _previewContext ??= rules.CreatePreview(_session.Contacts, _session.OwnStation);
+            var preview = _previewContext.Evaluate(station, frequencyHz, ContactMode.RTTY);
             if (preview.IsWorked) return ContestCallState.Dupe;
             return preview.NewMultipliers.Any(m => m.CountsForScore) ? ContestCallState.NewMultiplier : ContestCallState.Needed;
         }
