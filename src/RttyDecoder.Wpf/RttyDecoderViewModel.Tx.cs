@@ -353,7 +353,16 @@ public sealed partial class RttyDecoderViewModel
         {
             await Task.Delay(AutoQsySettleMs);   // continuarea revine pe firul UI
             if (!ReferenceEquals(_afterQsy, batch)) return;   // STOP intre timp
+            // fara confirmarea frecventei noi, emisia ar pleca alaturi de corespondent: nu emitem
+            long? target = QsyTarget;
+            bool confirmed = await WaitQsyConfirmedAsync();
+            if (!ReferenceEquals(_afterQsy, batch)) return;
             _afterQsy = null;
+            if (!confirmed && target is { } d)
+            {
+                Message = QsyNotConfirmedText(d) + " Emisia NU a pornit.";
+                return;
+            }
             if (!CanTransmit()) return;
             PrepareTx();
             foreach (var text in batch) _tx.Send(text);

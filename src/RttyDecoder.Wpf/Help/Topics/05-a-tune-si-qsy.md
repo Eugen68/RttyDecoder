@@ -15,6 +15,14 @@ Daca un A-TUNE a calculat deja frecventa (o vezi la `TX:`), dublu click-ul duce 
 
 De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, cu tonurile fixe 2125 / 2295. La **AFSK** nu e nevoie de QSY: emisia pleaca pe perechea decodorului, deci A-TUNE singur e destul.
 
+## Confirmarea QSY-ului
+
+Dupa orice QSY (dublu click pe A-TUNE, Shift+click pe waterfall, dublu click in lista statiilor, QSY automat) programul verifica, in **1,5 s**, ca statia raporteaza frecventa noua. Daca frecventa citita e tot cea veche, apare: *"ATENTIE: statia nu a confirmat QSY-ul..."*.
+
+- Se intampla mai ales cand intre statie si program e alt program (Win4Yaesu, OmniRig): daca el pierde legatura cu statia, raspunde in continuare din memorie, cu frecventa veche - programul pare conectat, dar frecventa nu se mai misca. Verifica legatura lui cu statia.
+- La **QSY-ul automat inainte de emisie**, fara confirmare **emisia nu porneste** (altfel ar pleca alaturi de corespondent).
+- Daca rotesti VFO-ul intre timp, nu apare avertismentul.
+
 ## RTTY-L si RTTY-U
 
 - O statie de pe aceeasi frecventa se aude pe 2125 / 2295 in **ambele** moduri.

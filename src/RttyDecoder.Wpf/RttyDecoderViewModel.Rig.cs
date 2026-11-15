@@ -153,11 +153,73 @@ public sealed partial class RttyDecoderViewModel
         UpdateRigText();
     }
 
+    // ------------------------------------------------------------------
+    // Confirmarea QSY-ului: statia trebuie sa raporteze frecventa noua
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Cat asteapta confirmarea unui QSY. Un program intermediar (Win4Yaesu, OmniRig) poate raspunde din
+    /// memorie cu frecventa veche cand a pierdut legatura cu statia: atunci QSY-ul nu se confirma.
+    /// </summary>
+    public const int QsyConfirmMs = 1500;
+
+    private int _qsyCheck;
+    private (long Dial, long From)? _qsyPending;
+
+    /// <summary>Frecventa ultimului QSY inca neconfirmat, sau null.</summary>
+    private long? QsyTarget => _qsyPending?.Dial;
+
+    /// <summary>
+    /// QSY-ul e confirmat (sau nu mai conteaza): statia raporteaza frecventa ceruta (+-2 Hz), sau s-a
+    /// mutat in alta parte (VFO rotit intre timp). Neconfirmat: fara statie, sau tot pe frecventa veche.
+    /// </summary>
+    public static bool QsyConfirmed(long dial, long from, RigState state) =>
+        state.Connected && (Math.Abs(state.FrequencyHz - dial) <= 2 || Math.Abs(state.FrequencyHz - from) > 2);
+
+    /// <summary>Toate QSY-urile trec pe aici: comanda, apoi verificarea dupa <see cref="QsyConfirmMs"/>.</summary>
+    private void SendQsy(long dial)
+    {
+        long from = _rigState.FrequencyHz;
+        _rig!.SetFrequency(dial);
+        if (Math.Abs(dial - from) <= 2) return;
+        _qsyPending = (dial, from);
+        int id = ++_qsyCheck;
+        _ = CheckQsyAsync(id, dial, from);
+    }
+
+    private async Task CheckQsyAsync(int id, long dial, long from)
+    {
+        await Task.Delay(QsyConfirmMs);   // continuarea revine pe firul UI
+        if (id != _qsyCheck) return;      // alt QSY intre timp
+        _qsyPending = null;
+        if (QsyConfirmed(dial, from, _rigState)) return;
+        Message = QsyNotConfirmedText(dial);
+    }
+
+    private string QsyNotConfirmedText(long dial) =>
+        $"ATENTIE: statia nu a confirmat QSY-ul pe {RigMath.FormatFrequency(dial)} - frecventa citita e tot " +
+        $"{RigMath.FormatFrequency(_rigState.FrequencyHz)}. Verifica legatura CAT (Win4Yaesu / OmniRig / Hamlib) si frecventa de pe statie.";
+
+    /// <summary>
+    /// Asteapta (pe firul UI) confirmarea ultimului QSY, cel mult <see cref="QsyConfirmMs"/>. True = confirmat
+    /// sau niciun QSY in curs.
+    /// </summary>
+    private async Task<bool> WaitQsyConfirmedAsync()
+    {
+        if (_qsyPending is not { } q) return true;
+        for (int waited = 0; waited < QsyConfirmMs; waited += 50)
+        {
+            if (Math.Abs(_rigState.FrequencyHz - q.Dial) <= 2 && _rigState.Connected) return true;
+            await Task.Delay(50);
+        }
+        return QsyConfirmed(q.Dial, q.From, _rigState);
+    }
+
     /// <summary>Statia pe frecventa pentru emisie, decodorul pe perechea 2125 / 2295.</summary>
     private void ApplyTxQsy(long dial)
     {
         _pendingQsyDial = null;
-        _rig!.SetFrequency(dial);
+        SendQsy(dial);
         // perechea semnalului vine pe 2125 / 2295: Mark-ul pe tonul de jos (NORM) sau de sus (REV)
         // (dupa SyncFromSettings deja in coada)
         double mark = MarkAfterQsy(Reverse);
@@ -241,7 +303,7 @@ public sealed partial class RttyDecoderViewModel
         }
         double lower = fsk ? FskMarkHz : DecoderLowerHz;
         double newMark = Math.Round(spot.Reverse ? lower + RttySettings.ShiftHz : lower, 1);
-        _rig!.SetFrequency(dial);
+        SendQsy(dial);
         _dispatcher.BeginInvoke(() => MarkFrequencyHz = newMark, System.Windows.Threading.DispatcherPriority.Background);
         TuningChanged?.Invoke();
         Message = $"QSY {row.Call}: statia pe {RigMath.FormatFrequency(dial)}" +
@@ -257,7 +319,7 @@ public sealed partial class RttyDecoderViewModel
             Message = "QSY: doar cu statia conectata, in USB/LSB/DATA/RTTY.";
             return;
         }
-        _rig.SetFrequency(dial);
+        SendQsy(dial);
         Message = $"QSY: statia pe {RigMath.FormatFrequency(dial)} - semnalul de la {audioHz:0} Hz vine pe Mark ({MarkFrequencyHz:0} Hz).";
     }
 

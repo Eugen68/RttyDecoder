@@ -101,3 +101,30 @@ public class StationQsyTests
         Assert.Null(RttyDecoderViewModel.SpotDial(spot with { DialHz = 0 }, 3_505_000, RigMode.RttyL, true, 2125));
     }
 }
+
+/// <summary>Confirmarea QSY-ului: statia trebuie sa raporteze frecventa noua.</summary>
+public class QsyConfirmTests
+{
+    private static RigState At(long hz, bool connected = true) => new(connected, hz, RigMode.RttyL, false, "conectat");
+
+    [Fact]
+    public void FrecventaNouaConfirma()
+    {
+        Assert.True(RttyDecoderViewModel.QsyConfirmed(7_042_370, 7_043_920, At(7_042_370)));
+        Assert.True(RttyDecoderViewModel.QsyConfirmed(7_042_370, 7_043_920, At(7_042_372)));   // +-2 Hz
+    }
+
+    [Fact]
+    public void FrecventaVecheNuConfirma()
+    {
+        // Win4Yaesu a pierdut statia si raspunde din memorie: tot frecventa veche
+        Assert.False(RttyDecoderViewModel.QsyConfirmed(7_042_370, 7_043_920, At(7_043_920)));
+        Assert.False(RttyDecoderViewModel.QsyConfirmed(7_042_370, 7_043_920, At(7_042_370, connected: false)));
+    }
+
+    [Fact]
+    public void VfoRotitIntreTimpNuEAvertisment()
+    {
+        Assert.True(RttyDecoderViewModel.QsyConfirmed(7_042_370, 7_043_920, At(7_045_000)));
+    }
+}
