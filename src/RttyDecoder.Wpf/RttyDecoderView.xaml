@@ -317,12 +317,12 @@
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
+                        <DataGridTextColumn Header="Frecventa" Binding="{Binding FrequencyText}" Width="Auto" />
+                        <DataGridTextColumn Header="UTC" Binding="{Binding LastHeardUtc, StringFormat=HH:mm:ss}" Width="Auto" />
                         <DataGridTextColumn Header="Tara" Binding="{Binding Country}" Width="*" />
                         <DataGridTextColumn Header="Cont" Binding="{Binding Continent}" Width="Auto" />
                         <DataGridTextColumn Header="CQ" Binding="{Binding CqZone}" Width="Auto" />
                         <DataGridTextColumn Header="Nr" Binding="{Binding Count}" Width="Auto" />
-                        <DataGridTextColumn Header="Frecventa" Binding="{Binding FrequencyText}" Width="Auto" />
-                        <DataGridTextColumn Header="UTC" Binding="{Binding LastHeardUtc, StringFormat=HH:mm:ss}" Width="Auto" />
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

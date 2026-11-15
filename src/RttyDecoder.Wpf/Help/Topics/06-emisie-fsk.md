@@ -43,6 +43,10 @@ Metoda se alege in **Setari > Setari transmisie**:
 
 Fiecare mesaj incepe pe un rand nou cu `[HH:mm:ss]` UTC - verde la receptie, rosu la emisie. Mesaj nou = dupa o pauza de cel putin 5 s, la trecerea receptie/emisie si dupa orice schimbare de acord.
 
+## Derularea terminalului
+
+Poti derula in urma (rotita, bara) ca sa citesti ce s-a decodat; textul nou nu te muta de acolo. Dupa **15 s fara derulare**, terminalul revine singur la capat, la textul nou (nu cat tii butonul mouse-ului apasat, de exemplu la o selectie).
+
 ## Setari > Setari transmisie
 
 | Setare | Implicit | Ce face |

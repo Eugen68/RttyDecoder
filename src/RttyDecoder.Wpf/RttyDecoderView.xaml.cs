@@ -46,6 +46,10 @@ public partial class RttyDecoderView : UserControl
             System.Windows.Threading.DispatcherPriority.Background, (_, _) => UpdateLevels(), Dispatcher);
         Loaded += (_, _) => _levelTimer.Start();
         Unloaded += (_, _) => _levelTimer.Stop();
+        _scrollBackTimer = new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(1),
+            System.Windows.Threading.DispatcherPriority.Background, (_, _) => ReturnToLatestText(), Dispatcher);
+        Loaded += (_, _) => _scrollBackTimer.Start();
+        Unloaded += (_, _) => _scrollBackTimer.Stop();
         // F1..F8 si Esc oriunde in fereastra, nu doar cand modulul are focusul
         Loaded += (_, _) =>
         {
@@ -577,7 +581,28 @@ public partial class RttyDecoderView : UserControl
     private void OnTerminalMouseLeave(object sender, MouseEventArgs e) => HideGrabHighlight();
 
     /// <summary>Textul s-a mutat sub mouse: evidentierea veche nu mai e pe cuvant.</summary>
-    private void OnTerminalScrolled(object sender, ScrollChangedEventArgs e) => HideGrabHighlight();
+    private void OnTerminalScrolled(object sender, ScrollChangedEventArgs e)
+    {
+        HideGrabHighlight();
+        // derulat de utilizator (textul nou schimba doar inaltimea, nu pozitia, cand nu esti la capat)
+        if (e.VerticalChange != 0) _lastTerminalScroll = DateTime.UtcNow;
+    }
+
+    /// <summary>Dupa atata timp fara derulare, terminalul revine singur la textul nou.</summary>
+    public static readonly TimeSpan ScrollBackDelay = TimeSpan.FromSeconds(15);
+
+    private readonly System.Windows.Threading.DispatcherTimer _scrollBackTimer;
+    private DateTime _lastTerminalScroll;
+
+    /// <summary>Ai derulat in urma si nu mai umbli de 15 s: terminalul sare la capat (textul nou).</summary>
+    private void ReturnToLatestText()
+    {
+        bool atEnd = Terminal.VerticalOffset + Terminal.ViewportHeight >= Terminal.ExtentHeight - 2;
+        if (atEnd || DateTime.UtcNow - _lastTerminalScroll < ScrollBackDelay) return;
+        // nu in timpul unei selectii cu mouse-ul
+        if (Mouse.LeftButton == MouseButtonState.Pressed) return;
+        Terminal.ScrollToEnd();
+    }
 
     private void OnTerminalDoubleClick(object sender, MouseButtonEventArgs e)
     {

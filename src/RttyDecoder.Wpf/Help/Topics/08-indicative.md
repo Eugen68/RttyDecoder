@@ -17,7 +17,7 @@ Indicativele din textul decodat sunt evidentiate:
 
 ## Lista statiilor
 
-Butonul **Statii**: tara, continent, zona CQ, de cate ori a fost auzita, **Frecventa** (Mark-ul pe RF, in kHz, la ultima decodare - doar cu statia conectata) si **UTC** (ultima decodare). Se sorteaza pe orice coloana; **Fisier > Salveaza lista statiilor (CSV)**. **Goleste** sterge lista.
+Butonul **Statii**: indicativul, **Frecventa** (Mark-ul pe RF, in kHz, la ultima decodare - doar cu statia conectata), **UTC** (ultima decodare), apoi tara, continent, zona CQ si de cate ori a fost auzita. Se sorteaza pe orice coloana; **Fisier > Salveaza lista statiilor (CSV)**. **Goleste** sterge lista.
 
 - **Click**: ca in terminal (clipboard, `{CALL}`, fereastra Contest).
 - **Dublu click = QSY** pe frecventa unde a fost auzit, cu NORM/REV-ul lui:

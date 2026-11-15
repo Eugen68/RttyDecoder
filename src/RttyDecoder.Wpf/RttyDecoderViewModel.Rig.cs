@@ -184,7 +184,8 @@ public sealed partial class RttyDecoderViewModel
     {
         bool rig = _rig != null && _rigState.Connected;
         return new SignalSpot(rig ? _rigState.FrequencyHz : 0, rig ? _rigState.Mode : RigMode.Unknown, DecoderLowerHz, Reverse,
-            rig ? RigMath.ToneToRf(_rigState.FrequencyHz, _rigState.Mode, MarkFrequencyHz) : null);
+            // in RTTY afisajul statiei e Mark-ul unei statii acordate exact: AudioToRf (ca la cursorul waterfall-ului)
+            rig ? AudioToRf(_rigState.FrequencyHz, _rigState.Mode, MarkFrequencyHz) : null);
     }
 
     /// <summary>
