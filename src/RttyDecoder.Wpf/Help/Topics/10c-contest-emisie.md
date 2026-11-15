@@ -1,6 +1,6 @@
 # Contest: macro-uri, seriale si emisie
 
-## Tastele F1-F4
+## Tastele F1-F7
 
 **S&P** debifat = **Run**; bifat = **Search & Pounce**. Fiecare mod are setul lui de macro-uri:
 
@@ -10,6 +10,11 @@
 | F2 | Raportul si schimbul, cu serialul fixat | Schimbul tau |
 | F3 | AGN AGN PSE | AGN AGN PSE |
 | F4 | TU | TU |
+| F5 | NR? NR? | NR? NR? |
+| F6 | CALL? CALL? | CALL? CALL? |
+| F7 | QRZ? DE indicativul tau | TU 73 GL |
+
+F5-F7 sunt mesaje libere: click dreapta pe buton = editare (variabilele `{MYCALL}`, `{CALL}`, `{RST}`). Fisierele de macro-uri mai vechi (doar F1-F4) primesc automat F5-F7 implicite.
 | Esc | STOP emisie | STOP emisie |
 
 - **Mouse-ul deasupra** unui buton F arata textul care pleaca (serialul e estimat pana la fixare).

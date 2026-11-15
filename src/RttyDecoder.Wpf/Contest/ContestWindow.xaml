@@ -92,7 +92,13 @@
                     <StackPanel><TextBlock Text="RST primit" /><TextBox Width="65" Text="{Binding Entry.Report, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     <StackPanel><TextBlock Text="Nr. primit" /><TextBox x:Name="SerialBox" Width="75" Text="{Binding Entry.Serial, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     <StackPanel><TextBlock Text="Schimb primit" /><TextBox x:Name="ExchangeBox" Width="135" Text="{Binding Entry.Exchange, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                    <StackPanel><TextBlock Text="Ora UTC (gol = acum)" /><TextBox Width="160" Text="{Binding Entry.TimeUtc, UpdateSourceTrigger=PropertyChanged}" ToolTip="yyyy-MM-dd HH:mm:ss" /></StackPanel>
+                    <StackPanel><TextBlock Text="Ora UTC (gol = acum)" />
+                        <Grid Width="160">
+                            <TextBox x:Name="TimeBox" Text="{Binding Entry.TimeUtc, UpdateSourceTrigger=PropertyChanged}" ToolTip="yyyy-MM-dd HH:mm:ss. Gol = ora logarii (cea gri)." />
+                            <!-- gol: ora UTC curenta, gri, pana scrii ceva -->
+                            <TextBlock x:Name="TimeHint" IsHitTestVisible="False" Foreground="#7A7A7A" VerticalAlignment="Center" Margin="5,0,0,0" />
+                        </Grid>
+                    </StackPanel>
                 </WrapPanel>
                 <Expander Header="Schimb suplimentar (dupa definitia UDC)" IsExpanded="True">
                     <WrapPanel Margin="0,5,0,0">
@@ -131,6 +137,18 @@
                     <Border Background="Transparent" Tag="3" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
                         <Border.ToolTip><ToolTip Content="Macro F4" /></Border.ToolTip>
                         <Button Content="{Binding F4Label}" Command="{Binding TuCommand}" />
+                    </Border>
+                    <Border Background="Transparent" Tag="4" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F5" /></Border.ToolTip>
+                        <Button Content="{Binding F5Label}" Command="{Binding F5Command}" />
+                    </Border>
+                    <Border Background="Transparent" Tag="5" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F6" /></Border.ToolTip>
+                        <Button Content="{Binding F6Label}" Command="{Binding F6Command}" />
+                    </Border>
+                    <Border Background="Transparent" Tag="6" MouseRightButtonUp="OnMacroEdit" ToolTipOpening="OnMacroTooltip">
+                        <Border.ToolTip><ToolTip Content="Macro F7" /></Border.ToolTip>
+                        <Button Content="{Binding F7Label}" Command="{Binding F7Command}" />
                     </Border>
                     <Button Content="STOP (Esc)" Command="{Binding StopCommand}" Background="#8B3030" />
                 </WrapPanel>
