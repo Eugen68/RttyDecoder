@@ -18,5 +18,29 @@ public static class Reports
         return report.ToString();
     }
 
+    /// <summary>
+    /// Acordul fiecarei configuratii cu DeepRTTY pe acelasi caz (Levenshtein / lungimea textului DeepRTTY).
+    /// Pentru cazurile fara transcriere (inregistrari de concurs): DeepRTTY nu e adevarul, doar cel mai
+    /// bun decodor masurat; un acord mai mare la clasice = mai aproape de el.
+    /// </summary>
+    public static string DeepAgreement(IReadOnlyList<DecodeResult> results, Func<DecodeResult, string> text)
+    {
+        var report = new StringBuilder("\n## Acord cu DeepRTTY\n\n");
+        report.AppendLine("Diferenta fata de textul DeepRTTY al aceluiasi caz (Levenshtein / lungimea textului DeepRTTY, dupa normalizare). Nu este CER: DeepRTTY nu este o transcriere verificata, doar cel mai bun decodor masurat. Include textul scos din zgomot cand statia de pe pereche nu emite.\n");
+        report.AppendLine("| Caz | Configuratie | Diferenta fata de DeepRTTY | Caractere DeepRTTY |\n|---|---|---:|---:|");
+        foreach (var group in results.GroupBy(r => r.Case))
+        {
+            if (group.FirstOrDefault(r => r.Profile == "DeepRTTY") is not { } deep) continue;
+            string reference = Scoring.Normalize(text(deep));
+            if (reference.Length == 0) continue;
+            foreach (var r in group.Where(r => r.Profile != "DeepRTTY"))
+            {
+                double diff = (double)Scoring.Distance(reference, Scoring.Normalize(text(r))) / reference.Length;
+                report.AppendLine($"| {r.Case} | {r.Profile} | {diff.ToString("P1", CultureInfo.InvariantCulture)} | {reference.Length} |");
+            }
+        }
+        return report.ToString();
+    }
+
     private static string Number(double? number) => number?.ToString("0.00", CultureInfo.InvariantCulture) ?? "n/a";
 }

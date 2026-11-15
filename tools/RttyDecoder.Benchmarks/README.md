@@ -38,6 +38,12 @@ pentru comparatii de performanta. Un rezultat izolat de CI nu masoara variatia i
 - `14089`: alternante RY / TEST DE W6IWI. Fara o transcriere completa cu inceputul/finalul si
   numarul de repetitii verificate, **CER si numarul de mesaje integrale sunt n/a**. Se raporteaza
   aparitiile exacte ale indicativului, textul si costul procesarii. Textul decodat nu devine propria referinta.
+- `contest-1520`, `contest-2130`, `contest-1390`: doua inregistrari din statie (FTX-1, RTTY-L,
+  16 kHz stereo, 12 si 20 min) dintr-un concurs, cu mai multe statii simultan; fiecare caz e o
+  pereche (Mark 1520 Hz in `RTTY-L.20260820_205211.wav`; 2130 Hz in centrul filtrului si 1390 Hz
+  la marginea lui in `RTTY-L.20260820_211203.wav`). Fara transcriere: **CER n/a**. Raportul are in
+  schimb sectiunea **Acord cu DeepRTTY** - diferenta fata de textul DeepRTTY al aceluiasi caz. DeepRTTY
+  nu e adevarul, ci cel mai bun decodor masurat; masoara cat se apropie clasicele de el.
 - `noise`: 120 s la 8 kHz, mono PCM16, seed xorshift32 12345, suma a 12 uniforme centrata si
   scalata cu 0.03. Este o aproximare gaussiana determinista, nu o colectie exhaustiva de QRN.
   Referinta este sirul gol; CER nu are numitor, deci se raporteaza caractere/minut. Se adauga

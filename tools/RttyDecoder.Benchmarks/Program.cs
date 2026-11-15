@@ -91,7 +91,8 @@ public static class Program
                 }
                 if (results.Count == 0) throw new ArgumentException("Niciun caz selectat.");
                 await File.WriteAllTextAsync(Path.Combine(output, "results.json"), JsonSerializer.Serialize(results, Json));
-                string report = Reports.Decode(results);
+                string report = Reports.Decode(results)
+                                + Reports.DeepAgreement(results, r => System.IO.File.ReadAllText(Path.Combine(output, r.TextFile)));
                 await File.WriteAllTextAsync(Path.Combine(output, "decode-report.md"), report);
                 Console.WriteLine("DECODE_REPORT_BEGIN\n" + report + "DECODE_REPORT_END");
             }

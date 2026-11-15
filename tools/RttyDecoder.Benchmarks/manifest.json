@@ -1,9 +1,69 @@
 {
   "cases": [
-    { "id": "sample", "file": "samples/rtty_sample_11025hz.wav", "markHz": 1275, "reference": "sample", "expectedCall": "YO9VA", "expectedCallCount": 6 },
-    { "id": "14086", "file": "websdr_recording_2022-06-14T23_08_37Z_14086.0kHz.wav", "markHz": 2123, "reference": "numbered-w6iwi", "expectedCall": "W6IWI", "expectedCallCount": 100, "sha256": "cb4f117b3c4adbeb428f00dc51d06622f793400ab6323eb5520c5b94f5f26484" },
-    { "id": "7086-qrn", "file": "QRN.websdr_recording_2022-03-15T05_45_16Z_7086.0kHz.wav", "markHz": 2048, "reference": "numbered-w6iwi", "expectedCall": "W6IWI", "expectedCallCount": 100, "sha256": "2902cb613d86e93c6faa5c1dad6b0e9ce6bd73b230289689e8b5d2ebfab29ba6" },
-    { "id": "14089", "file": "websdr_recording_2024-04-15T23_12_30Z_14089.1kHz.wav", "markHz": 2120, "reference": null, "expectedCall": "W6IWI", "sha256": "293b3cf6d82410f46ca028f9fe66351fc659fb4e3ad6ccaf5d864cc4ccc52027" },
-    { "id": "noise", "file": "noise-seed-12345.wav", "markHz": 2125, "reference": "empty", "generateNoiseSeconds": 120 }
+    {
+      "id": "sample",
+      "file": "samples/rtty_sample_11025hz.wav",
+      "markHz": 1275,
+      "reference": "sample",
+      "expectedCall": "YO9VA",
+      "expectedCallCount": 6
+    },
+    {
+      "id": "14086",
+      "file": "websdr_recording_2022-06-14T23_08_37Z_14086.0kHz.wav",
+      "markHz": 2123,
+      "reference": "numbered-w6iwi",
+      "expectedCall": "W6IWI",
+      "expectedCallCount": 100,
+      "sha256": "cb4f117b3c4adbeb428f00dc51d06622f793400ab6323eb5520c5b94f5f26484"
+    },
+    {
+      "id": "7086-qrn",
+      "file": "QRN.websdr_recording_2022-03-15T05_45_16Z_7086.0kHz.wav",
+      "markHz": 2048,
+      "reference": "numbered-w6iwi",
+      "expectedCall": "W6IWI",
+      "expectedCallCount": 100,
+      "sha256": "2902cb613d86e93c6faa5c1dad6b0e9ce6bd73b230289689e8b5d2ebfab29ba6"
+    },
+    {
+      "id": "14089",
+      "file": "websdr_recording_2024-04-15T23_12_30Z_14089.1kHz.wav",
+      "markHz": 2120,
+      "reference": null,
+      "expectedCall": "W6IWI",
+      "sha256": "293b3cf6d82410f46ca028f9fe66351fc659fb4e3ad6ccaf5d864cc4ccc52027"
+    },
+    {
+      "id": "contest-1520",
+      "file": "RTTY-L.20260820_205211.wav",
+      "markHz": 1520,
+      "reference": null,
+      "expectedCall": null,
+      "sha256": "4fe2e340f501dd4eadaa5f7bbac5f81d24389b87028b04f073e6875ba366d5ae"
+    },
+    {
+      "id": "contest-2130",
+      "file": "RTTY-L.20260820_211203.wav",
+      "markHz": 2130,
+      "reference": null,
+      "expectedCall": null,
+      "sha256": "2f82b9f076c12ca1dc812c68bb7f2c25b2e87a32f4e62b24ae747ecde2a22582"
+    },
+    {
+      "id": "contest-1390",
+      "file": "RTTY-L.20260820_211203.wav",
+      "markHz": 1390,
+      "reference": null,
+      "expectedCall": null,
+      "sha256": "2f82b9f076c12ca1dc812c68bb7f2c25b2e87a32f4e62b24ae747ecde2a22582"
+    },
+    {
+      "id": "noise",
+      "file": "noise-seed-12345.wav",
+      "markHz": 2125,
+      "reference": "empty",
+      "generateNoiseSeconds": 120
+    }
   ]
 }
