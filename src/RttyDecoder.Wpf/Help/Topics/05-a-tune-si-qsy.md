@@ -11,7 +11,9 @@
 
 Muta statia pe frecventa calculata: perechea corespondentului ajunge pe **2125 / 2295 Hz**, deci emisia ta FSK pleaca exact pe frecventa lui. Decodorul trece pe Mark 2125 (NORM) sau 2295 (REV).
 
-De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, cu tonurile fixe 2125 / 2295.
+Daca un A-TUNE a calculat deja frecventa (o vezi la `TX:`), dublu click-ul duce statia **exact acolo**, chiar daca intre timp corespondentul a terminat emisia: primul click al dublu click-ului nu mai inlocuieste calculul afisat. Pentru alt semnal: click pe el in waterfall (sau A-TUNE simplu), apoi dublu click. Fara un calcul afisat, dublu click-ul face A-TUNE si QSY dintr-o data (cat semnalul e pe aer).
+
+De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, cu tonurile fixe 2125 / 2295. La **AFSK** nu e nevoie de QSY: emisia pleaca pe perechea decodorului, deci A-TUNE singur e destul.
 
 ## RTTY-L si RTTY-U
 
@@ -22,7 +24,9 @@ De ce se muta statia, nu decodorul: la FSK statia emite exact unde e acordata, c
 
 ## Polaritatea emisiei
 
-NORM/REV e **doar pentru receptie**. Pinul FSK pleaca mereu normal (activ = Mark), indiferent de NORM/REV si de modul statiei - testat pe FTDX10 si FTX-1: emisia iese la fel in RTTY-L si RTTY-U. Daca vreodata ai nevoie de emisie inversata: polaritatea TX din meniul statiei.
+NORM/REV e **doar pentru receptie**. Emisia nu depinde de NORM/REV si nici de modul statiei - testat: FTDX10 si FTX-1 emit la fel in RTTY-L si RTTY-U, IC-7300MK2 la fel in RTTY si RTTY-R; modurile U (Yaesu) si RTTY-R (Icom) inverseaza doar receptia.
+
+Polaritatea **pinului FSK** tine de statie (Setari > Conexiune statie > Inverseaza polaritatea FSK), cu meniul TX polarity al statiei pe **Normal**: **FTDX10 si IC-7300MK2 bifat** (pin activ = Space; testat in emisie, FTDX10 intr-un concurs), **FTX-1 nebifat** (pin activ = Mark; testat cu aplicatia Android). Cu bifa potrivita emisia iese standard (Mark sus). Daca nu esti decodat, schimba intai bifa.
 
 ## QSY automat inainte de raspuns
 

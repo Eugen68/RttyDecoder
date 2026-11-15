@@ -1,6 +1,6 @@
 # Contest: macro-uri, seriale si emisie
 
-## Tastele F1-F4
+## Tastele F1-F7
 
 **S&P** debifat = **Run**; bifat = **Search & Pounce**. Fiecare mod are setul lui de macro-uri:
 
@@ -10,6 +10,11 @@
 | F2 | Raportul si schimbul, cu serialul fixat | Schimbul tau |
 | F3 | AGN AGN PSE | AGN AGN PSE |
 | F4 | TU | TU |
+| F5 | NR? NR? | NR? NR? |
+| F6 | CALL? CALL? | CALL? CALL? |
+| F7 | QRZ? DE indicativul tau | TU 73 GL |
+
+F5-F7 sunt mesaje libere: click dreapta pe buton = editare (variabilele `{MYCALL}`, `{CALL}`, `{RST}`). Fisierele de macro-uri mai vechi (doar F1-F4) primesc automat F5-F7 implicite.
 | Esc | STOP emisie | STOP emisie |
 
 - **Mouse-ul deasupra** unui buton F arata textul care pleaca (serialul e estimat pana la fixare).
@@ -40,7 +45,7 @@ Cursorul trece singur la campul urmator. Cu ESM debifat, Enter doar logheaza. TU
 
 ## Emisia
 
-- Foloseste configuratia FSK/CAT a aplicatiei, numai cu statia conectata in **RTTY-L sau RTTY-U**.
+- Foloseste configuratia de emisie a aplicatiei: **FSK** cu statia conectata in **RTTY-L sau RTTY-U**, sau **AFSK** cu statia in **DATA-U / USB** (tonurile pe perechea decodorului).
 - **QSY automat** (daca e bifat in Setari transmisie) se face **doar in S&P**: statia merge pe frecventa calculata de A-TUNE. In Run statia ramane pe frecventa ta.
 - Mesajele Contest nu se pun in coada peste o emisie activa: asteapta sfarsitul sau apasa STOP.
 - Macro-urile F1-F8 ale ferestrei principale nu sunt atinse.

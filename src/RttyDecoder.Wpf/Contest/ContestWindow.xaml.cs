@@ -45,6 +45,8 @@ public partial class ContestWindow : Window
     {
         var now = DateTime.Now;
         UtcClock.Text = "UTC: " + now.ToUniversalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        // campul Ora UTC gol: ora curenta in gri (cea care intra in jurnal la logare)
+        TimeHint.Text = TimeBox.Text.Length == 0 ? now.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) : "";
         LocalClock.Text = "LOCAL: " + now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
     }
 
@@ -200,6 +202,7 @@ public partial class ContestWindow : Window
         {
             Key.Escape => Model.StopCommand, Key.F1 => Model.CqCommand, Key.F2 => Model.ReportCommand,
             Key.F3 => Model.AgnCommand, Key.F4 => Model.TuCommand,
+            Key.F5 => Model.F5Command, Key.F6 => Model.F6Command, Key.F7 => Model.F7Command,
             Key.Enter when EntryArea.IsKeyboardFocusWithin && Keyboard.FocusedElement is not TextBox { AcceptsReturn: true } => Model.EnterCommand,
             _ => null
         };

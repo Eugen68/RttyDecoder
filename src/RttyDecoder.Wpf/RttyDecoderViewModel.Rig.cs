@@ -108,7 +108,7 @@ public sealed partial class RttyDecoderViewModel
     public Func<double, double?>? WaterfallRf { get => _waterfallRf; private set => Set(ref _waterfallRf, value); }
 
     private double _txPairLowerHz = double.NaN;
-    /// <summary>Tonul de jos al perechii pe care pleaca emisia FSK (2125), sau NaN daca statia nu e in RTTY.</summary>
+    /// <summary>Tonul de jos al perechii pe care pleaca emisia: FSK 2125 (statia in RTTY), AFSK perechea decodorului; NaN = nu se poate emite.</summary>
     public double TxPairLowerHz { get => _txPairLowerHz; private set => Set(ref _txPairLowerHz, value); }
 
     /// <summary>Mark-ul decodorului dupa QSY: tonul de jos pe NORM, cel de sus pe REV.</summary>
@@ -179,6 +179,76 @@ public sealed partial class RttyDecoderViewModel
     private bool CanQsy() =>
         _rig != null && _rigState.Connected && RigMath.QsyDial(_rigState.FrequencyHz, _rigState.Mode, 1000, 2000) != null;
 
+    /// <summary>Frecventa Mark-ului pe RF (Hz) pentru ora din terminal; null fara statie.</summary>
+    public double? StampFrequencyHz =>
+        _rig != null && _rigState.Connected ? AudioToRf(_rigState.FrequencyHz, _rigState.Mode, MarkFrequencyHz) : null;
+
+    /// <summary>"3505.20" (kHz) pentru ora din terminal; null fara statie.</summary>
+    public string? StampFrequencyText =>
+        StampFrequencyHz is { } hz ? (hz / 1000).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : null;
+
+    /// <summary>Unde e acum semnalul decodat (statia, perechea decodorului) - pentru lista statiilor.</summary>
+    private SignalSpot CurrentSpot()
+    {
+        bool rig = _rig != null && _rigState.Connected;
+        return new SignalSpot(rig ? _rigState.FrequencyHz : 0, rig ? _rigState.Mode : RigMode.Unknown, DecoderLowerHz, Reverse,
+            // in RTTY afisajul statiei e Mark-ul unei statii acordate exact: AudioToRf (ca la cursorul waterfall-ului)
+            rig ? AudioToRf(_rigState.FrequencyHz, _rigState.Mode, MarkFrequencyHz) : null);
+    }
+
+    /// <summary>
+    /// Unde trebuie dusa statia pentru o statie din lista: null = nu se poate (alt mod sau fara statie).
+    /// FSK (statia in RTTY): perechea lui pe 2125 / 2295 - emisia pe frecventa lui, ca la dublu click pe
+    /// A-TUNE. Altfel (AFSK, SSB/DATA): perechea lui pe perechea curenta a decodorului.
+    /// </summary>
+    public static long? SpotDial(SignalSpot spot, long dialHz, RigMode mode, bool fskTx, double decoderLowerHz)
+    {
+        if (spot.DialHz <= 0 || dialHz <= 0 || spot.Mode != mode) return null;
+        double target = fskTx && RigMath.IsRtty(mode) ? FskMarkHz : decoderLowerHz;
+        return RigMath.QsyDial(spot.DialHz, mode, spot.LowerHz, target);
+    }
+
+    /// <summary>
+    /// Dublu click pe o statie din lista: statia pe frecventa ei (vezi <see cref="SpotDial"/>), decodorul
+    /// pe perechea ei cu NORM/REV-ul ei. Fara statie conectata doar decodorul (daca VFO-ul n-a fost mutat).
+    /// </summary>
+    public void QsyToStation(HeardStationRow row)
+    {
+        if (row.Spot is not { } spot)
+        {
+            Message = $"{row.Call}: nu stiu unde a fost auzit.";
+            return;
+        }
+        ForgetPendingQsy();
+        if (spot.Reverse != Reverse)
+        {
+            Receiver.Update(s => s.Reverse = spot.Reverse);
+            SyncFromSettings(Receiver.Settings);
+        }
+        bool rig = _rig != null && _rigState.Connected;
+        if (!rig || spot.DialHz <= 0)
+        {
+            double mark = Math.Round(spot.Reverse ? spot.LowerHz + RttySettings.ShiftHz : spot.LowerHz, 1);
+            MarkFrequencyHz = mark;
+            Message = $"{row.Call}: decodorul pe Mark {mark:0} Hz" + (rig ? "" : " (fara statie: corect doar daca VFO-ul n-a fost mutat)") + ".";
+            return;
+        }
+        bool fsk = !IsAfsk && RigMath.IsRtty(_rigState.Mode);
+        if (SpotDial(spot, _rigState.FrequencyHz, _rigState.Mode, fsk, DecoderLowerHz) is not { } dial)
+        {
+            Message = $"{row.Call}: a fost auzit in {RigMath.ModeName(spot.Mode)}, statia e acum in {RigMath.ModeName(_rigState.Mode)} - pune statia in acelasi mod.";
+            return;
+        }
+        double lower = fsk ? FskMarkHz : DecoderLowerHz;
+        double newMark = Math.Round(spot.Reverse ? lower + RttySettings.ShiftHz : lower, 1);
+        _rig!.SetFrequency(dial);
+        _dispatcher.BeginInvoke(() => MarkFrequencyHz = newMark, System.Windows.Threading.DispatcherPriority.Background);
+        TuningChanged?.Invoke();
+        Message = $"QSY {row.Call}: statia pe {RigMath.FormatFrequency(dial)}" +
+                  (spot.MarkRfHz is { } m ? $" (Mark {RigMath.FormatFrequency(m)})" : "") +
+                  (fsk ? " - emisia FSK pe frecventa lui." : ".");
+    }
+
     /// <summary>Shift+click: semnalul auzit la <paramref name="audioHz"/> ajunge pe Mark-ul curent.</summary>
     public void Qsy(double audioHz)
     {
@@ -219,9 +289,49 @@ public sealed partial class RttyDecoderViewModel
         return $". Pentru emisie: statia pe {RigMath.FormatFrequency(dial)} - dublu click pe A-TUNE.";
     }
 
-    /// <summary>Dublu click pe A-TUNE: statia pe frecventa calculata, decodorul pe perechea 2125 / 2295.</summary>
+    // calculul afisat inainte de ultimul click pe A-TUNE: primul click al unui dublu click il reface, iar
+    // semnalul se poate fi oprit intre timp (recalculul ar iesi pe zgomot)
+    private (long Dial, long From, bool Reverse)? _beforeClick;
+    private DateTime _lastAutoTuneClick;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
+    private void RememberBeforeAutoTune()
+    {
+        _beforeClick = _pendingQsyDial is { } d ? (d, _pendingQsyFrom, Reverse) : null;
+        _lastAutoTuneClick = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Ce calcul foloseste dublu click-ul: cel afisat inainte de dublu click (daca exista si statia e tot
+    /// acolo), nu cel refacut de primul click al dublu click-ului. Null = calculul curent.
+    /// </summary>
+    public static (long Dial, long From, bool Reverse)? DoubleClickTarget(
+        (long Dial, long From, bool Reverse)? before, TimeSpan sinceClick, long rigHz, TimeSpan doubleClickTime)
+    {
+        if (before is not { } b) return null;
+        if (sinceClick > doubleClickTime + TimeSpan.FromMilliseconds(300)) return null;   // nu e dublu click-ul acestui click
+        return b.From == rigHz ? b : null;
+    }
+
+    /// <summary>Dublu click pe A-TUNE: statia pe frecventa calculata (cea afisata), decodorul pe perechea 2125 / 2295.</summary>
     public void QsyToPending()
     {
+        if (DoubleClickTarget(_beforeClick, DateTime.UtcNow - _lastAutoTuneClick, _rigState.FrequencyHz,
+                TimeSpan.FromMilliseconds(GetDoubleClickTime())) is { } before)
+        {
+            // primul click a refacut A-TUNE (poate pe zgomot, dupa ce emisia corespondentului s-a oprit):
+            // se revine la calculul afisat, cu NORM/REV-ul lui
+            _pendingQsyDial = before.Dial;
+            _pendingQsyFrom = before.From;
+            if (Reverse != before.Reverse)
+            {
+                Receiver.Update(s => s.Reverse = before.Reverse);
+                SyncFromSettings(Receiver.Settings);
+            }
+        }
+        _beforeClick = null;
         if (_pendingQsyDial is not { } dial || _rig == null || !_rigState.Connected)
         {
             Message = "A-TUNE: nu e nimic de mutat (statia deja pe frecventa, sau fara statie).";
@@ -294,7 +404,9 @@ public sealed partial class RttyDecoderViewModel
     {
         var s = _rigState;
         WaterfallRf = _rig != null && s.Connected ? audio => AudioToRf(s.FrequencyHz, s.Mode, audio) : null;
-        TxPairLowerHz = RigInRtty ? FskMarkHz : double.NaN;
+        TxPairLowerHz = IsAfsk
+            ? (_rig != null && s.Connected && IsAfskMode(s.Mode) ? DecoderLowerHz : double.NaN)
+            : RigInRtty ? FskMarkHz : double.NaN;
         RigConnected = s.Connected;
         RigTransmitting = s.Connected && s.Transmitting;
         if (_rig == null)

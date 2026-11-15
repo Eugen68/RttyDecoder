@@ -19,7 +19,7 @@ aplicatie mai mare.
   ritm, semnal 56-100%; bitul de stop si SNR-ul nu deosebesc zgomotul). La deschidere se scrie si
   inceputul mesajului, iar la pauzele de tastare nu se pierde nimic. Afecteaza doar textul afisat,
   nu decodarea; pragul (implicit 35%) in Reglaje. Decodoarele clasice; DeepRTTY are filtrul lui.
-- **emisie RTTY prin FSK**: 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
+- **emisie RTTY prin FSK sau AFSK** (tonuri pe placa de sunet, de ex. IC-7300 in USB-D): 8 macro-uri (F1..F8), text trimis la Enter si modul LIVE
 - **Contest** intr-o fereastra separata (Ctrl+Shift+C): UDC/SEC prin HamContest, seriale persistente,
   jurnal, duble, punctaj si export ADIF/Cabrillo; [instructiuni](docs/contest.md)
 - **MONITOR**: semnalul primit se aude in difuzoare (placa de iesire implicita), cu volum reglabil
@@ -49,13 +49,16 @@ marimea ferestrei (daca monitorul pe care era nu mai exista, fereastra apare cen
    reactie: daca intrarea e chiar iesirea placii (Stereo Mix, cablu virtual), sunetul se reintoarce.
    La fisierele WAV se aude doar cu *Timp real* bifat.
 5. **DeepRTTY** decodeaza mai bine semnalele slabe, dar cu intarziere: textul gri de sub terminal e
-   provizoriu si se confirma (verde) dupa ~8-12 s.
+   provizoriu si se confirma (verde) dupa ~7 s (Normal; langa decodor: Rapid ~4 s, Precis ~13 s).
 
 6. **Indicativele** din textul decodat apar evidentiate: verde = cunoscut (in MASTER.SCP sau in lista LoTW), auriu =
    forma corecta dar necunoscut (poate fi si o eroare de decodare), portocaliu = indicativul propriu
    (campul *Indicativul meu* din lista statiilor). Mouse-ul deasupra arata tara si zonele.
-   **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com (la fel
-   si in lista). Lista (butonul **Statii**) se poate sorta pe orice coloana si salva ca CSV.
+   **Click** copiaza indicativul in clipboard, **dublu click** deschide pagina lui pe QRZ.com.
+   Lista (butonul **Statii**) arata si **frecventa** (Mark-ul pe RF, la ultima decodare) si ora **UTC**;
+   **dublu click** pe un rand = **QSY** acolo (FSK: ca dublu click pe A-TUNE, emisia pe frecventa lui;
+   AFSK: perechea lui pe perechea decodorului), **click dreapta** = Look-up QRZ.com / QSY / Copiaza.
+   Se poate sorta pe orice coloana si salva ca CSV.
    Cu un cont QRZ.com si/sau HamQTH.com (meniul **Setari**), indicativele aurii se verifica si online
    (QRZ.com intai, HamQTH.com ca rezerva gratuita): cele confirmate devin verzi, cu numele si orasul
    in tooltip; cele negasite raman aurii ("probabil o eroare de decodare"). O singura cautare pe
@@ -133,26 +136,37 @@ Conexiune statie:
   indicativ pe care ai dat click in terminal sau in lista), `{RST}` (599).
 - **Campul de emisie**: Enter = trimite. **LIVE**: emisia sta pornita si fiecare caracter pleaca
   imediat ce il scrii (intre ele, diddle = LTRS).
-- **Ora UTC in terminal**: fiecare mesaj incepe pe un rand nou cu `[HH:mm:ss]: ` - verde la
-  receptie, rosu la emisie. Mesaj nou = dupa o pauza de cel putin 5 s, la trecerea intre receptie
-  si emisie si (la receptie) dupa orice schimbare de acord: click/rotita pe waterfall, A-TUNE,
-  NORM/REV, QSY sau VFO-ul statiei (nu si deriva AFC). Sus, dupa volumul monitorizarii, ceasurile
-  **UTC** si **LOCAL**.
+- **Ora UTC in terminal**, pe un rand al ei (textul dedesubt), albastra la receptie si rosie la emisie:
+  dupa orice schimbare de acord / frecventa (click/rotita pe waterfall, A-TUNE, NORM/REV, QSY sau
+  VFO-ul statiei; nu si deriva AFC) cu frecventa Mark-ului pe RF - `[12:34:56] [3505.20]:`; periodic
+  la :00 si :30 fara sa rupa traficul (asteapta o pauza de 3 s, cel mult 10 s; sarita daca s-a pus o
+  ora cu mai putin de 15 s inainte); la trecerea receptie / emisie; la fiecare emisie noua. Sus, dupa
+  volumul monitorizarii, ceasurile **UTC** si **LOCAL**.
 - Mesajele trimise in timpul unei emisii se adauga la coada (un singur PTT). **STOP (Esc)** opreste
   imediat. Textul trimis apare in terminal cu galben; cat timp se emite, decodarea sta.
 - **Setari > Setari transmisie**: preambul (LTRS dupa PTT, implicit 2), pauza la sfarsit (300 ms),
-  limita unei emisii (180 s), CR/LF automat, diddle, inversarea pinului FSK (implicit oprita).
-  Valorile implicite sunt cele din aplicatia Android. AFSK urmeaza.
+  limita unei emisii (180 s), CR/LF automat, diddle, inversarea tonurilor AFSK (implicit oprita).
+  Valorile implicite sunt cele din aplicatia Android.
+- **AFSK** (Setari transmisie > Metoda): tonurile se genereaza pe placa de sunet aleasa (WASAPI,
+  formatul mixerului Windows), pe ceasul placii, cu faza continua; PTT-ul prin CAT. Statia in
+  **DATA-U / USB** (IC-7300: USB-D, DATA MOD = USB; Yaesu: DATA-U, sursa audio USB). Emisia pleaca
+  pe **perechea Mark/Space a decodorului** (emiti unde asculti, fara QSY - QSY-ul automat e doar
+  pentru FSK). Polaritatea pe aer e cea standard, din modul statiei: DATA-U / USB = Mark pe tonul de
+  sus, DATA-L / LSB = pe cel de jos; mod necunoscut = ca NORM/REV de la receptie. Nivelul (implicit
+  50%) se coboara pana cand ALC-ul nu mai misca.
 - **QSY automat inainte de raspuns** (Setari transmisie, implicit oprit): la un macro sau text (Enter)
   care **nu incepe cu CQ**, dupa un **A-TUNE** care a calculat alta frecventa decat a statiei, statia se
   muta intai acolo (ca dublu click pe A-TUNE), apoi pleaca emisia (~250 ms mai tarziu). Doar in RTTY-L /
   RTTY-U. Nu muta: CQ-ul (chemi pe frecventa ta - si uita QSY-ul pregatit), LIVE, dupa un click pe alt
   semnal in waterfall sau daca statia s-a mutat de la A-TUNE.
-- **Polaritatea emisiei**: pinul FSK pleaca mereu normal (activ = Mark) - **NORM/REV e doar pentru
-  receptie**, iar emisia nu depinde nici de modul statiei. Testul pe statii (FTDX10 <-> FTX-1 +
-  aplicatia Android, `tools/android-patch/README.md`): emisia iese la fel in RTTY-L si RTTY-U, doar
-  receptia in RTTY-U cere REV (comportament Yaesu). Emisie inversata, daca e nevoie: polaritatea TX
-  din meniul statiei; bifa "Inverseaza pinul FSK" doar pentru interfete care inverseaza linia.
+- **Polaritatea emisiei**: **NORM/REV e doar pentru receptie**, iar emisia nu depinde nici de modul
+  statiei. Testele pe statii (FTDX10 <-> FTX-1 + aplicatia Android, `tools/android-patch/README.md`;
+  FTDX10 <-> IC-7300MK2 cu instrumentele interne ale statiilor): Yaesu emite la fel in RTTY-L si
+  RTTY-U, Icom la fel in RTTY si RTTY-R; RTTY-U (Yaesu) si RTTY-R (Icom) inverseaza doar receptia.
+  Polaritatea **pinului FSK** tine de statie: Setari > Conexiune statie > "Inverseaza polaritatea
+  FSK", cu meniul TX polarity al statiei pe Normal - **FTDX10 si IC-7300MK2 bifat** (pin activ =
+  Space; FTDX10 testat intr-un concurs), **FTX-1 nebifat** (pin activ = Mark). Se pune singura la un
+  model Icom / FTDX-10 din lista Hamlib. Setarile vechi (bifa din Setari transmisie) se muta automat acolo.
 
 **Meniul** de sus:
 - **Fisier**: Deschide WAV (Ctrl+O), Salveaza textul (Ctrl+S), Salveaza lista statiilor (CSV), Iesire
@@ -172,6 +186,13 @@ din **Setari > Conexiune statie**:
   portului CAT (Fara / RTS / DTR). Statia anunta singura schimbarile (AI1).
 - **Prin OmniRig**: Rig 1 / Rig 2; statia poate fi folosita in acelasi timp si de alte programe.
   OmniRig doar citeste si schimba frecventa si modul, fara PTT.
+- **Prin Hamlib** (rigctld, TCP): sute de modele (Icom, Kenwood, Elecraft, Yaesu - FTX-1 = 1051 din
+  Hamlib 4.7). Recomandat **Hamlib 4.7.2+** (corecturi de securitate in rigctld); fereastra de setari
+  avertizeaza la o versiune mai veche. Cu bifa *Porneste
+  rigctld*, programul il porneste cu modelul (lista din `rigctl -l`), portul si viteza alese si il
+  opreste la iesire; fara bifa, se leaga la un rigctld deja pornit (de ex. si de WSJT-X). Hamlib se
+  instaleaza separat ([releases](https://github.com/Hamlib/Hamlib/releases)). PTT prin Hamlib sau pe
+  portul de manipulare; FSK pe portul de manipulare. Detalii: README-ul HamRig.
 - **Port manipulare si PTT**: port, viteza, PTT (Fara / RTS / DTR) si manipulare (Fara / RTS / DTR,
   FSK pentru RTTY, keying CW). La FTX-1 de obicei al doilea port ("Standard"): ex. PTT pe RTS, FSK
   pe DTR; portul se deschide o singura data.
@@ -223,7 +244,7 @@ Lista **Profil** ofera trei puncte de pornire masurate pe corpusul W6IWI:
 | Profil | Decodor | Utilizare |
 |---|---|---|
 | Semnal bun · rapid | Matched Filter | Acord bun si fading lent, fara confirmarea intarziata a modelului neural |
-| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe inregistrarea QRN; confirmarea textului dupa aproximativ 8-12 s |
+| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe inregistrarea QRN; confirmarea textului dupa ~7 s (Normal) |
 | QRN / flutter · rapid | Chebyshev | Alternativa clasica rapida la flutter; NB si ATC nu sunt activate automat, deoarece au iesit mai slab pe proba QRN masurata |
 
 Toate pornesc cu SQL 35%, volant activ si pragurile implicite. Profilul reseteaza reglajele
@@ -289,7 +310,7 @@ Indicativele: gazda da bazele (`vm.UseReferenceData(ReferenceData.Load(folder))`
 
 DeepRTTY pastreaza cel mult 24 s de audio neprocesat, inclusiv blocul aflat in lucru.
 Sub terminal apare cantitatea de audio in asteptare; aceasta nu include intarzierea normala
-(~8-12 s) a textului provizoriu. La un WAV (inclusiv cu *Timp real*), citirea asteapta automat
+(~4 / 7 / 13 s, dupa alegerea Rapid / Normal / Precis) a textului provizoriu. La un WAV (inclusiv cu *Timp real*), citirea asteapta automat
 loc liber, fara sa piarda audio. La live, daca bufferul se umple, decodorul abandoneaza audio-ul
 vechi si textul lui neconfirmat si reincepe de la semnalul nou; contorul de recuperari apare
 langa starea bufferului. Textul deja confirmat ramane in terminal.

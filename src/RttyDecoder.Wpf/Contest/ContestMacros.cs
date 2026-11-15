@@ -8,21 +8,30 @@ internal sealed record ContestMacro(string Name, string Text);
 
 internal sealed record ContestMacros(int Version, ContestMacro[] Run, ContestMacro[] SearchAndPounce)
 {
+    /// <summary>F1..F7. Fisierele vechi (F1..F4) se completeaza cu F5..F7 implicite.</summary>
+    public const int Count = 7;
+
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
     private static readonly Regex Variable = new(@"\{([^{}]+)\}");
 
-    public static ContestMacros Defaults() => new(1,
+    public static ContestMacros Defaults() => new(2,
         [
             new("CQ", "CQ TEST DE {MYCALL} {MYCALL} K"),
             new("Raport", "{CALL} {RST} {EXCHANGE} {EXCHANGE} DE {MYCALL} K"),
             new("AGN", "AGN AGN PSE"),
-            new("TU", "{CALL} TU DE {MYCALL} K")
+            new("TU", "{CALL} TU DE {MYCALL} K"),
+            new("NR?", "NR? NR?"),
+            new("Indicativ?", "CALL? CALL?"),
+            new("QRZ", "QRZ? DE {MYCALL} K")
         ],
         [
             new("Indicativ", "{MYCALL} {MYCALL}"),
             new("Raport", "{RST} {EXCHANGE}"),
             new("AGN", "AGN AGN PSE"),
-            new("TU", "TU")
+            new("TU", "TU"),
+            new("NR?", "NR? NR?"),
+            new("Indicativ?", "CALL? CALL?"),
+            new("73", "TU 73 GL")
         ]);
 
     public ContestMacro Get(bool searchAndPounce, int slot) => (searchAndPounce ? SearchAndPounce : Run)[slot];
@@ -45,9 +54,15 @@ internal sealed record ContestMacros(int Version, ContestMacro[] Run, ContestMac
         }
 
         var macros = JsonSerializer.Deserialize<ContestMacros>(ContestFiles.ReadText(path), Json);
-        if (macros is not { Version: 1, Run.Length: 4, SearchAndPounce.Length: 4 })
-            throw new InvalidDataException("Fisierul de macro-uri trebuie sa contina patru mesaje Run si patru mesaje S&P.");
-        for (int slot = 0; slot < 4; slot++)
+        if (macros is not ({ Version: 1, Run.Length: 4, SearchAndPounce.Length: 4 } or { Version: 2, Run.Length: Count, SearchAndPounce.Length: Count }))
+            throw new InvalidDataException($"Fisierul de macro-uri trebuie sa contina {Count} mesaje Run si {Count} mesaje S&P.");
+        if (macros.Version == 1)
+        {
+            // fisier vechi (F1..F4): F5..F7 implicite; se scrie la prima salvare a unui macro
+            var d = Defaults();
+            macros = new(2, [.. macros.Run, .. d.Run[4..]], [.. macros.SearchAndPounce, .. d.SearchAndPounce[4..]]);
+        }
+        for (int slot = 0; slot < Count; slot++)
         {
             Validate(macros.Run[slot], slot);
             Validate(macros.SearchAndPounce[slot], slot);

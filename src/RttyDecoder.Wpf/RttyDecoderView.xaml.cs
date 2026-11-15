@@ -46,6 +46,10 @@ public partial class RttyDecoderView : UserControl
             System.Windows.Threading.DispatcherPriority.Background, (_, _) => UpdateLevels(), Dispatcher);
         Loaded += (_, _) => _levelTimer.Start();
         Unloaded += (_, _) => _levelTimer.Stop();
+        _scrollBackTimer = new System.Windows.Threading.DispatcherTimer(TimeSpan.FromSeconds(1),
+            System.Windows.Threading.DispatcherPriority.Background, (_, _) => ReturnToLatestText(), Dispatcher);
+        Loaded += (_, _) => _scrollBackTimer.Start();
+        Unloaded += (_, _) => _scrollBackTimer.Stop();
         // F1..F8 si Esc oriunde in fereastra, nu doar cand modulul are focusul
         Loaded += (_, _) =>
         {
@@ -300,28 +304,37 @@ public partial class RttyDecoderView : UserControl
 
     private enum Speaker { None, Rx, Tx }
 
-    /// <summary>Peste atata pauza, urmatorul mesaj (receptie sau emisie) incepe cu ora.</summary>
+    /// <summary>Tag-ul randurilor cu ora (<c>[HH:mm:ss]:</c>), ca sa nu fie luate drept text decodat.</summary>
+    private static readonly object StampMarker = new();
+
+    /// <summary>La emisie: peste atata pauza, urmatoarea emisie incepe cu ora.</summary>
     private static readonly TimeSpan StampGap = TimeSpan.FromSeconds(5);
 
     private static readonly Brush StampTxBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x52, 0x52));
+    /// <summary>Ora la receptie: albastru deschis, separat de textul verde.</summary>
+    private static readonly Brush StampRxBrush = new SolidColorBrush(Color.FromRgb(0x4F, 0xC3, 0xF7));
 
     private Speaker _lastSpeaker = Speaker.None;
     private DateTime _lastRxUtc = DateTime.MinValue;
     private DateTime _lastTxUtc = DateTime.MinValue;
+    private DateTime _lastStampUtc = DateTime.MinValue;
     private bool _stampNextRx = true;
+    private double? _lastStampFreqHz;
 
-    /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora.</summary>
+    /// <summary>Acordul s-a schimbat: urmatorul text decodat incepe obligatoriu cu ora si frecventa.</summary>
     private void OnTuningChanged() { _stampNextRx = true; Waterfall.MarkBoundary("ACORD / QSY"); }
 
     /// <summary>
-    /// Pune ora in fata textului daca e un mesaj nou: dupa o pauza de cel putin 5 s, la trecerea
-    /// intre receptie si emisie, sau (la receptie) dupa o schimbare de acord. Ora incepe un rand nou;
-    /// spatiile / randurile goale de la inceputul mesajului se sar. Un text doar din spatii nu conteaza
-    /// ca activitate. <paramref name="beforeStamp"/> incheie ce era inceput (cuvantul neterminat).
+    /// Pune ora (pe un rand al ei, textul dedesubt) daca e un mesaj nou:
+    /// <list type="bullet">
+    /// <item>la trecerea intre receptie si emisie;</item>
+    /// <item>la receptie, dupa o schimbare de acord / frecventa: <c>[12:34:56] [3505.20]:</c> (frecventa Mark-ului pe RF; fara statie doar ora);</item>
+    /// <item>la receptie, periodic la :00 si :30 (<see cref="TerminalStamps.PeriodicDue"/>): fara sa rupa traficul - asteapta o pauza de 3 s, cel mult 10 s;</item>
+    /// <item>la emisie, dupa o pauza de cel putin 5 s (fiecare emisie noua).</item>
+    /// </list>
+    /// Spatiile / randurile goale de la inceputul mesajului se sar; un text doar din spatii nu conteaza ca
+    /// activitate. <paramref name="beforeStamp"/> incheie ce era inceput (cuvantul neterminat).
     /// </summary>
-    /// <summary>Tag-ul randurilor cu ora (<c>[HH:mm:ss]: </c>), ca sa nu fie luate drept text decodat.</summary>
-    private static readonly object StampMarker = new();
-
     private string MaybeStamp(string text, Speaker who, Action beforeStamp)
     {
         int first = 0;
@@ -329,8 +342,13 @@ public partial class RttyDecoderView : UserControl
         if (first == text.Length) return text;
 
         var now = DateTime.UtcNow;
-        var last = who == Speaker.Rx ? _lastRxUtc : _lastTxUtc;
-        bool need = who != _lastSpeaker || now - last >= StampGap || (who == Speaker.Rx && _stampNextRx);
+        // acordul schimbat cu cel putin 10 Hz (RF-ul Mark-ului, sau tonul audio fara statie)
+        double? freqHz = _vm == null ? null : _vm.StampFrequencyHz ?? _vm.MarkFrequencyHz;
+        bool tuning = who == Speaker.Rx && _stampNextRx && freqHz is { } f && TerminalStamps.FrequencyChanged(_lastStampFreqHz, f);
+        if (tuning) _lastStampFreqHz = freqHz;
+        bool need = who != _lastSpeaker || tuning || (who == Speaker.Rx
+            ? TerminalStamps.PeriodicDue(now, _lastRxUtc, _lastStampUtc)
+            : now - _lastTxUtc >= StampGap);
         if (who == Speaker.Rx)
         {
             _lastRxUtc = now;
@@ -344,19 +362,22 @@ public partial class RttyDecoderView : UserControl
         if (!need) return text;
 
         beforeStamp();
+        _lastStampUtc = now;
         bool lineStart = _text.Length == 0 || _text[^1] == '\n';
-        string stamp = $"[{now:HH:mm:ss}]: ";
+        string? freq = tuning ? _vm?.StampFrequencyText : null;
+        string stamp = TerminalStamps.Header(now, freq);
         var inlines = TerminalParagraph.Inlines;
         if (!lineStart)
         {
             inlines.Add(new LineBreak());
             _text.Append('\n');
         }
-        // marcata: cifrele orei nu se preiau in Contest (click / evidentiere)
+        // marcata: cifrele orei / frecventei nu se preiau in Contest (click / evidentiere)
         var run = new Run(stamp) { Tag = StampMarker };
-        if (who == Speaker.Tx) run.Foreground = StampTxBrush;   // la receptie: verdele textului
+        run.Foreground = who == Speaker.Tx ? StampTxBrush : StampRxBrush;
         inlines.Add(run);
-        _text.Append(stamp);
+        inlines.Add(new LineBreak());
+        _text.Append(stamp).Append('\n');
         _plain = null;
         return text.Substring(first);
     }
@@ -517,6 +538,7 @@ public partial class RttyDecoderView : UserControl
         _highlighter.Reset();
         _lastSpeaker = Speaker.None;
         _stampNextRx = true;
+        _lastStampFreqHz = null;   // primul text dupa CLEAR arata din nou frecventa
         Waterfall.Clear();
     }
 
@@ -577,7 +599,28 @@ public partial class RttyDecoderView : UserControl
     private void OnTerminalMouseLeave(object sender, MouseEventArgs e) => HideGrabHighlight();
 
     /// <summary>Textul s-a mutat sub mouse: evidentierea veche nu mai e pe cuvant.</summary>
-    private void OnTerminalScrolled(object sender, ScrollChangedEventArgs e) => HideGrabHighlight();
+    private void OnTerminalScrolled(object sender, ScrollChangedEventArgs e)
+    {
+        HideGrabHighlight();
+        // derulat de utilizator (textul nou schimba doar inaltimea, nu pozitia, cand nu esti la capat)
+        if (e.VerticalChange != 0) _lastTerminalScroll = DateTime.UtcNow;
+    }
+
+    /// <summary>Dupa atata timp fara derulare, terminalul revine singur la textul nou.</summary>
+    public static readonly TimeSpan ScrollBackDelay = TimeSpan.FromSeconds(15);
+
+    private readonly System.Windows.Threading.DispatcherTimer _scrollBackTimer;
+    private DateTime _lastTerminalScroll;
+
+    /// <summary>Ai derulat in urma si nu mai umbli de 15 s: terminalul sare la capat (textul nou).</summary>
+    private void ReturnToLatestText()
+    {
+        bool atEnd = Terminal.VerticalOffset + Terminal.ViewportHeight >= Terminal.ExtentHeight - 2;
+        if (atEnd || DateTime.UtcNow - _lastTerminalScroll < ScrollBackDelay) return;
+        // nu in timpul unei selectii cu mouse-ul
+        if (Mouse.LeftButton == MouseButtonState.Pressed) return;
+        Terminal.ScrollToEnd();
+    }
 
     private void OnTerminalDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -632,9 +675,42 @@ public partial class RttyDecoderView : UserControl
         if (RowAt(e) is { } row) _vm?.SelectCallsign(row.Callsign);
     }
 
+    /// <summary>Dublu click pe o statie: QSY pe frecventa unde a fost auzita (QRZ.com e in meniul de la click dreapta).</summary>
     private void OnStationDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (RowAt(e) is { } row) _vm?.OpenQrz(row.Callsign);
+        if (RowAt(e) is { } row) _vm?.QsyToStation(row);
+    }
+
+    /// <summary>Click dreapta selecteaza randul de sub mouse; meniul lucreaza pe el.</summary>
+    private void OnStationRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (RowAt(e) is { } row) StationsGrid.SelectedItem = row;
+    }
+
+    private HeardStationRow? SelectedStation => StationsGrid.SelectedItem as HeardStationRow;
+
+    private void OnStationMenuOpened(object sender, RoutedEventArgs e)
+    {
+        var row = SelectedStation;
+        StationQrzItem.IsEnabled = StationCopyItem.IsEnabled = row != null;
+        StationQsyItem.IsEnabled = row?.Spot != null;
+        StationQrzItem.Header = row != null ? $"_Look-up QRZ.com ({row.Callsign.HomeCall})" : "_Look-up QRZ.com";
+        StationQsyItem.Header = row?.FrequencyText is { Length: > 0 } f ? $"_QSY pe frecventa lui ({f})" : "_QSY pe frecventa lui";
+    }
+
+    private void OnStationQrz(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStation is { } row) _vm?.OpenQrz(row.Callsign);
+    }
+
+    private void OnStationQsy(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStation is { } row) _vm?.QsyToStation(row);
+    }
+
+    private void OnStationCopy(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStation is { } row) _vm?.SelectCallsign(row.Callsign);
     }
 
     private void OnMyCallKeyDown(object sender, KeyEventArgs e)

@@ -43,7 +43,7 @@ public sealed class DeepRttyReceiver : IDisposable
         public Session(DeepRttyReceiver owner)
         {
             Stream = new DeepRttyStream((input, dims) =>
-                owner.IsCurrent(this) ? owner._inference(input, dims) : null);
+                owner.IsCurrent(this) ? owner._inference(input, dims) : null, owner._hop);
         }
     }
 
@@ -60,6 +60,27 @@ public sealed class DeepRttyReceiver : IDisposable
     }
 
     public bool IsRunning { get { lock (_gate) return _session != null; } }
+
+    private int _hop = DeepRttyConst.Hop;
+
+    /// <summary>
+    /// Pasul ferestrelor (esantioane la 3200 Hz, vezi <see cref="DeepRttyConst.HopFor"/>). Schimbat in
+    /// timpul decodarii, sesiunea reporneste (textul neconfirmat inca se pierde, ca la Reset).
+    /// </summary>
+    public int HopSamples
+    {
+        get { lock (_gate) return _hop; }
+        set
+        {
+            lock (_gate)
+            {
+                if (value == _hop) return;
+                _ = new DeepRttyStream((_, _) => null, value);   // valideaza
+                _hop = value;
+                if (_session != null) ReplaceSession();
+            }
+        }
+    }
 
     /// <summary>Dupa Dispose, se termina cand ultima inferenta a iesit si resursele modelului pot fi eliberate.</summary>
     public Task Completion { get { lock (_gate) return _worker == null ? Task.CompletedTask : _completion.Task; } }

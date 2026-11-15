@@ -28,6 +28,9 @@ public sealed class ContestViewModel : ObservableObject
     public string F2Label => MacroLabel(1);
     public string F3Label => MacroLabel(2);
     public string F4Label => MacroLabel(3);
+    public string F5Label => MacroLabel(4);
+    public string F6Label => MacroLabel(5);
+    public string F7Label => MacroLabel(6);
 
     private Qso? _historySource;
     private (string Call, string Year)? _appliedHistory;
@@ -102,6 +105,10 @@ public sealed class ContestViewModel : ObservableObject
     public ICommand ReportCommand { get; }
     public ICommand AgnCommand { get; }
     public ICommand TuCommand { get; }
+    /// <summary>F5..F7: mesaje libere (implicit NR?, Indicativ?, QRZ / 73).</summary>
+    public ICommand F5Command { get; }
+    public ICommand F6Command { get; }
+    public ICommand F7Command { get; }
     public ICommand StopCommand { get; }
     public ICommand CheckCommand { get; }
     public ICommand ApplyHistoryCommand { get; }
@@ -121,6 +128,9 @@ public sealed class ContestViewModel : ObservableObject
         ReportCommand = Command(() => Send("REPORT"), () => HasSession && !IsEditing && !string.IsNullOrWhiteSpace(Entry.Callsign) && !_host.IsBusy);
         AgnCommand = Command(() => Send("AGN"), () => HasSession && !IsEditing && !_host.IsBusy);
         TuCommand = Command(() => Send("TU"), () => HasSession && !IsEditing && !_host.IsBusy);
+        F5Command = Command(() => Send("F5"), () => HasSession && !IsEditing && !_host.IsBusy);
+        F6Command = Command(() => Send("F6"), () => HasSession && !IsEditing && !_host.IsBusy);
+        F7Command = Command(() => Send("F7"), () => HasSession && !IsEditing && !_host.IsBusy);
         StopCommand = new RelayCommand(host.Stop);
         CheckCommand = new RelayCommand(RefreshPreview);
         ApplyHistoryCommand = Command(ApplyHistorySuggestion, () => HasHistorySuggestion && !_host.IsBusy);
@@ -362,6 +372,9 @@ public sealed class ContestViewModel : ObservableObject
         OnPropertyChanged(nameof(F2Label));
         OnPropertyChanged(nameof(F3Label));
         OnPropertyChanged(nameof(F4Label));
+        OnPropertyChanged(nameof(F5Label));
+        OnPropertyChanged(nameof(F6Label));
+        OnPropertyChanged(nameof(F7Label));
     }
 
     private string MacroLabel(int slot) => $"F{slot + 1} · {_macros?.Get(SearchAndPounce, slot).Name ?? ContestMacros.Defaults().Get(SearchAndPounce, slot).Name}";
@@ -406,7 +419,7 @@ public sealed class ContestViewModel : ObservableObject
 
     internal string MacroTooltip(int slot)
     {
-        const string help = "\n\nClick sau F1–F4: trimite. Click dreapta: editeaza.";
+        const string help = "\n\nClick sau F1–F7: trimite. Click dreapta: editeaza.";
         try
         {
             var macro = GetMacro(slot);
@@ -425,7 +438,7 @@ public sealed class ContestViewModel : ObservableObject
     public void Send(string kind)
     {
         EnsureIdle(); EnsureSession(); if (IsEditing) throw new InvalidOperationException("Incheiati editarea inainte de emisie.");
-        int slot = kind switch { "CQ" => 0, "REPORT" => 1, "AGN" => 2, "TU" => 3, _ => throw new ArgumentException("Mesaj necunoscut.") };
+        int slot = kind switch { "CQ" => 0, "REPORT" => 1, "AGN" => 2, "TU" => 3, "F5" => 4, "F6" => 5, "F7" => 6, _ => throw new ArgumentException("Mesaj necunoscut.") };
         var macro = GetMacro(slot);
         if (slot == 0 && IsReserved && !SearchAndPounce) throw new InvalidOperationException("Logati sau anulati QSO-ul curent inainte de F1.");
         if (slot == 1)
@@ -496,9 +509,14 @@ public sealed class ContestViewModel : ObservableObject
     private readonly Dictionary<string, ContestCallState> _callStates = new(StringComparer.OrdinalIgnoreCase);
     private string _callStatesBand = "";
 
+    // jurnalul punctat o singura data pe versiune (HamContest StationPreviewContext): culorile a sute de
+    // indicative nu mai repuncteaza tot jurnalul fiecare
+    private StationPreviewContext? _previewContext;
+
     private void InvalidateCallStates()
     {
         _callStates.Clear();
+        _previewContext = null;
         JournalChanged?.Invoke();
     }
 
@@ -535,7 +553,8 @@ public sealed class ContestViewModel : ObservableObject
             var rules = (UdcContestRules)_session!.Rules;
             var station = _resolver.Resolve(call, rules.RequiredCountryIdentityKind);
             // HamContest evalueaza statia fara schimbul primit (Score cere un QSO complet)
-            var preview = rules.Preview(_session.Contacts, _session.OwnStation, station, frequencyHz, ContactMode.RTTY);
+            _previewContext ??= rules.CreatePreview(_session.Contacts, _session.OwnStation);
+            var preview = _previewContext.Evaluate(station, frequencyHz, ContactMode.RTTY);
             if (preview.IsWorked) return ContestCallState.Dupe;
             return preview.NewMultipliers.Any(m => m.CountsForScore) ? ContestCallState.NewMultiplier : ContestCallState.Needed;
         }

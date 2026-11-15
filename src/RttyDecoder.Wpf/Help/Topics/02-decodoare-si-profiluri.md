@@ -11,7 +11,16 @@ Programul are trei decodoare, alese din lista **Decodor**:
 ## Modelul DeepRTTY
 
 - Modelul (`model_rtty_2026-10.onnx`) e **inclus in program**; nu se descarca nimic. Se incarca la prima alegere a decodorului DeepRTTY ("DeepRTTY: se incarca modelul...").
-- Textul **gri** de sub terminal e provizoriu; se confirma (verde, in terminal) dupa aproximativ **8-12 secunde**. E normal: modelul are nevoie de context.
+- Textul **gri** de sub terminal e provizoriu (se reface la fiecare secunda); se confirma (verde, in terminal) dupa cateva secunde. E normal: modelul are nevoie de semnal si **dupa** fiecare caracter.
+- Langa decodor alegi cat de repede se confirma:
+
+| Alegere | Confirmare (mediana) | Cand |
+|---|---|---|
+| Rapid | ~4 s | Semnale curate; pe QRN puternic pierde cateva caractere |
+| **Normal** (implicit) | ~7 s | In teste la fel de precis ca Precis, si pe QRN |
+| Precis | ~13 s | Ca modelul original (ferestre la 8 s) |
+
+Schimbarea in timpul decodarii reporneste DeepRTTY (textul gri de atunci se pierde).
 - Modelul primeste **audio-ul original**, prin propriul front-end. NB, DNR si latimea filtrului schimba doar masurarea SNR si urmarirea AFC/PLL, nu intrarea modelului.
 - SQL, SNR-G, ATC, Volant si Sensibilitate nu modifica textul neural (DeepRTTY are filtrul lui de zgomot). NORM/REV si US-TTY se aplica.
 - Sub terminal apare cat audio asteapta decodarea si cate recuperari dupa suprasarcina au fost (daca procesorul nu tine pasul pe live, decodorul renunta la audio-ul vechi si reia de la semnalul nou).
@@ -24,9 +33,18 @@ Lista **Profil** pune dintr-o data reglajele potrivite unei situatii. Sunt punct
 | Profil | Decodor | Utilizare |
 |---|---|---|
 | Semnal bun · rapid | Matched Filter | Acord bun, fading lent, fara intarzierea modelului |
-| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe QRN; confirmare dupa ~8-12 s |
+| Semnal slab · DeepRTTY | DeepRTTY | Cele mai putine erori pe QRN; confirmare dupa ~7 s (Normal) |
 | QRN / flutter · rapid | Chebyshev | Alternativa clasica rapida la flutter |
 
-Toate pornesc cu SQL 35%, volant activ si pragurile implicite. Profilul **pastreaza** acordul (Mark), NORM/REV, AFC/PLL si ITA2/US-TTY. Daca modifici de mana un reglaj, profilul devine **Personalizat**.
+## In concurs
+
+Masurat pe doua inregistrari reale de concurs (FTX-1, RTTY-L, mai multe statii simultan; in benchmark: `contest-1390`, `contest-1520`, `contest-2130`):
+
+- **DeepRTTY** e recomandat: e decodorul cu cele mai putine erori masurate (pe inregistrarile cu text cunoscut, inclusiv QRN). Cu **Normal**, textul se confirma dupa ~7 s.
+- Daca vrei text **imediat**, **Chebyshev** si **Matched Filter** sunt foarte apropiate pe aceste inregistrari (MF cu 1-2% mai aproape de DeepRTTY). Cu SQL pornit, textul fals din zgomot ramane mic la amandoua.
+- **ATC** nu e un castig general: la o pereche a ajutat putin (37% fata de 40% diferenta fata de DeepRTTY), la alta a stricat mult (38% fata de 25%). Porneste-l doar la fading selectiv vizibil.
+- Statiile departate de centrul filtrului statiei (in RTTY-L, filtrul e in jurul 2125-2295 Hz) se decodeaza mai greu cu orice decodor: pentru ele, QSY (dublu click pe A-TUNE) le aduce in centru.
+
+Toate profilurile pornesc cu SQL 35%, volant activ si pragurile implicite. Profilul **pastreaza** acordul (Mark), NORM/REV, AFC/PLL si ITA2/US-TTY. Daca modifici de mana un reglaj, profilul devine **Personalizat**.
 
 NB si ATC nu sunt pornite de niciun profil: pe proba QRN masurata au iesit mai slab decat Chebyshev simplu. Le poti porni de mana pentru alt tip de interferenta.

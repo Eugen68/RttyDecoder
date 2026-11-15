@@ -3,9 +3,9 @@
 ## Formularul
 
 - **Indicativ**: click pe un indicativ in terminal sau in lista statiilor (cu fereastra Contest deschisa), sau scris de mana.
-- **Frecventa RF** in kHz: cu **CAT** bifat se ia de la statie. Fara statie, debifeaza CAT si scrie frecventa. Nu se foloseste frecventa audio Mark/Space.
+- **Frecventa RF** in kHz: cu **CAT** bifat e frecventa **semnalului** - Mark-ul pe RF, ca in lista statiilor (rotunjita la 10 Hz). In RTTY-L / RTTY-U e aceeasi cu VFO-ul dupa QSY; in **AFSK** (DATA-U / USB) VFO-ul e cu tonul audio (~1,5-2 kHz) mai jos, iar in jurnal intra frecventa reala a semnalului. Fara statie, debifeaza CAT si scrie frecventa.
 - **RST primit**, **Nr. primit**, **Schimb primit**, plus campurile suplimentare (nume, diverse, sectiune, locator, prefix WPX, comentariu), dupa cum le cere definitia.
-- **Ora UTC**: goala = momentul logarii; altfel `yyyy-MM-dd HH:mm:ss`.
+- **Ora UTC**: goala = momentul logarii - cat e goala, in camp se vede **ora UTC curenta in gri**; altfel `yyyy-MM-dd HH:mm:ss`.
 - Mesajul de sub formular (si **Verifica**) arata erorile, dublele si multiplicatorii noi.
 
 ## Preluarea din terminal

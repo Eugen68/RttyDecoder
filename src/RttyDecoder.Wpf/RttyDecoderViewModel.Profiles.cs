@@ -10,7 +10,7 @@ public sealed partial class RttyDecoderViewModel
     {
         new ReceptionProfileChoice(null, "Personalizat", "Reglaje manuale. Alegerea nu reseteaza valorile curente."),
         new ReceptionProfileChoice(RttyReceptionProfile.GoodSignal, "Semnal bun · rapid", "Matched Filter + SQL 35%. Acord bun, fading lent. Fara intarzierea modelului neural."),
-        new ReceptionProfileChoice(RttyReceptionProfile.WeakSignal, "Semnal slab · DeepRTTY", "DeepRTTY: cele mai putine erori pe proba QRN; confirmarea textului are intarziere de aproximativ 8-12 s."),
+        new ReceptionProfileChoice(RttyReceptionProfile.WeakSignal, "Semnal slab · DeepRTTY", "DeepRTTY: cele mai putine erori pe proba QRN; confirmarea textului dupa ~7 s (Normal; Rapid ~4 s, Precis ~13 s)."),
         new ReceptionProfileChoice(RttyReceptionProfile.QrnFlutter, "QRN / flutter · rapid", "Chebyshev + SQL 35%. Alternativa clasica rapida; NB si ATC raman oprite deoarece nu au imbunatatit proba QRN masurata.")
     };
 
@@ -47,7 +47,7 @@ public sealed partial class RttyDecoderViewModel
     public bool CanAdjustSquelch => IsClassic && Squelch;
     public string DecoderHelp => Decoder switch
     {
-        RttyDecoderType.DeepRtty => "DeepRTTY primeste audio-ul original. NB, DNR si latimea filtrului schimba numai masurarea SNR si urmarirea AFC/PLL, nu filtreaza intrarea modelului. SQL, SNR-G, ATC, Volant si Sensibilitate nu modifica textul neural. NORM/REV si US-TTY se aplica. Confirmarea textului: aproximativ 8-12 s.",
+        RttyDecoderType.DeepRtty => "DeepRTTY primeste audio-ul original. NB, DNR si latimea filtrului schimba numai masurarea SNR si urmarirea AFC/PLL, nu filtreaza intrarea modelului. SQL, SNR-G, ATC, Volant si Sensibilitate nu modifica textul neural. NORM/REV si US-TTY se aplica. Confirmarea textului: ~4 s (Rapid), ~7 s (Normal, implicit) sau ~13 s (Precis) - alegerea de langa decodor.",
         RttyDecoderType.MatchedFilter => "Matched Filter integreaza un bit si normalizeaza automat cele doua tonuri. ATC si latimea filtrului Chebyshev nu se aplica. NB/DNR filtreaza intrarea, SNR-G si Sensibilitate influenteaza decizia, Volant sincronizeaza caracterele. SQL filtreaza numai textul afisat. La flutter rapid incercati Chebyshev sau DeepRTTY.",
         _ => "Chebyshev: NB/DNR filtreaza audio-ul decodorului; ATC compenseaza fading-ul selectiv. SNR-G si Sensibilitate influenteaza decizia, Volant sincronizeaza caracterele. SQL filtreaza numai textul afisat, fara sa schimbe bitii decodati. Profilurile pastreaza acordul, NORM/REV, AFC/PLL si alfabetul."
     };

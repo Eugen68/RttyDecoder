@@ -35,8 +35,16 @@ public static class DeepRttyConst
     /// <summary>Fereastra de decodare: 12 s.</summary>
     public const int Window = 12 * SampleRate;
 
-    /// <summary>Pasul ferestrelor: ~8 s, pe grila cadrelor de iesire (533 x 48 = 25584).</summary>
-    public static readonly int Hop = (int)Math.Round(8.0 * SampleRate / OutputHopLength, MidpointRounding.AwayFromZero) * OutputHopLength;
+    /// <summary>
+    /// Pasul implicit al ferestrelor: ~4 s (Normal), pe grila cadrelor de iesire. Referinta Python
+    /// foloseste 8 s; masurat: 4 s confirma textul de doua ori mai repede (~7 s in loc de ~13 s) cu
+    /// aceeasi precizie, si pe QRN.
+    /// </summary>
+    public static readonly int Hop = HopFor(4);
+
+    /// <summary>Pasul de <paramref name="seconds"/> secunde, rotunjit la grila cadrelor de iesire (48 esantioane).</summary>
+    public static int HopFor(double seconds) =>
+        Math.Clamp((int)Math.Round(seconds * SampleRate / OutputHopLength, MidpointRounding.AwayFromZero), 1, Window / OutputHopLength) * OutputHopLength;
 
     /// <summary>Marginea nesigura a fiecarei ferestre interioare: 0.5 s.</summary>
     public const int EdgeGuard = SampleRate / 2;

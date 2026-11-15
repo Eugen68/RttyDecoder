@@ -258,6 +258,32 @@ public class ContestTests
     });
 
     [Fact]
+    public Task OldMacroFilesGainF5ToF7() => Sta(() =>
+    {
+        using var work = new Workspace();
+        string macroPath = Path.Combine(work.Files.DefinitionsFolder, "DEMO-RTTY.macros.json");
+        // fisier din versiunea cu F1..F4
+        File.WriteAllText(macroPath, """
+            {"Version":1,
+             "Run":[{"Name":"CQ","Text":"CQ X DE {MYCALL}"},{"Name":"R","Text":"{CALL} {RST} {EXCHANGE}"},{"Name":"AGN","Text":"AGN"},{"Name":"TU","Text":"TU"}],
+             "SearchAndPounce":[{"Name":"I","Text":"{MYCALL}"},{"Name":"R","Text":"{RST} {EXCHANGE}"},{"Name":"AGN","Text":"AGN"},{"Name":"TU","Text":"TU"}]}
+            """);
+        work.Model.RefreshDefinitions();   // macro-urile se citesc la alegerea definitiei
+        work.Start();
+        Assert.Equal("CQ", work.Model.GetMacro(0).Name);
+        Assert.Equal("CQ X DE {MYCALL}", work.Model.GetMacro(0).Text);
+        Assert.Equal("NR?", work.Model.GetMacro(4).Name);
+        Assert.Equal("QRZ", work.Model.GetMacro(6).Name);
+        work.Model.SaveMacro(5, new("Repeta", "{CALL} {CALL}"));
+        Assert.Contains("\"Version\": 2", File.ReadAllText(macroPath));
+        Assert.Equal("CQ X DE {MYCALL}", work.Model.GetMacro(0).Text);   // F1..F4 pastrate
+        work.Model.SelectCallsign("YO3ABC");
+        work.Model.Send("F6");
+        Assert.Equal("YO3ABC YO3ABC", work.Host.Sent.Single());
+        return Task.CompletedTask;
+    });
+
+    [Fact]
     public Task MacrosAreCreatedPerUdcAndReloadedForAReopenedSession() => Sta(() =>
     {
         using var work = new Workspace();

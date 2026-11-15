@@ -2,7 +2,7 @@ using RttyDecoder.Core.Baudot;
 
 namespace RttyDecoder.Core.Tx;
 
-/// <summary>Iesirea emisiei FSK: PTT-ul si pinul de manipulare (de obicei prin HamRig).</summary>
+/// <summary>Iesirea emisiei FSK: PTT-ul si pinul de manipulare (de obicei prin HamRig). Pentru AFSK vezi <see cref="IFrameOutput"/>.</summary>
 public interface IFskOutput
 {
     void SetPtt(bool on);
@@ -17,7 +17,7 @@ public interface IFskOutput
 /// </summary>
 public sealed class RttyFskTransmitter : IDisposable
 {
-    private readonly IFskOutput _output;
+    private volatile IFskOutput _output;
     private readonly ITxClock _clock;
     private readonly Queue<string> _messages = new();
     private readonly Queue<char> _live = new();
@@ -36,6 +36,13 @@ public sealed class RttyFskTransmitter : IDisposable
     {
         _output = output;
         _clock = clock ?? new StopwatchTxClock();
+    }
+
+    /// <summary>Iesirea (FSK pe pin sau AFSK pe placa de sunet); se citeste la inceputul fiecarei emisii.</summary>
+    public IFskOutput Output
+    {
+        get => _output;
+        set => _output = value ?? throw new ArgumentNullException(nameof(value));
     }
 
     /// <summary>Copiate la inceputul fiecarei emisii.</summary>
@@ -166,7 +173,10 @@ public sealed class RttyFskTransmitter : IDisposable
         string? reason = null;
         double time = 0, start = 0;
         bool precise = false;
-        void Line(bool mark) => _output.SetLine(mark ^ s.InvertFsk);
+        // AFSK: iesirea primeste caractere intregi si le da ritmul (ceasul placii de sunet).
+        var output = _output;
+        var frames = output as IFrameOutput;
+        void Line(bool mark) { if (frames == null) output.SetLine(mark ^ s.InvertFsk); }
         void Wait(double target)
         {
             _clock.WaitUntil(target, ct);
@@ -175,6 +185,13 @@ public sealed class RttyFskTransmitter : IDisposable
         void Code(int code)
         {
             ct.ThrowIfCancellationRequested();
+            if (frames != null)
+            {
+                frames.SendCode(code, ct);
+                ct.ThrowIfCancellationRequested();
+                if (_clock.Now - start > s.MaxTxSeconds) throw new TimeoutException();
+                return;
+            }
             if (_clock.Now - time > 0.015) time = _clock.Now;
             Line(false);
             time += bit;
@@ -202,7 +219,7 @@ public sealed class RttyFskTransmitter : IDisposable
             _clock.BeginPrecise();
             precise = true;
             ct.ThrowIfCancellationRequested();
-            _output.SetPtt(true);
+            output.SetPtt(true);
             _transmitting = true;
             Started?.Invoke();
             Line(true);
@@ -246,7 +263,12 @@ public sealed class RttyFskTransmitter : IDisposable
                 if (s.AutoCrLf) Character('\n');
                 Code(BaudotCodec.Ltrs);
                 Line(true);
-                Wait(_clock.Now + s.TailMs / 1000.0);
+                if (frames != null)
+                {
+                    frames.SendMark(s.TailMs / 1000.0, ct);
+                    frames.Drain(ct);
+                }
+                else Wait(_clock.Now + s.TailMs / 1000.0);
                 // Mesaj sosit in pauza finala: continua cu acelasi PTT si acelasi fir.
                 lock (_lock) if (_messages.Count == 0 && _live.Count == 0 && !_liveOn) break;
             }
@@ -256,8 +278,8 @@ public sealed class RttyFskTransmitter : IDisposable
         catch (Exception error) { reason = "eroare: " + error.Message; }
         finally
         {
-            try { _output.SetLine(false); } catch { }
-            try { _output.SetPtt(false); } catch { }
+            try { if (frames == null) output.SetLine(false); } catch { }
+            try { output.SetPtt(false); } catch { }
             _transmitting = false;
             try { if (precise) _clock.EndPrecise(); }
             catch (Exception error) { reason ??= "eroare: " + error.Message; }

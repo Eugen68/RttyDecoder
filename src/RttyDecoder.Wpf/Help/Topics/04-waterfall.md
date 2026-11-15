@@ -14,7 +14,7 @@
 ## Ce vezi pe imagine
 
 - **M** (rosu) si **S** (portocaliu): tonurile Mark si Space ale decodorului.
-- **TX** - doua linii punctate verzi pe 2125 / 2295 Hz, cu statia in RTTY-L / RTTY-U: acolo pleaca emisia ta FSK. Daca perechea corespondentului nu e pe ele, raspunsul iese alaturi - vezi subiectul **A-TUNE, polaritate si QSY**.
+- **TX** - doua linii punctate verzi pe 2125 / 2295 Hz, cu statia in RTTY-L / RTTY-U: acolo pleaca emisia ta FSK. Daca perechea corespondentului nu e pe ele, raspunsul iese alaturi - vezi subiectul **A-TUNE, polaritate si QSY**. La **AFSK** (statia in DATA-U / USB) liniile stau pe perechea decodorului: emiti unde asculti.
 - **Triunghiuri albastre** sus: perechi RTTY gasite in banda (doua tonuri la 170 Hz, ambele peste zgomot). Mouse-ul deasupra arata tonurile si nivelul; click = acord. Bifa **Semnale** le ascunde.
 - **Zona filtrului**: benzi slab colorate in jurul M si S, pe latimea filtrelor (doar cu Chebyshev).
 - Sub cursor: frecventa audio, cu statia conectata si **frecventa RF** (in RTTY, pe un Mark = frecventa corespondentului), vechimea in secunde si nivelul in dBFS.
