@@ -268,6 +268,7 @@ public class ContestTests
              "Run":[{"Name":"CQ","Text":"CQ X DE {MYCALL}"},{"Name":"R","Text":"{CALL} {RST} {EXCHANGE}"},{"Name":"AGN","Text":"AGN"},{"Name":"TU","Text":"TU"}],
              "SearchAndPounce":[{"Name":"I","Text":"{MYCALL}"},{"Name":"R","Text":"{RST} {EXCHANGE}"},{"Name":"AGN","Text":"AGN"},{"Name":"TU","Text":"TU"}]}
             """);
+        work.Model.RefreshDefinitions();   // macro-urile se citesc la alegerea definitiei
         work.Start();
         Assert.Equal("CQ", work.Model.GetMacro(0).Name);
         Assert.Equal("CQ X DE {MYCALL}", work.Model.GetMacro(0).Text);
